@@ -2137,3 +2137,6 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
   .pending-checkout-actions{align-items:stretch;flex-direction:column}
   .pending-checkout-actions .danger{width:100%}
 }
+
+/* Visible identity for every 2.0 staging screen. */
+#staging-environment-label{position:sticky;top:0;z-index:10000;padding:7px 12px;background:#5b3f00;color:#fff4c2;text-align:center;font:600 11px/1.4 system-ui,sans-serif;letter-spacing:.06em}
