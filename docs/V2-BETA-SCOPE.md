@@ -31,3 +31,11 @@ Production cutover, customer migration, external TestFlight/public App Store rel
 ## Definition of done
 
 Designated internal testers can install both beta apps, authenticate with staging identities, complete the documented test purchase/receipt/fulfillment flows, and report issues. The beta cannot connect to the existing production Supabase projects, initiate a real Zelle transfer or use live PayPal configuration. Publishing or migrating production requires a separate release decision, a tested recoverable backup and a compatible rollback plan.
+
+## Owner decisions — Day 1 closeout
+
+Anthony authorized proceeding with this beta scope in the build chat. The iOS customer catalog will be limited to selected peptides; the full web catalog remains available subject to its own product eligibility requirements. CORE will manage explicit web/iOS availability and restriction reasons. The iOS subset must be consistent for customers and reviewers, disclosed in review notes, and enforced by backend catalog and purchase endpoints. These controls are requirements for implementation, not completed features.
+
+Use the proposed notice: “For laboratory research use only. Not for human or veterinary use. Educational information is not medical advice and does not provide diagnosis, treatment, or dosing recommendations.” Descriptions and features must match actual intended use; omit human-use instructions, dosing protocols and therapeutic claims. Review individual product eligibility before distribution. Disclaimer wording and comparable apps do not guarantee approval or establish lawful sale. Internal TestFlight does not establish public App Store approval.
+
+Backup preference, vendor-price publication preference, markup/rounding and native framework remain open. The provisional reviewed-price and encrypted-manual-backup approach remains documented without treating it as owner approval.
