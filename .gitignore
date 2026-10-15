@@ -4,3 +4,9 @@ dist
 .env.*
 !.env.example
 .DS_Store
+
+supabase/.temp/
+
+public/brand/core-icon-192.png
+public/brand/core-icon-512.png
+public/brand/core-apple-touch-icon.png

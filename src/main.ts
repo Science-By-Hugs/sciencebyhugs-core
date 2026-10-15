@@ -4,6 +4,12 @@ import { disablePush, bindPushPanel, pushPrompt } from './push'
 import { accountScreen, bindAccount, accountMutationInProgress } from './account-view'
 import './styles.css'
 import './brand.css'
+
+const stagingLabel = document.createElement('div')
+stagingLabel.id = 'staging-environment-label'
+stagingLabel.textContent = 'CORE 2.0 · INTERNAL STAGING · TEST ACCOUNTS ONLY'
+stagingLabel.setAttribute('role', 'status')
+document.body.prepend(stagingLabel)
 import { supabase } from './services/supabase'
 import { bindOrdersPage, ordersPageMarkup } from './orders-view'
 import { bindCheckoutPendingPage, checkoutPendingPageMarkup } from './checkout-pending-view'

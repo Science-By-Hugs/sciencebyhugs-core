@@ -6,6 +6,7 @@ export const supabase = createClient(
   SUPABASE_PUBLISHABLE_KEY,
   {
     auth: {
+      storageKey: 'sbh-core-v2-staging-auth',
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
