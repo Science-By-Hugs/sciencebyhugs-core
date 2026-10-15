@@ -1,16 +1,13 @@
-import { Capacitor } from '@capacitor/core'
 import { supabase } from './services/supabase'
 
 const functionName = 'app-push'
 const appName = 'core'
-const nativePushUnavailable = 'Push notifications are not available in this TestFlight build yet.'
 
 function supported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
 async function registration() {
-  if (Capacitor.isNativePlatform()) throw new Error(nativePushUnavailable)
   if (!supported()) throw new Error('Install this app to your Home Screen on iPhone/iPad, then open it to enable notifications. This browser may not support push.')
   return Promise.race([
     navigator.serviceWorker.ready,
@@ -38,7 +35,7 @@ function applicationKey(key: string) {
 }
 
 export async function pushEnabled() {
-  if (Capacitor.isNativePlatform() || !supported() || Notification.permission !== 'granted') return false
+  if (!supported() || Notification.permission !== 'granted') return false
   const sub = await (await registration()).pushManager.getSubscription()
   if (!sub) return false
   const data = await api('status', sub)
@@ -46,7 +43,6 @@ export async function pushEnabled() {
 }
 
 export async function enablePush() {
-  if (Capacitor.isNativePlatform()) throw new Error(nativePushUnavailable)
   if (!supported()) await registration()
   // Permission must be requested directly in the user's click handler on iOS.
   const permission = await Notification.requestPermission()
@@ -83,7 +79,6 @@ export async function testPush() {
 }
 
 export function pushPanel() {
-  if (Capacitor.isNativePlatform()) return `<section class="push-panel" aria-label="Push notifications"><strong>Push notifications</strong><p data-push-status role="status">${nativePushUnavailable}</p><button data-push-toggle type="button" hidden disabled>Enable notifications</button><button data-push-test type="button" hidden disabled>Send test notification</button></section>`
   return `<section class="push-panel" aria-label="Push notifications">
     <strong>Push notifications</strong>
     <p>Get new-order and payment updates even when CORE is closed. On iPhone/iPad, open the app from your Home Screen first.</p>
@@ -94,7 +89,6 @@ export function pushPanel() {
 }
 
 export function pushPrompt() {
-  if (Capacitor.isNativePlatform()) return ''
   return `<aside class="push-prompt push-prompt-popup" data-push-prompt hidden aria-label="Enable notifications">
     <p>We noticed you don’t have notifications enabled.</p>
     <div class="push-prompt-actions"><button type="button" data-push-enable>Enable notifications</button><button type="button" data-push-dismiss>Not now</button></div>
@@ -129,13 +123,6 @@ export async function bindPushPanel(userId?: string) {
   const promptStatus = prompt?.querySelector<HTMLElement>('[data-push-prompt-status]')
   if (prompt) prompt.hidden = true
   if (promptStatus) promptStatus.textContent = ''
-  if (Capacitor.isNativePlatform()) {
-    button.hidden = true
-    button.disabled = true
-    test.hidden = true
-    status.textContent = nativePushUnavailable
-    return
-  }
   if (!userId) { button.disabled = true; return }
   const dismissalKey = `core-push-prompt-dismissed:${userId}`
   let dismissed = false
