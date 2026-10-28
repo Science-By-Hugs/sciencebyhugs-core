@@ -1,5 +1,6 @@
 import { inviteCustomerProfile } from './services/admin-tools'
-import { deleteZone } from './orders-view'
+import { deleteZone } from './delete-zone'
+import { mountMasterDetail } from './master-detail'
 import { deleteCustomer } from './services/records'
 import { createCustomer, loadCoreCustomers, updateCustomerAccountStatus, updateCustomerContactPreference, updateCustomerEmail, updateCustomerMembership, updateCustomerNotes, updateCustomerProfile, type CoreCustomer, type CoreMembership } from './services/customers'
 
@@ -537,6 +538,25 @@ export async function bindCustomersPage(helpers: Helpers, reload?: () => Promise
     })
 
     apply()
+
+    // 2026-10-28 redesign: compact list; the full customer card opens in a side panel / phone sheet.
+    mountMasterDetail({
+      list,
+      cardSelector: '.customer-card',
+      idOf: card => card.dataset.customerId || '',
+      key: 'customers',
+      backLabel: 'Customers',
+      row: card => {
+        const customer = customers.find(item => item.id === card.dataset.customerId)!
+        return {
+          title: nameFor(customer),
+          sub: [customer.customer_number, customer.email].filter(Boolean).join(' · '),
+          meta: helpers.money(customer.metrics.lifetime_spend) + ' · ' + customer.metrics.order_count + (customer.metrics.order_count === 1 ? ' order' : ' orders'),
+          badge: customer.account_status.toLowerCase() === 'suspended' ? 'Suspended' : customer.membership?.name || 'No membership',
+          tone: customer.account_status.toLowerCase() === 'suspended' ? 'error' : 'muted',
+        }
+      },
+    })
   } catch (error) {
     list.innerHTML = '<div class="empty-state error-state"><h2>Could not load customers.</h2><p>' +
       helpers.escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p></div>'

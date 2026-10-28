@@ -1,3 +1,4 @@
+import { mountMasterDetail } from './master-detail'
 import {
   createCatalogProduct,
   deleteShippingRate,
@@ -273,11 +274,13 @@ export function catalogPageMarkup(email: string, escapeHtml: Helpers['escapeHtml
     '</div><div class="operator">Signed in as <strong>' + escapeHtml(email) + '</strong></div></section>' +
     '<section class="catalog-create-wrap" id="catalog-create"></section>' +
     '<section class="catalog-metrics" id="catalog-metrics"></section>' +
+    '<details class="catalog-health"><summary>Shipping rates and catalog health</summary>' +
     '<section class="catalog-ops-grid">' +
       '<div id="catalog-shipping"></div>' +
       '<div class="catalog-ops-panel" id="catalog-metadata-health"></div>' +
     '</section>' +
     '<section class="catalog-queue-panel" id="catalog-action-queue"></section>' +
+    '</details>' +
     '<section class="catalog-toolbar"><label class="queue-search"><span class="sr-only">Search catalog</span>' +
     '<input id="catalog-search" type="search" placeholder="Search product, type, code, category…" autocomplete="off"></label>' +
     '<select id="catalog-category" aria-label="Filter catalog by category"><option value="all">All categories</option></select>' +
@@ -692,6 +695,27 @@ export async function bindCatalogPage(helpers: Helpers) {
       apply()
     })
     apply()
+
+    // 2026-10-28 redesign: compact product list; the full product card opens in a side panel / phone sheet.
+    mountMasterDetail({
+      list,
+      cardSelector: '.catalog-card',
+      idOf: card => card.dataset.productId || '',
+      key: 'catalog',
+      backLabel: 'Catalog',
+      row: card => {
+        const product = products.find(item => item.id === card.dataset.productId)!
+        const archived = isArchived(product)
+        const selling = isSelling(product)
+        return {
+          title: product.name,
+          sub: [product.product_code, product.category?.name, product.product_type].filter(Boolean).join(' · '),
+          meta: helpers.money(product.price),
+          badge: archived ? 'Archived' : selling ? (product.core_hidden ? 'Selling · hidden from Resident/New' : 'Selling') : 'Not selling',
+          tone: archived ? 'muted' : selling ? 'go' : 'warn',
+        }
+      },
+    })
   } catch (error) {
     list.innerHTML = '<div class="empty-state error-state"><h2>Could not load catalog.</h2><p>' +
       helpers.escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p></div>'
