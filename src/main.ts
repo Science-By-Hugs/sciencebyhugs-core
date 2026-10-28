@@ -20,7 +20,7 @@ const appRoot = document.querySelector<HTMLDivElement>('#app')
 if (!appRoot) throw new Error('App root not found')
 const app = appRoot
 let accountRecovery = false
-const coreLogoUrl = `${import.meta.env.BASE_URL}brand/core.svg`
+const coreIconUrl = `${import.meta.env.BASE_URL}brand/core-app-icon.svg`
 
 const money = (value: number | string | null | undefined) =>
   new Intl.NumberFormat('en-US', {
@@ -163,11 +163,6 @@ function shell(content: string, signedIn = false) {
     app.innerHTML = `
       <a class="skip-link" href="#core-content">Skip to content</a>
       <main class="shell login-shell">
-        <header class="commandbar login-commandbar">
-          <div class="core-brand">
-            <img class="core-brand-lockup" src="${coreLogoUrl}" alt="Core — Science By Hugs" />
-          </div>
-        </header>
         <div id="core-content" tabindex="-1">${content}</div>
       </main>
     `
@@ -235,15 +230,13 @@ function renderLogin(message = '') {
   shell(`
     <section class="login-wrap">
       <div class="login-card">
-        <img class="core-login-lockup" src="${coreLogoUrl}" alt="Core — Science By Hugs" />
-        <span class="eyebrow">AUTHORIZED PERSONNEL</span>
-        <h1 class="login-title">CORE</h1>
-        <p class="tagline">Control. Operate. Manage.</p>
-        <p class="copy">Sign in with an authorized Science By Hugs administrator account.</p>
+        <img class="core-login-icon" src="${coreIconUrl}" alt="" width="64" height="64" />
+        <h1 class="login-title">core<span>.</span></h1>
+        <p class="copy">Sign in with your Science By Hugs administrator account.</p>
         <form id="login-form" class="login-form">
           <label>Email<input name="email" type="email" autocomplete="email" required></label>
           <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
-          <button class="primary wide" type="submit">Enter Core</button>
+          <button class="primary wide" type="submit">Sign in</button>
         </form>
         <p class="form-message" id="login-message">${escapeHtml(message)}</p>
       </div>

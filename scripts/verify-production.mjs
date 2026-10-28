@@ -30,7 +30,7 @@ if (!index.includes('noindex,nofollow')) fail('index.html is missing noindex pro
 if (!index.includes('core-apple-touch-icon.png')) fail('index.html is missing the Apple touch icon')
 
 const vite = read('vite.config.ts')
-for (const marker of ['core-icon-192.png', 'core-icon-512.png', "short_name: 'CORE'", "id: '/'"]) {
+for (const marker of ['core-icon-192.png', 'core-icon-512.png', "short_name: 'core'", "id: '/'"]) {
   if (!vite.includes(marker)) fail(`vite.config.ts is missing: ${marker}`)
 }
 
