@@ -286,3 +286,11 @@ select{
 select::-ms-expand{display:none}
 select:disabled{opacity:.6;cursor:not-allowed}
 select option{background:var(--sl-surface);color:var(--sl-text)}
+
+/* Sign-in (2026-10-28) */
+.login-shell .commandbar{border:0!important;background:transparent!important;padding:0!important}
+.login-wordmark{font-size:26px;font-weight:800;letter-spacing:-.04em;padding:0}
+.login-wordmark span,.login-title span{color:var(--sl-accent)}
+.login-card{border-radius:20px!important;border:1px solid var(--sl-line)!important}
+.core-login-icon{display:block;width:64px;height:64px;border-radius:14px;margin:0 0 20px}
+.login-title{font-size:40px!important;line-height:44px!important;letter-spacing:-.04em!important;font-weight:800!important;margin:0 0 8px!important}
