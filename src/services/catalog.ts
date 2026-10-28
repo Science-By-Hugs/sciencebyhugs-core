@@ -268,3 +268,48 @@ export async function deleteShippingRate(source: string) {
     { action: 'delete_shipping_rate', source }, 'Could not delete shipping rate')
   return data.shippingRates
 }
+
+// ---------- CSV catalog import (2026-10-27) ----------
+
+export type ImportChange = { field: string; from: unknown; to: unknown }
+
+export type ImportPreviewResult = {
+  planHash: string
+  summary: {
+    rows: number
+    create: number
+    update: number
+    unchanged: number
+    takeOffSale: number
+    errors: number
+    currentlySelling: number
+  }
+  creates: Array<{ row: number; name: string; product_code: string | null; price: number; available: boolean }>
+  updates: Array<{ row: number; name: string; product_code: string | null; matchedBy: 'code' | 'name'; changes: ImportChange[] }>
+  takeoffs: Array<{ name: string; product_code: string | null }>
+  errors: Array<{ row: number; message: string }>
+  warnings: string[]
+}
+
+export type ImportApplyResult = {
+  importId?: string
+  created: number
+  updated: number
+  takenOffSale: number
+  nothingToDo?: boolean
+}
+
+export async function previewCatalogImport(rows: Array<Record<string, string>>, fileName: string) {
+  return catalogControl<ImportPreviewResult>(
+    { action: 'import_preview', rows, fileName }, 'Could not read the CSV')
+}
+
+export async function applyCatalogImport(
+  rows: Array<Record<string, string>>,
+  fileName: string,
+  planHash: string,
+  confirmTakeoffs: boolean,
+) {
+  return catalogControl<ImportApplyResult>(
+    { action: 'import_apply', rows, fileName, planHash, confirmTakeoffs }, 'The import failed and nothing was saved')
+}
