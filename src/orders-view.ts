@@ -1,5 +1,6 @@
 import { deliveryEstimateEditor, bindDeliveryEstimateEditors } from './delivery-estimate'
 import { listCoreOrders, type CoreOrder } from './services/orders'
+import { deleteOrder } from './services/records'
 
 type Helpers = {
   escapeHtml: (value: unknown) => string
@@ -11,6 +12,18 @@ function statusClass(status: string) {
   return ['processing', 'ordered', 'shipped', 'delivered', 'delayed', 'cancelled'].includes(status)
     ? status
     : ''
+}
+
+export function deleteZone(title: string, note: string, placeholder: string, kind: string, escapeHtml: Helpers['escapeHtml']) {
+  return '<details class="danger-zone">' +
+    '<summary>' + escapeHtml(title) + '</summary>' +
+    '<p>' + escapeHtml(note) + '</p>' +
+    '<div class="danger-zone-row">' +
+      '<input class="' + kind + '-confirm" autocomplete="off" spellcheck="false" placeholder="' + escapeHtml(placeholder) + '">' +
+      '<button class="danger ' + kind + '-button" type="button">' + escapeHtml(title) + '</button>' +
+    '</div>' +
+    '<p class="card-message ' + kind + '-message" aria-live="polite"></p>' +
+  '</details>'
 }
 
 function orderCard(order: CoreOrder, helpers: Helpers) {
@@ -45,7 +58,7 @@ function orderCard(order: CoreOrder, helpers: Helpers) {
     '<div class="order-card-head">' +
       '<div>' +
         '<span class="eyebrow">' + escapeHtml(order.order_number || 'UNNUMBERED ORDER') + '</span>' +
-        '<h2>' + escapeHtml(customerName) + '</h2>' +
+        '<h2>' + escapeHtml(customerName) + (order.customer?.deleted ? ' <span class="deleted-tag">Deleted customer</span>' : '') + '</h2>' +
         '<p>' + escapeHtml(order.customer?.customer_number || 'No customer number') + ' · ' +
           escapeHtml(order.customer?.email || '') + '</p>' +
       '</div>' +
@@ -76,6 +89,13 @@ function orderCard(order: CoreOrder, helpers: Helpers) {
         : '') +
       '<a class="button secondary" href="#operations">Open Operations</a>' +
     '</div>' +
+    deleteZone(
+      'Delete order',
+      'Permanently deletes this order, its items and its payment record. It disappears from Orders and Finance. A full copy is kept in the Audit Log.',
+      'Type ' + (order.order_number || order.id) + ' to confirm',
+      'delete-order',
+      escapeHtml,
+    ) +
   '</article>'
 }
 
@@ -163,6 +183,38 @@ export async function bindOrdersPage(helpers: Helpers) {
         existing?.remove()
       }
     }
+
+    document.querySelectorAll<HTMLButtonElement>('.delete-order-button').forEach(button => {
+      button.addEventListener('click', async () => {
+        const card = button.closest<HTMLElement>('.order-card')
+        const order = orders.find(item => item.id === card?.dataset.orderId)
+        const input = card?.querySelector<HTMLInputElement>('.delete-order-confirm')
+        const message = card?.querySelector<HTMLParagraphElement>('.delete-order-message')
+        if (!card || !order || !input) return
+        const expected = order.order_number || order.id
+        const say = (text: string) => { if (message) message.textContent = text }
+        if (input.value.trim().toUpperCase() !== expected.toUpperCase()) {
+          say('Type ' + expected + ' exactly to confirm.')
+          return
+        }
+        if (!window.confirm('Permanently delete order ' + expected + '?\n\nThis cannot be undone. A copy is kept in the Audit Log.')) return
+        button.disabled = true
+        button.textContent = 'Deleting…'
+        say('Deleting…')
+        try {
+          await deleteOrder(order.id, input.value.trim())
+          orders.splice(orders.indexOf(order), 1)
+          card.remove()
+          apply()
+          const summary = document.querySelector<HTMLParagraphElement>('#orders-summary')
+          if (summary) summary.textContent = 'Deleted order ' + expected + '. Copy saved in the Audit Log. ' + summary.textContent
+        } catch (error) {
+          say(error instanceof Error ? error.message : 'Could not delete the order.')
+          button.disabled = false
+          button.textContent = 'Delete order'
+        }
+      })
+    })
 
     document.querySelector<HTMLInputElement>('#orders-search')?.addEventListener('input', event => {
       search = (event.currentTarget as HTMLInputElement).value.trim().toLowerCase()

@@ -2212,3 +2212,11 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
 .new-customer-panel .customer-profile-grid{margin-top:12px}
 .new-customer-panel textarea{min-height:72px}
 .new-customer-panel .import-confirm{display:flex;gap:8px;align-items:center;margin:12px 0 4px;font-size:.8rem}
+
+/* Core deletes (2026-10-28) */
+.danger-zone{margin-top:14px;padding-top:10px;border-top:1px solid #2a1f1f}
+.danger-zone summary{cursor:pointer;color:#e18a8a;font-size:.78rem;width:max-content}
+.danger-zone p{font-size:.76rem;color:var(--muted);margin:8px 0}
+.danger-zone-row{display:flex;gap:8px;flex-wrap:wrap}
+.danger-zone-row input{flex:1;min-width:200px;min-height:38px;border-radius:10px;border:1px solid #3a2a2a;background:#090909;color:var(--text);padding:0 12px}
+.deleted-tag{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;font-size:.62rem;letter-spacing:.04em;vertical-align:middle;color:#e18a8a;border:1px solid rgba(225,138,138,.4)}

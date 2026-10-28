@@ -13,7 +13,7 @@ export type CoreOrderItem = {
 }
 
 export type CoreOrderCustomer = {
-  id: string
+  id: string | null
   customer_number: string | null
   first_name: string | null
   last_name: string | null
@@ -21,6 +21,7 @@ export type CoreOrderCustomer = {
   phone: string | null
   account_status: string
   preferred_contact_method: string | null
+  deleted?: boolean
 }
 
 export type CoreOrderPayment = {
