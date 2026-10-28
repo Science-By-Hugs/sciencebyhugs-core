@@ -1,4 +1,5 @@
-import { loadCoreCustomers, updateCustomerAccountStatus, updateCustomerContactPreference, updateCustomerEmail, updateCustomerMembership, updateCustomerNotes, updateCustomerProfile, type CoreCustomer, type CoreMembership } from './services/customers'
+import { inviteCustomerProfile } from './services/admin-tools'
+import { createCustomer, loadCoreCustomers, updateCustomerAccountStatus, updateCustomerContactPreference, updateCustomerEmail, updateCustomerMembership, updateCustomerNotes, updateCustomerProfile, type CoreCustomer, type CoreMembership } from './services/customers'
 
 type Helpers = {
   escapeHtml: (value: unknown) => string
@@ -89,6 +90,33 @@ function customerCard(customer: CoreCustomer, memberships: CoreMembership[], hel
   '</article>'
 }
 
+function newCustomerPanelMarkup() {
+  return '<details class="catalog-create-panel new-customer-panel" id="new-customer-panel">' +
+    '<summary><span class="secondary catalog-create-button">+ New customer</span></summary>' +
+    '<p class="catalog-editor-note">Creates the customer record now. Core assigns the next customer number automatically. ' +
+    'They get a login when they accept an invite, or when they sign up on Nexus with this same email.</p>' +
+    '<div class="customer-profile-grid">' +
+      '<label><span>First name</span><input class="new-first-name" maxlength="80" autocomplete="off"></label>' +
+      '<label><span>Last name</span><input class="new-last-name" maxlength="80" autocomplete="off"></label>' +
+      '<label><span>Email (required)</span><input class="new-email" type="email" maxlength="254" autocomplete="off"></label>' +
+      '<label><span>Phone</span><input class="new-phone" maxlength="40" autocomplete="off"></label>' +
+      '<label class="profile-span-2"><span>Address line 1</span><input class="new-address-1" maxlength="160" autocomplete="off"></label>' +
+      '<label class="profile-span-2"><span>Address line 2</span><input class="new-address-2" maxlength="160" autocomplete="off"></label>' +
+      '<label><span>City</span><input class="new-city" maxlength="100" autocomplete="off"></label>' +
+      '<label><span>State</span><input class="new-state" maxlength="80" autocomplete="off"></label>' +
+      '<label><span>Postal code</span><input class="new-postal-code" maxlength="30" autocomplete="off"></label>' +
+      '<label><span>Membership</span><select class="new-membership"></select></label>' +
+      '<label><span>Preferred contact</span><select class="new-contact">' +
+        '<option value="">Not set</option><option value="email">Email</option><option value="phone">Phone</option><option value="text">Text</option>' +
+      '</select></label>' +
+      '<label class="profile-span-2"><span>Internal notes</span><textarea class="new-notes" maxlength="2000" placeholder="Optional internal context…"></textarea></label>' +
+    '</div>' +
+    '<label class="import-confirm"><input type="checkbox" class="new-send-invite"> Email them an invite to set up their Nexus login now</label>' +
+    '<div class="customer-profile-actions"><p class="card-message new-customer-message" aria-live="polite"></p>' +
+    '<button class="primary create-customer" type="button">Create customer</button></div>' +
+  '</details>'
+}
+
 export function customersPageMarkup(email: string, escapeHtml: Helpers['escapeHtml']) {
   return '<section class="dashboard-head dashboard-head-compact"><div>' +
     '<span class="eyebrow">CUSTOMER OPERATIONS</span><h1 class="dashboard-title">Customers</h1>' +
@@ -97,11 +125,77 @@ export function customersPageMarkup(email: string, escapeHtml: Helpers['escapeHt
     '<section class="customers-toolbar"><label class="queue-search"><span class="sr-only">Search customers</span>' +
     '<input id="customers-search" type="search" placeholder="Search name, email, phone, customer number…" autocomplete="off"></label>' +
     '<select id="customers-membership" aria-label="Filter customers by membership"><option value="all">All memberships</option></select></section>' +
+    newCustomerPanelMarkup() +
     '<p class="queue-summary" id="customers-summary" aria-live="polite"></p>' +
     '<section class="customers-list" id="customers-list"><div class="loading">Loading customers…</div></section>'
 }
 
-export async function bindCustomersPage(helpers: Helpers) {
+function bindNewCustomerPanel(memberships: CoreMembership[], helpers: Helpers, reload?: () => Promise<void>) {
+  const panel = document.querySelector<HTMLElement>('#new-customer-panel')
+  if (!panel) return
+  const select = panel.querySelector<HTMLSelectElement>('.new-membership')
+  if (select) {
+    select.innerHTML = memberships.map(item =>
+      '<option value="' + helpers.escapeHtml(item.id) + '"' + (item.slug === 'new-researcher' ? ' selected' : '') + '>' +
+        helpers.escapeHtml(item.name) + '</option>').join('')
+  }
+  const button = panel.querySelector<HTMLButtonElement>('.create-customer')
+  const message = panel.querySelector<HTMLParagraphElement>('.new-customer-message')
+  const say = (text: string) => { if (message) message.textContent = text }
+  const value = (selector: string) =>
+    panel.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(selector)?.value.trim() || ''
+
+  button?.addEventListener('click', async () => {
+    const input = {
+      firstName: value('.new-first-name'),
+      lastName: value('.new-last-name'),
+      email: value('.new-email').toLowerCase(),
+      phone: value('.new-phone'),
+      addressLine1: value('.new-address-1'),
+      addressLine2: value('.new-address-2'),
+      city: value('.new-city'),
+      state: value('.new-state'),
+      postalCode: value('.new-postal-code'),
+      preferredContactMethod: value('.new-contact'),
+      membershipId: value('.new-membership'),
+      notes: value('.new-notes'),
+    }
+    if (!input.firstName && !input.lastName) { say('Enter a first or last name.'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) { say('Enter a valid email address.'); return }
+    const sendInvite = Boolean(panel.querySelector<HTMLInputElement>('.new-send-invite')?.checked)
+
+    button.disabled = true
+    button.textContent = 'Creating…'
+    say('Creating customer…')
+    try {
+      const created = await createCustomer(input)
+      let result = 'Created ' + (created.customer_number || 'customer') + ' for ' + created.email + '. Audit event recorded.'
+      if (sendInvite) {
+        say(result + ' Sending invite…')
+        try {
+          await inviteCustomerProfile(created.id)
+          result += ' Invite emailed.'
+        } catch (error) {
+          result += ' The invite could not be sent (' + (error instanceof Error ? error.message : 'unknown error') +
+            '). You can resend it from Admin Tools.'
+        }
+      }
+      if (reload) {
+        await reload()
+        const after = document.querySelector<HTMLParagraphElement>('#customers-summary')
+        if (after) after.textContent = result + ' ' + after.textContent
+      } else {
+        say(result)
+      }
+    } catch (error) {
+      say(error instanceof Error ? error.message : 'Could not create customer.')
+      button.disabled = false
+      button.textContent = 'Create customer'
+    }
+  })
+}
+
+export async function bindCustomersPage(helpers: Helpers, reload?: () => Promise<void>) {
   const list = document.querySelector<HTMLDivElement>('#customers-list')
   if (!list) return
 
@@ -118,6 +212,8 @@ export async function bindCustomersPage(helpers: Helpers) {
           helpers.escapeHtml(membership.name) + '</option>'
       ).join(''))
     }
+
+    bindNewCustomerPanel(memberships, helpers, reload)
 
     let search = ''
     let membership = 'all'

@@ -201,3 +201,34 @@ export async function updateCustomerEmail(customerId: string, email: string) {
   if (!data?.success) throw new Error(data?.error || 'Could not update customer email')
   return data.customer as Pick<CoreCustomer, 'id' | 'customer_number' | 'email' | 'updated_at'>
 }
+
+
+export type NewCustomerInput = {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  addressLine1: string
+  addressLine2: string
+  city: string
+  state: string
+  postalCode: string
+  preferredContactMethod: string
+  membershipId: string
+  notes: string
+}
+
+// Creates a profile with no login yet. The database assigns the SBH-#### number.
+export async function createCustomer(input: NewCustomerInput) {
+  const { data, error } = await supabase.functions.invoke('core-customer-create', { body: input })
+  if (error) {
+    const context = (error as { context?: Response }).context
+    if (context && typeof context.json === 'function') {
+      const payload = await context.json().catch(() => null)
+      if (payload?.error) throw new Error(payload.error)
+    }
+    throw error
+  }
+  if (!data?.success) throw new Error(data?.error || 'Could not create customer')
+  return data.customer as Pick<CoreCustomer, 'id' | 'customer_number' | 'email' | 'first_name' | 'last_name'>
+}

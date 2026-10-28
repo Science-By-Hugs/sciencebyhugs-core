@@ -2206,3 +2206,9 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
 .finance-note{color:var(--muted);font-size:.72rem;line-height:1.5;margin:8px 0 0}
 .finance-note.warn{color:#f6c177}
 .finance-row.loss strong{color:#feb2b2}
+
+/* Core New customer (2026-10-27) */
+.new-customer-panel{margin:0 0 12px}
+.new-customer-panel .customer-profile-grid{margin-top:12px}
+.new-customer-panel textarea{min-height:72px}
+.new-customer-panel .import-confirm{display:flex;gap:8px;align-items:center;margin:12px 0 4px;font-size:.8rem}
