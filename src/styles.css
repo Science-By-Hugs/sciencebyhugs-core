@@ -2138,5 +2138,25 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
   .pending-checkout-actions .danger{width:100%}
 }
 
-/* Visible identity for every 2.0 staging screen. */
-#staging-environment-label{position:sticky;top:0;z-index:10000;padding:7px 12px;background:#5b3f00;color:#fff4c2;text-align:center;font:600 11px/1.4 system-ui,sans-serif;letter-spacing:.06em}
+/* Google exit (2026-10-27): manual catalog management */
+.catalog-editor-grid select,.catalog-editor-grid textarea{width:100%;min-height:40px;border:1px solid #233044;border-radius:11px;background:#090909;color:var(--text);padding:0 11px;outline:none;font:inherit}
+.catalog-editor-grid textarea{padding:10px 11px;min-height:84px;resize:vertical;line-height:1.45}
+.catalog-editor-grid select:focus,.catalog-editor-grid textarea:focus{border-color:color-mix(in srgb,var(--primary) 70%,#233044)}
+.catalog-checks{display:flex;flex-wrap:wrap;gap:10px 20px;padding:4px 0}
+.catalog-checks label{display:flex;align-items:center;gap:8px;color:var(--text);font-size:.8rem;cursor:pointer}
+.catalog-checks input{width:18px;height:18px;min-height:0;accent-color:var(--primary)}
+.catalog-create-wrap{margin:0 0 16px}
+.catalog-create-panel{margin:0;padding:14px 16px;border:1px solid #233044;border-radius:16px;background:color-mix(in srgb,var(--surface) 88%,transparent)}
+.catalog-create-panel[open]{padding-bottom:16px}
+.catalog-create-button{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border-radius:999px;font-size:.84rem}
+.catalog-shipping-panel summary{cursor:pointer;list-style:none;display:grid;gap:4px}
+.catalog-shipping-panel summary::-webkit-details-marker{display:none}
+.catalog-shipping-panel summary strong{font-size:1rem}
+.catalog-shipping-panel summary small,.catalog-rate-hint{color:var(--muted);font-size:.7rem;line-height:1.45}
+.catalog-rate-list{display:grid;gap:8px;margin-top:14px}
+.catalog-rate-row{display:grid;grid-template-columns:minmax(0,1fr) 96px auto auto;gap:8px;align-items:center}
+.catalog-rate-row strong{font-size:.8rem;overflow-wrap:anywhere}
+.catalog-rate-row input{width:100%;min-height:38px;border:1px solid #233044;border-radius:10px;background:#090909;color:var(--text);padding:0 10px;outline:none;font:inherit}
+.catalog-rate-new{grid-template-columns:minmax(0,1fr) 96px auto;margin-top:12px;padding-top:12px;border-top:1px solid #233044}
+.catalog-rate-message{min-height:1em;margin:8px 0 4px}
+@media(max-width:760px){.catalog-rate-row{grid-template-columns:1fr 84px}.catalog-rate-row .compact{width:100%}.catalog-rate-new{grid-template-columns:1fr 84px}.catalog-rate-new .add-rate{grid-column:span 2}}

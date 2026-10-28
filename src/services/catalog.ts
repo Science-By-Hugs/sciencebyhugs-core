@@ -160,31 +160,6 @@ export async function updateCatalogMetadata(productId: string, metadata: Catalog
 }
 
 
-export type CatalogSyncResult = {
-  success: boolean
-  sync: {
-    id: string
-    status: string
-    received_count: number | null
-    upserted_count: number | null
-    deactivated_count: number | null
-    started_at: string
-    completed_at: string | null
-    error_message: string | null
-  } | null
-}
-
-export async function syncCatalogNow(): Promise<CatalogSyncResult> {
-  const { data, error } = await supabase.functions.invoke('core-catalog-sync', {
-    body: {},
-  })
-
-  if (error) throw error
-  if (!data?.success) throw new Error(data?.error || 'Could not start catalog sync')
-  return data as CatalogSyncResult
-}
-
-
 export async function setCatalogVisibility(productId: string, hidden: boolean) {
   const { data, error } = await supabase.functions.invoke('core-catalog-control', {
     body: {
@@ -211,4 +186,85 @@ export async function deleteCatalogProduct(productId: string) {
   if (error) throw error
   if (!data?.success) throw new Error(data?.error || 'Could not delete catalog product')
   return data as { success: true; deletedId: string; deletedName: string }
+}
+
+
+// ---------- Manual catalog management (Google exit, 2026-10-27) ----------
+
+export type ProductInput = {
+  name: string
+  price: string
+  categoryId: string
+  productType: string
+  shippingFrom: string
+  description: string
+  imageUrl: string
+  productCode: string
+  sku: string
+  researchName: string
+  purity: string
+  quantity: string
+  lotNumber: string
+  coaUrl: string
+  featured: boolean
+  available: boolean
+  coreHidden: boolean
+}
+
+async function catalogControl<T>(body: Record<string, unknown>, fallback: string): Promise<T> {
+  const { data, error } = await supabase.functions.invoke('core-catalog-control', { body })
+  if (error) {
+    let message = fallback
+    try {
+      const context = (error as { context?: Response }).context
+      const payload = context ? await context.json() : null
+      if (payload?.error) message = payload.error
+    } catch {
+      // keep fallback
+    }
+    throw new Error(message)
+  }
+  if (!data?.success) throw new Error(data?.error || fallback)
+  return data as T
+}
+
+export async function createCatalogProduct(input: ProductInput) {
+  const data = await catalogControl<{ product: CoreCatalogProduct }>(
+    { action: 'create_product', ...input }, 'Could not create product')
+  return data.product
+}
+
+export async function updateCatalogProduct(productId: string, expectedUpdatedAt: string, input: Partial<ProductInput>) {
+  const data = await catalogControl<{ product: CoreCatalogProduct }>(
+    { action: 'update_product', productId, expectedUpdatedAt, ...input }, 'Could not save product')
+  return data.product
+}
+
+export async function setCatalogAvailability(productId: string, expectedUpdatedAt: string, available: boolean) {
+  const data = await catalogControl<{ product: CoreCatalogProduct }>(
+    { action: 'set_availability', productId, expectedUpdatedAt, available }, 'Could not change availability')
+  return data.product
+}
+
+export async function removeCatalogProduct(productId: string) {
+  return catalogControl<{ mode: 'archived' | 'deleted'; productName: string }>(
+    { action: 'remove_product', productId }, 'Could not delete product')
+}
+
+export async function listShippingRates() {
+  const data = await catalogControl<{ shippingRates: Record<string, number> }>(
+    { action: 'list_shipping_rates' }, 'Could not load shipping rates')
+  return data.shippingRates
+}
+
+export async function setShippingRate(source: string, rate: string) {
+  const data = await catalogControl<{ shippingRates: Record<string, number> }>(
+    { action: 'set_shipping_rate', source, rate }, 'Could not save shipping rate')
+  return data.shippingRates
+}
+
+export async function deleteShippingRate(source: string) {
+  const data = await catalogControl<{ shippingRates: Record<string, number> }>(
+    { action: 'delete_shipping_rate', source }, 'Could not delete shipping rate')
+  return data.shippingRates
 }
