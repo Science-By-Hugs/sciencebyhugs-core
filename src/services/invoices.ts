@@ -79,20 +79,6 @@ export async function listCoreInvoices(): Promise<CoreInvoice[]> {
   return data.invoices || []
 }
 
-export async function approveInvoice(invoiceId: string) {
-  const { data, error } = await supabase.functions.invoke('approve-invoice', { body: { invoiceId } })
-  if (error) throw error
-  if (!data?.success) throw new Error(data?.error || 'Could not approve invoice')
-  return data
-}
-
-export async function sendInvoice(invoiceId: string) {
-  const { data, error } = await supabase.functions.invoke('send-invoice', { body: { invoiceId } })
-  if (error) throw error
-  if (!data?.success) throw new Error(data?.error || 'Could not send invoice')
-  return data
-}
-
 export async function recordPayment(
   orderId: string,
   provider: string,

@@ -17,10 +17,8 @@ import { bindReferralsPage, referralsPageMarkup } from './referrals-view'
 import { bindAdminToolsPage, adminToolsPageMarkup } from './admin-tools-view'
 import { bindNotificationsPage, notificationsPageMarkup } from './notifications-view'
 import {
-  approveInvoice,
   listCoreInvoices,
   recordPayment,
-  sendInvoice,
   verifyPayment,
   updateFulfillment,
   type CoreInvoice,
@@ -618,8 +616,6 @@ function invoiceCard(invoice: CoreInvoice) {
       <div class="invoice-actions">
         ${invoice.google_sheet_url ? `<a class="button secondary" href="${escapeHtml(invoice.google_sheet_url)}" target="_blank" rel="noreferrer">Open Sheet</a>` : ''}
         ${invoice.pdf_url ? `<a class="button secondary" href="${escapeHtml(invoice.pdf_url)}" target="_blank" rel="noreferrer">Open PDF</a>` : ''}
-        ${awaiting ? `<button class="primary approve-button" data-id="${escapeHtml(invoice.id)}">Approve & Create PDF</button>` : ''}
-        ${ready ? `<button class="primary send-button" data-id="${escapeHtml(invoice.id)}" data-number="${escapeHtml(invoice.invoice_number)}" data-recipient="${escapeHtml(invoice.customer_email_snapshot || '')}">Send Invoice</button>` : ''}
       </div>
       <p class="card-message" aria-live="polite"></p>
     </article>
@@ -882,59 +878,6 @@ async function renderOperations(email: string) {
     })
 
     applyQueueView()
-
-    document.querySelectorAll<HTMLButtonElement>('.approve-button').forEach(button => {
-      button.addEventListener('click', async () => {
-        const invoiceId = button.dataset.id
-        if (!invoiceId) return
-
-        const message = button.closest<HTMLElement>('.invoice-card')
-          ?.querySelector<HTMLParagraphElement>('.card-message')
-
-        button.disabled = true
-        button.textContent = 'Creating PDF…'
-        if (message) message.textContent = 'Approving invoice and generating the Drive PDF…'
-
-        try {
-          await approveInvoice(invoiceId)
-          await renderOperations(email)
-        } catch (error) {
-          if (message) message.textContent = error instanceof Error ? error.message : 'Approval failed'
-          button.disabled = false
-          button.textContent = 'Approve & Create PDF'
-        }
-      })
-    })
-
-    document.querySelectorAll<HTMLButtonElement>('.send-button').forEach(button => {
-      button.addEventListener('click', async () => {
-        const invoiceId = button.dataset.id
-        const invoiceNumber = button.dataset.number || 'invoice'
-        const recipient = button.dataset.recipient || ''
-        if (!invoiceId) return
-
-        const confirmed = window.confirm(
-          `Send ${invoiceNumber} to ${recipient}?\n\nThe approved PDF will be attached and sent from admin@sciencebyhugs.com. This sends a real email.`
-        )
-        if (!confirmed) return
-
-        const message = button.closest<HTMLElement>('.invoice-card')
-          ?.querySelector<HTMLParagraphElement>('.card-message')
-
-        button.disabled = true
-        button.textContent = 'Sending…'
-        if (message) message.textContent = `Sending ${invoiceNumber} to ${recipient}…`
-
-        try {
-          await sendInvoice(invoiceId)
-          await renderOperations(email)
-        } catch (error) {
-          if (message) message.textContent = error instanceof Error ? error.message : 'Send failed'
-          button.disabled = false
-          button.textContent = 'Send Invoice'
-        }
-      })
-    })
 
     document.querySelectorAll<HTMLButtonElement>('.record-payment-button').forEach(button => {
       button.addEventListener('click', async () => {
