@@ -12,6 +12,7 @@ import {
   type CoreCatalogProduct,
   type ProductInput,
 } from './services/catalog'
+import { bindImportPanel, importPanelMarkup } from './catalog-import-view'
 
 // Google exit (2026-10-27): Core is the source of truth for the Nexus catalog.
 // Products are created and edited here; there is no Google Sheet sync.
@@ -268,6 +269,16 @@ export async function bindCatalogPage(helpers: Helpers) {
           '<div class="catalog-editor-actions"><p class="card-message catalog-create-message" aria-live="polite"></p>' +
           '<button class="primary create-catalog-product" type="button">Create Product</button></div>' +
         '</details>'
+      createEl.insertAdjacentHTML('beforeend', importPanelMarkup())
+      const importPanel = createEl.querySelector<HTMLElement>('.catalog-import-panel')
+      if (importPanel) {
+        bindImportPanel(importPanel, {
+          products,
+          categories,
+          helpers,
+          reload: () => bindCatalogPage(helpers),
+        })
+      }
       const createButton = createEl.querySelector<HTMLButtonElement>('.create-catalog-product')
       const createMessage = createEl.querySelector<HTMLElement>('.catalog-create-message')
       createButton?.addEventListener('click', async () => {

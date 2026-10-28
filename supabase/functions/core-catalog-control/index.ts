@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { buildImportPlan, planHash, type Category, type Product } from "./catalog-import.ts";
 
 // Google exit (2026-10-27): Core is the catalog source of truth.
 // Actions:
@@ -9,6 +10,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 //   update_product                            - edit every sellable/display field (expectedUpdatedAt guard)
 //   set_availability                          - sell / stop selling on Nexus
 //   remove_product                            - archive if ever ordered, otherwise delete
+//   import_preview / import_apply             - CSV catalog import (see catalog-import.ts)
 //   set_visibility / update_metadata / delete_product - unchanged from deployed v8
 // Every mutation writes core_audit_events.
 
@@ -207,6 +209,59 @@ Deno.serve(async (req: Request) => {
     }
     return fields;
   };
+
+  // ---------- CSV catalog import ----------
+  if (action === "import_preview" || action === "import_apply") {
+    const rows = Array.isArray(body.rows) ? body.rows as Array<Record<string, unknown>> : null;
+    if (!rows || !rows.length) return json({ error: "The CSV has no rows" }, 400);
+    if (rows.length > 2000) return json({ error: "The CSV has more than 2,000 rows. Split it into smaller files." }, 400);
+    const fileName = clean(body.fileName, 200);
+
+    const [{ data: products, error: productsError }, { data: categories, error: categoriesError }] = await Promise.all([
+      admin.from("products").select(PRODUCT_COLUMNS),
+      admin.from("product_categories").select("id,name"),
+    ]);
+    if (productsError || categoriesError) return json({ error: "Could not load the current catalog" }, 500);
+    let rates: Record<string, number>;
+    try { rates = ((await loadCheckoutConfig()).shippingRates as Record<string, number>) || {}; }
+    catch { return json({ error: "Checkout configuration unavailable" }, 500); }
+
+    const preview = buildImportPlan(rows, (products || []) as Product[], (categories || []) as Category[], rates);
+    const hash = await planHash(preview.plan);
+
+    if (action === "import_preview") {
+      const { plan: _plan, ...visible } = preview;
+      return json({ success: true, planHash: hash, ...visible });
+    }
+
+    if (preview.errors.length) return json({ error: "Fix the errors in the CSV before applying", errors: preview.errors }, 400);
+    if (clean(body.planHash, 128) !== hash) {
+      return json({ error: "The catalog changed since this preview. Preview the file again before applying.", stale: true }, 409);
+    }
+    if (preview.plan.takeoffs.length && body.confirmTakeoffs !== true) {
+      return json({ error: `Confirm that ${preview.plan.takeoffs.length} product(s) not in the CSV should be taken off sale` }, 400);
+    }
+    if (!preview.plan.creates.length && !preview.plan.updates.length && !preview.plan.takeoffs.length) {
+      return json({ success: true, created: 0, updated: 0, takenOffSale: 0, nothingToDo: true });
+    }
+
+    const { data: applied, error: applyError } = await admin.rpc("core_apply_catalog_import", {
+      p_plan: { ...preview.plan, file_name: fileName },
+      p_actor_user_id: user.id,
+      p_actor_email: user.email || null,
+      p_actor_role: role,
+    });
+    if (applyError) {
+      const stale = String(applyError.message || "").includes("IMPORT_STALE");
+      return json({
+        error: stale
+          ? "A product changed while importing, so nothing was saved. Preview the file again."
+          : "The import failed and nothing was saved.",
+        stale,
+      }, stale ? 409 : 500);
+    }
+    return json(applied);
+  }
 
   if (action === "create_product") {
     let fields: Record<string, unknown>;

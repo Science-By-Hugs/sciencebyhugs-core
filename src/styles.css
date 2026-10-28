@@ -2160,3 +2160,31 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
 .catalog-rate-new{grid-template-columns:minmax(0,1fr) 96px auto;margin-top:12px;padding-top:12px;border-top:1px solid #233044}
 .catalog-rate-message{min-height:1em;margin:8px 0 4px}
 @media(max-width:760px){.catalog-rate-row{grid-template-columns:1fr 84px}.catalog-rate-row .compact{width:100%}.catalog-rate-new{grid-template-columns:1fr 84px}.catalog-rate-new .add-rate{grid-column:span 2}}
+
+/* Catalog CSV import / export (2026-10-27) */
+.catalog-create-wrap{display:grid;gap:12px}
+.catalog-import-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;align-items:center}
+.catalog-import-upload{display:inline-flex;align-items:center;justify-content:center;min-height:36px;border-radius:999px;cursor:pointer}
+.import-message{min-height:1em;margin:10px 0 0}
+.import-summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.import-chip{padding:6px 11px;border:1px solid #233044;border-radius:999px;font-size:.74rem;color:var(--muted)}
+.import-chip strong{color:var(--text)}
+.import-chip.good{border-color:color-mix(in srgb,var(--primary) 55%,#233044)}
+.import-chip.warn{border-color:#b7791f;color:#f6c177}
+.import-chip.bad{border-color:#c53030;color:#feb2b2}
+.import-box{margin-top:12px;padding:12px 14px;border-radius:12px;font-size:.78rem;line-height:1.5}
+.import-box.warn{background:rgba(183,121,31,.12);border:1px solid rgba(183,121,31,.45)}
+.import-box.bad{background:rgba(197,48,48,.12);border:1px solid rgba(197,48,48,.5)}
+.import-box ul{margin:8px 0 0;padding-left:18px}
+.import-box p{margin:0}
+.import-section{margin-top:12px;border:1px solid #233044;border-radius:12px;padding:10px 14px}
+.import-section.warn{border-color:rgba(183,121,31,.55)}
+.import-section summary{cursor:pointer;font-weight:800;font-size:.8rem}
+.import-section ul{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px;max-height:320px;overflow:auto}
+.import-section li{font-size:.78rem;line-height:1.45}
+.import-section li>span:first-child{color:var(--muted);font-size:.7rem;margin-right:4px}
+.import-changes{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--muted);margin-top:2px}
+.import-changes b{color:var(--text)}
+.import-apply{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:14px}
+.import-confirm{display:flex;align-items:center;gap:8px;font-size:.8rem;color:#f6c177;cursor:pointer}
+.import-confirm input{width:18px;height:18px;accent-color:var(--primary)}
