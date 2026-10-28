@@ -1,4 +1,7 @@
-import { loadCoreDashboard } from './services/dashboard'
+import { loadCoreDashboard, type CoreDashboard } from './services/dashboard'
+
+// 2026-10-28 redesign: "Today" replaces the old dashboard hero.
+// What needs you first (each row has one action), then a few numbers, then the latest orders.
 
 type Helpers = {
   escapeHtml: (value: unknown) => string
@@ -6,119 +9,125 @@ type Helpers = {
   dateTime: (value: string | null | undefined) => string
 }
 
-export function dashboardPageMarkup(email: string, escapeHtml: Helpers['escapeHtml']) {
-  return '<section class="core-dashboard-shell">' +
-    '<section class="core-hero">' +
-      '<div class="core-hero-copy">' +
-        '<span class="core-hero-kicker">SCIENCE BY HUGS</span>' +
-        '<h1>CORE</h1>' +
-        '<p>OPERATIONS <i>•</i> FINANCE <i>•</i> FULFILLMENT</p>' +
-        '<small>Signed in as <strong>' + escapeHtml(email) + '</strong></small>' +
-      '</div>' +
-      '<div class="core-hero-orbit" aria-hidden="true"><span></span><i></i></div>' +
-      '<div class="core-live-card"><span><i></i> SYSTEM ONLINE</span><strong>CORE v1</strong><small>Live</small></div>' +
-    '</section>' +
-    '<section id="executive-dashboard"><div class="loading">Loading command center…</div></section>' +
-  '</section>'
+type Todo = { title: string; detail: string; tone: 'warn' | 'error' | 'go' | 'muted'; href: string; action: string }
+
+const plural = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 ? one : many)
+
+export function dashboardPageMarkup(_email: string, _escapeHtml: Helpers['escapeHtml']) {
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  return '<section class="dashboard-head"><h1 class="dashboard-title">Today</h1></section>' +
+    '<p class="today-sub" id="today-sub">' + today + '</p>' +
+    '<section id="executive-dashboard"><div class="loading">Loading…</div></section>'
 }
 
-const icon = (symbol: string) => '<span class="core-kpi-icon" aria-hidden="true">' + symbol + '</span>'
+function todos(data: CoreDashboard): Todo[] {
+  const { attention, operations } = data
+  const f = operations.fulfillment || {}
+  const toShip = (f.processing || 0) + (f.ordered || 0)
+  const list: Todo[] = []
+  if (attention.payment_submitted > 0) list.push({
+    title: plural(attention.payment_submitted, 'payment') + ' to verify',
+    detail: 'Customers submitted payment. Verify it so the order can ship.',
+    tone: 'warn', href: '#operations', action: 'Review',
+  })
+  if (attention.delayed_orders > 0) list.push({
+    title: plural(attention.delayed_orders, 'delayed order'),
+    detail: 'Update the customer or the delivery estimate.',
+    tone: 'error', href: '#operations', action: 'Open',
+  })
+  if (toShip > 0) list.push({
+    title: plural(toShip, 'order') + ' to ship',
+    detail: 'Paid or ordered, not yet shipped.',
+    tone: 'go', href: '#operations', action: 'Open',
+  })
+  if (attention.active_unpaid_orders > 0) list.push({
+    title: plural(attention.active_unpaid_orders, 'unpaid order'),
+    detail: 'Checkouts that were started but not paid.',
+    tone: 'muted', href: '#checkout-pending', action: 'View',
+  })
+  if (attention.missing_coa > 0) list.push({
+    title: plural(attention.missing_coa, 'product') + ' without a COA link',
+    detail: 'Add COA links in Catalog.',
+    tone: 'muted', href: '#catalog', action: 'Fix',
+  })
+  if (attention.uncategorized_products > 0) list.push({
+    title: plural(attention.uncategorized_products, 'product') + ' without a category',
+    detail: 'Pick a category in Catalog.',
+    tone: 'muted', href: '#catalog', action: 'Fix',
+  })
+  return list
+}
+
+function orderTone(order: CoreDashboard['operations']['recent_orders'][number]): [string, string] {
+  const status = String(order.status || '').toLowerCase()
+  if (String(order.payment_status || '').toLowerCase() !== 'paid') return ['warn', 'Awaiting payment']
+  if (status === 'delayed') return ['error', 'Delayed']
+  if (status === 'delivered') return ['muted', 'Delivered']
+  if (status === 'shipped') return ['go', 'Shipped']
+  if (status === 'cancelled') return ['muted', 'Cancelled']
+  return ['go', 'Paid · to ship']
+}
 
 export async function bindDashboardPage(helpers: Helpers) {
   const root = document.querySelector<HTMLDivElement>('#executive-dashboard')
   if (!root) return
+  const { escapeHtml, money } = helpers
 
   try {
     const data = await loadCoreDashboard()
-    const { attention, business, operations, customers, catalog } = data
-    const unfulfilled = Object.entries(operations.fulfillment)
-      .filter(([status]) => !['delivered', 'cancelled'].includes(status.toLowerCase()))
-      .reduce((sum, [, count]) => sum + count, 0)
+    const items = todos(data)
+    const sub = document.querySelector<HTMLParagraphElement>('#today-sub')
+    if (sub) sub.textContent = items.length
+      ? (items.length === 1 ? '1 thing needs you.' : items.length + ' things need you.')
+      : 'Nothing needs you right now.'
 
-    const recentOrders = operations.recent_orders.length
-      ? operations.recent_orders.slice(0, 6).map(order =>
-          '<a class="core-order-row" href="#orders">' +
-            '<span><strong>' + helpers.escapeHtml(order.order_number || 'Order') + '</strong>' +
-            '<small>' + helpers.escapeHtml(order.payment_method || 'Payment') + '</small></span>' +
-            '<strong>' + helpers.money(order.total) + '</strong>' +
-            '<span class="core-row-status ' + helpers.escapeHtml(order.payment_status === 'paid' ? 'paid' : 'open') + '">' +
-              helpers.escapeHtml(order.payment_status === 'paid' ? 'Paid' : order.payment_status.replaceAll('_', ' ')) +
-            '</span>' +
-            '<time>' + helpers.escapeHtml(new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</time>' +
-          '</a>',
-        ).join('')
-      : '<div class="core-empty-line">No recent orders.</div>'
+    const b = data.business
+    const attention = '<section class="today-section" aria-labelledby="today-attention">' +
+      '<h2 id="today-attention">Needs attention</h2>' +
+      (items.length
+        ? items.map(t =>
+            '<a class="today-row" href="' + t.href + '">' +
+              '<span class="today-dot ' + t.tone + '" aria-hidden="true"></span>' +
+              '<span class="today-row-main"><strong>' + escapeHtml(t.title) + '</strong><small>' + escapeHtml(t.detail) + '</small></span>' +
+              '<span class="today-action">' + escapeHtml(t.action) + '</span>' +
+            '</a>').join('')
+        : '<p class="today-empty">All caught up.</p>') +
+    '</section>'
 
-    const fulfillmentOpen = unfulfilled
-    const pendingPayments = attention.payment_submitted
-    const pendingInvoices = attention.awaiting_invoice_approval + attention.ready_to_send
-    const catalogIssues = attention.missing_coa + attention.uncategorized_products
+    const stat = (label: string, value: string, sub: string) =>
+      '<div class="today-stat"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value) + '</strong><small>' + escapeHtml(sub) + '</small></div>'
+    const stats = '<section class="today-stats" aria-label="Key numbers">' +
+      stat('Revenue, last 30 days', money(b.revenue_30d), plural(b.orders_30d, 'order')) +
+      stat('Average order', money(b.average_paid_order), 'All paid orders') +
+      stat('Customers', String(b.customers), b.new_customers_30d + ' new in 30 days') +
+      stat('Revenue, all time', money(b.paid_revenue), plural(b.paid_orders, 'paid order')) +
+    '</section>'
 
-    const systemRow = (label: string, value: string | number, href: string, healthy = true) =>
-      '<a class="core-health-row" href="' + href + '">' +
-        '<span><b>' + label + '</b><small>' + value + '</small></span>' +
-        '<strong class="' + (healthy ? 'healthy' : 'warning') + '">' + (healthy ? 'Healthy' : 'Review') + '</strong>' +
-      '</a>'
+    const recent = data.operations.recent_orders.slice(0, 6)
+    const latest = '<section class="today-section" aria-labelledby="today-latest">' +
+      '<h2 id="today-latest">Latest orders <a href="#orders">All orders</a></h2>' +
+      (recent.length
+        ? recent.map(order => {
+            const [tone, label] = orderTone(order)
+            return '<a class="today-order" href="#orders">' +
+              '<b>' + escapeHtml(order.order_number || 'Order') + '</b>' +
+              '<span class="meta">' + escapeHtml((order.payment_method || 'Payment') + ' · ' +
+                new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span>' +
+              '<span class="num">' + money(order.total) + '</span>' +
+              '<span class="tone ' + tone + '">' + escapeHtml(label) + '</span>' +
+            '</a>'
+          }).join('')
+        : '<p class="today-empty">No orders yet.</p>') +
+    '</section>'
 
-    root.innerHTML =
-      '<section class="core-kpi-grid">' +
-        '<article class="core-kpi-card">' + icon('$') + '<span>Total Revenue</span><strong>' +
-          helpers.money(business.paid_revenue) + '</strong><small>' + business.paid_orders + ' paid orders</small></article>' +
-        '<article class="core-kpi-card">' + icon('▱') + '<span>Total Orders</span><strong>' +
-          business.paid_orders + '</strong><small>' + business.orders_30d + ' in last 30 days</small></article>' +
-        '<article class="core-kpi-card">' + icon('◎') + '<span>Customers</span><strong>' +
-          business.customers + '</strong><small>' + business.active_customers + ' active</small></article>' +
-        '<article class="core-kpi-card">' + icon('▤') + '<span>Pending Payments</span><strong>' +
-          pendingPayments + '</strong><small>' + (pendingPayments ? 'Needs review' : 'No pending') + '</small></article>' +
-        '<article class="core-kpi-card">' + icon('◇') + '<span>Unfulfilled Orders</span><strong>' +
-          fulfillmentOpen + '</strong><small>' + (fulfillmentOpen ? 'In progress' : 'All caught up') + '</small></article>' +
-      '</section>' +
-
-      '<section class="core-quick-section">' +
-        '<div class="core-section-heading"><h2>Quick Actions</h2></div>' +
-        '<div class="core-quick-grid">' +
-          '<a href="#operations">' + icon('▤') + '<span>Create / Approve Invoice</span></a>' +
-          '<a href="#orders">' + icon('▱') + '<span>View Orders</span></a>' +
-          '<a href="#finance">' + icon('$') + '<span>Verify Payments</span></a>' +
-          '<a href="#catalog">' + icon('◇') + '<span>Manage Catalog</span></a>' +
-          '<a href="#customers">' + icon('◎') + '<span>View Customers</span></a>' +
-        '</div>' +
-      '</section>' +
-
-      '<div class="core-dashboard-columns">' +
-        '<section class="core-dashboard-panel core-recent-panel">' +
-          '<div class="core-section-heading"><h2>Recent Orders</h2><a href="#orders">View All →</a></div>' +
-          '<div class="core-order-table-head"><span>Order</span><span>Amount</span><span>Status</span><span>Date</span></div>' +
-          '<div class="core-order-table">' + recentOrders + '</div>' +
-        '</section>' +
-
-        '<section class="core-dashboard-panel">' +
-          '<div class="core-section-heading"><h2>System Status</h2><a href="#notifications">View All →</a></div>' +
-          '<div class="core-health-list">' +
-            systemRow('Orders', business.paid_orders, '#orders', true) +
-            systemRow('Payments', pendingPayments + ' pending', '#finance', pendingPayments === 0) +
-            systemRow('Fulfillment', fulfillmentOpen + ' active', '#operations', attention.delayed_orders === 0) +
-            systemRow('Invoices', pendingInvoices + ' pending', '#operations', pendingInvoices === 0) +
-            systemRow('Catalog', catalog.active + ' active', '#catalog', catalogIssues === 0) +
-          '</div>' +
-        '</section>' +
-      '</div>' +
-
-      '<section class="core-bottom-insights">' +
-        '<article><span>30-Day Revenue</span><strong>' + helpers.money(business.revenue_30d) +
-          '</strong><small>' + business.orders_30d + ' orders</small></article>' +
-        '<article><span>Average Paid Order</span><strong>' + helpers.money(business.average_paid_order) +
-          '</strong><small>Across all paid orders</small></article>' +
-        '<article><span>Repeat Customers</span><strong>' + business.repeat_customers +
-          '</strong><small>' + business.new_customers_30d + ' new / 30d</small></article>' +
-        '<article><span>Catalog Coverage</span><strong>' + catalog.with_coa + '/' + catalog.total +
-          '</strong><small>COA coverage</small></article>' +
-      '</section>' +
-
-      '<p class="dashboard-generated">Updated ' + helpers.escapeHtml(helpers.dateTime(data.generated_at)) + '</p>'
+    root.innerHTML = attention + stats + latest
   } catch (error) {
-    root.innerHTML = '<div class="empty-state error-state"><h2>Could not load dashboard.</h2><p>' +
-      helpers.escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p><button class="primary" id="retry-dashboard" type="button">Try again</button></div>'
-    root.querySelector('#retry-dashboard')?.addEventListener('click',()=>{root.innerHTML='<div class="loading">Loading command center…</div>';void bindDashboardPage(helpers)})
+    root.innerHTML = '<div class="empty-state error-state"><h2>Could not load Today.</h2><p>' +
+      escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p>' +
+      '<button class="secondary" id="retry-dashboard" type="button">Try again</button></div>'
+    root.querySelector('#retry-dashboard')?.addEventListener('click', () => {
+      root.innerHTML = '<div class="loading">Loading…</div>'
+      void bindDashboardPage(helpers)
+    })
   }
 }
