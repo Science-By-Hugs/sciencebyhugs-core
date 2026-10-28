@@ -1,4 +1,3 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 
 const corsHeaders = {
@@ -31,7 +30,7 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const admin = createClient(supabaseUrl, secretKeys.default, {
+  const admin = createClient(supabaseUrl, secretKeys.nexus_rotation_20261023, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
@@ -47,6 +46,26 @@ Deno.serve(async (req: Request) => {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "Invalid request" }, 400); }
   if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Invalid request" }, 400);
+  if (body.action === "clear_checkout_pending") {
+    const orderId = typeof body.orderId === "string" && body.orderId
+      ? body.orderId
+      : null;
+
+    if (orderId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+      return json({ error: "Choose a valid checkout order" }, 400);
+    }
+
+    const { data, error } = await admin.rpc("clear_checkout_pending_orders", {
+      p_order_id: orderId,
+      p_actor_user_id: user.id,
+      p_actor_email: user.email || null,
+      p_actor_role: role,
+    });
+
+    if (error) return json({ error: "Could not clear checkout pending orders" }, 500);
+    return json(data || { success: true, deleted: 0, orderIds: [] });
+  }
+
   if (body.action === "set_delivery_estimate") {
     const orderId = typeof body.orderId === "string" ? body.orderId : "";
     const date = body.estimatedDeliveryDate;
@@ -68,7 +87,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: orders, error: orderError } = await admin
     .from("orders")
-    .select("id,order_number,customer_id,status,subtotal,discount_total,shipping_total,tax_total,total,payment_method,payment_status,customer_notes,admin_notes,contact_method,fulfillment_note,estimated_delivery_date,submitted_at,paid_at,ordered_at,shipped_at,delivered_at,delayed_at,cancelled_at,completed_at,created_at,updated_at")
+    .select("id,order_number,customer_id,deleted_customer,status,subtotal,discount_total,shipping_total,tax_total,total,payment_method,payment_status,customer_notes,admin_notes,contact_method,fulfillment_note,estimated_delivery_date,submitted_at,paid_at,ordered_at,shipped_at,delivered_at,delayed_at,cancelled_at,completed_at,created_at,updated_at")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -118,11 +137,30 @@ Deno.serve(async (req: Request) => {
   const invoiceByOrder = new Map((invoicesResult.data || []).map(invoice => [String(invoice.order_id), invoice]));
   const profileById = new Map((profilesResult.data || []).map(profile => [String(profile.id), profile]));
 
+  // 2026-10-28: orders of a deleted customer keep a snapshot of who they were.
+  const customerFor = (order: Record<string, unknown>) => {
+    if (order.customer_id) return profileById.get(String(order.customer_id)) || null;
+    const snap = order.deleted_customer as Record<string, unknown> | null;
+    if (!snap) return null;
+    return {
+      id: null,
+      customer_number: snap.customer_number ?? null,
+      first_name: snap.first_name ?? null,
+      last_name: snap.last_name ?? null,
+      email: snap.email ?? "",
+      phone: snap.phone ?? null,
+      account_status: "Deleted",
+      preferred_contact_method: null,
+      deleted: true,
+      deleted_at: snap.deleted_at ?? null,
+    };
+  };
+
   return json({
     success: true,
-    orders: (orders || []).map(order => ({
+    orders: (orders || []).map(({ deleted_customer, ...order }) => ({
       ...order,
-      customer: order.customer_id ? profileById.get(String(order.customer_id)) || null : null,
+      customer: customerFor({ ...order, deleted_customer }),
       items: itemsByOrder.get(String(order.id)) || [],
       payment: paymentByOrder.get(String(order.id)) || null,
       invoice: invoiceByOrder.get(String(order.id)) || null,

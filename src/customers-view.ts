@@ -1,4 +1,6 @@
 import { inviteCustomerProfile } from './services/admin-tools'
+import { deleteZone } from './orders-view'
+import { deleteCustomer } from './services/records'
 import { createCustomer, loadCoreCustomers, updateCustomerAccountStatus, updateCustomerContactPreference, updateCustomerEmail, updateCustomerMembership, updateCustomerNotes, updateCustomerProfile, type CoreCustomer, type CoreMembership } from './services/customers'
 
 type Helpers = {
@@ -87,6 +89,13 @@ function customerCard(customer: CoreCustomer, memberships: CoreMembership[], hel
       '<div class="customer-notes-actions"><p class="card-message customer-notes-message" aria-live="polite"></p>' +
       '<button class="secondary save-customer-notes" type="button">Save Notes</button></div>' +
     '</div>' +
+    deleteZone(
+      'Delete customer',
+      'Permanently deletes this customer and their Nexus login (which may also be their Pulse login). Their past orders stay in Core, labelled as a deleted customer. A full copy is kept in the Audit Log.',
+      'Type ' + customer.email + ' to confirm',
+      'delete-customer',
+      escapeHtml,
+    ) +
   '</article>'
 }
 
@@ -244,6 +253,44 @@ export async function bindCustomersPage(helpers: Helpers, reload?: () => Promise
     membershipSelect?.addEventListener('change', event => {
       membership = (event.currentTarget as HTMLSelectElement).value
       apply()
+    })
+
+    document.querySelectorAll<HTMLButtonElement>('.delete-customer-button').forEach(button => {
+      button.addEventListener('click', async () => {
+        const card = button.closest<HTMLElement>('.customer-card')
+        const customer = customers.find(item => item.id === card?.dataset.customerId)
+        const input = card?.querySelector<HTMLInputElement>('.delete-customer-confirm')
+        const message = card?.querySelector<HTMLParagraphElement>('.delete-customer-message')
+        if (!card || !customer || !input) return
+        const say = (text: string) => { if (message) message.textContent = text }
+        if (input.value.trim().toLowerCase() !== customer.email.trim().toLowerCase()) {
+          say('Type ' + customer.email + ' exactly to confirm.')
+          return
+        }
+        const label = nameFor(customer) + (customer.customer_number ? ' (' + customer.customer_number + ')' : '')
+        if (!window.confirm('Permanently delete ' + label + ' and their login?\n\nTheir ' + customer.metrics.order_count +
+          ' order(s) stay in Core. This cannot be undone. A copy is kept in the Audit Log.')) return
+        button.disabled = true
+        button.textContent = 'Deleting…'
+        say('Deleting…')
+        try {
+          const result = await deleteCustomer(customer.id, input.value.trim())
+          const done = 'Deleted ' + label + '. ' + result.ordersKept + ' order(s) kept. ' +
+            (result.warning ? result.warning : result.loginRemoved ? 'Login removed. ' : '') + 'Copy saved in the Audit Log.'
+          if (reload) {
+            await reload()
+            const after = document.querySelector<HTMLParagraphElement>('#customers-summary')
+            if (after) after.textContent = done + ' ' + after.textContent
+          } else {
+            card.remove()
+            say(done)
+          }
+        } catch (error) {
+          say(error instanceof Error ? error.message : 'Could not delete the customer.')
+          button.disabled = false
+          button.textContent = 'Delete customer'
+        }
+      })
     })
 
     document.querySelectorAll<HTMLButtonElement>('.save-customer-notes').forEach(button => {
