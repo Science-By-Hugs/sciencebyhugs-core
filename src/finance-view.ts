@@ -1,4 +1,5 @@
-import { loadCoreFinance } from './services/finance'
+import { loadCoreFinance, loadProfitReport } from './services/finance'
+import { pct } from './pricing'
 
 type Helpers = {
   escapeHtml: (value: unknown) => string
@@ -11,14 +12,100 @@ export function financePageMarkup(email: string, escapeHtml: Helpers['escapeHtml
     '<span class="eyebrow">FINANCE</span><h1 class="dashboard-title">Finance</h1>' +
     '<p class="copy">Operational revenue, verified payments, receivables, and open cash exposure. This is internal reporting, not bank reconciliation.</p>' +
     '</div><div class="operator">Signed in as <strong>' + escapeHtml(email) + '</strong></div></section>' +
+    '<section id="finance-profit" class="finance-panel"><div class="loading">Loading profit…</div></section>' +
     '<section id="finance-root"><div class="loading">Loading finance…</div></section>'
 }
 
 const rows = (items: string[]) => items.length ? items.join('') : '<p class="dashboard-muted">Nothing to show.</p>'
 
+type ProfitPeriod = 'all' | 'this-month' | 'last-month' | 'last-90' | 'this-year'
+
+function periodRange(period: ProfitPeriod): { from: string | null; to: string | null } {
+  const now = new Date()
+  const start = (y: number, m: number) => new Date(y, m, 1).toISOString()
+  switch (period) {
+    case 'this-month': return { from: start(now.getFullYear(), now.getMonth()), to: null }
+    case 'last-month': return { from: start(now.getFullYear(), now.getMonth() - 1), to: start(now.getFullYear(), now.getMonth()) }
+    case 'last-90': return { from: new Date(now.getTime() - 90 * 86400000).toISOString(), to: null }
+    case 'this-year': return { from: start(now.getFullYear(), 0), to: null }
+    default: return { from: null, to: null }
+  }
+}
+
+async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
+  const el = document.querySelector<HTMLElement>('#finance-profit')
+  if (!el) return
+  const { escapeHtml, money } = helpers
+  const options: Array<[ProfitPeriod, string]> = [
+    ['all', 'All time'], ['this-month', 'This month'], ['last-month', 'Last month'], ['last-90', 'Last 90 days'], ['this-year', 'This year'],
+  ]
+  const head = (body: string) =>
+    '<div class="dashboard-section-head finance-profit-head"><div><span class="eyebrow">PROFIT · CORE ONLY</span><h2>Vendor cost & profit</h2></div>' +
+    '<select id="finance-profit-period" aria-label="Profit period">' +
+      options.map(([value, label]) => '<option value="' + value + '"' + (value === period ? ' selected' : '') + '>' + label + '</option>').join('') +
+    '</select></div>' + body
+
+  el.innerHTML = head('<div class="loading">Loading profit…</div>')
+  try {
+    const range = periodRange(period)
+    const r = await loadProfitReport(range.from, range.to)
+    const t = r.totals
+    const signed = (value: number | null) => value === null ? '—' : money(value)
+    const productRows = r.by_product.slice(0, 25).map(line =>
+      '<div class="finance-row' + (line.profit !== null && line.profit < 0 ? ' loss' : '') + '"><span><strong>' + escapeHtml(line.name) + '</strong><small>' +
+      line.units + ' sold · ' + money(line.sales) + ' sales' + (line.uncosted_lines ? ' · ' + line.uncosted_lines + ' line(s) without cost' : '') +
+      '</small></span><span>' + pct(line.margin_pct) + ' margin<small>' + pct(line.markup_pct) + ' markup</small></span><strong>' + signed(line.profit) + '</strong></div>'
+    ).join('')
+    const monthRows = r.by_month.map(month =>
+      '<div class="finance-row"><span><strong>' + escapeHtml(month.month) + '</strong><small>' + money(month.sales) + ' sales · ' +
+      signed(month.vendor_cost) + ' cost</small></span><span>' + pct(month.margin_pct) + ' margin</span><strong>' + signed(month.profit) + '</strong></div>'
+    ).join('')
+    const belowCost = r.catalog.below_cost.map(item =>
+      '<div class="finance-row loss"><span><strong>' + escapeHtml(item.name) + '</strong><small>' + escapeHtml(item.product_code || '') +
+      '</small></span><span>price ' + money(item.price) + '</span><strong>cost ' + money(item.vendor_cost) + '</strong></div>'
+    ).join('')
+
+    el.innerHTML = head(
+      '<section class="finance-kpis">' +
+        '<div><span>Sales</span><strong>' + money(t.sales) + '</strong><small>' + t.orders + ' paid orders · ' + t.lines + ' lines</small></div>' +
+        '<div><span>Discounts given</span><strong>' + money(t.discounts) + '</strong><small>Net sales ' + money(t.net_sales) + '</small></div>' +
+        '<div><span>Vendor cost</span><strong>' + money(t.vendor_cost) + '</strong><small>Cost at time of sale</small></div>' +
+        '<div><span>Gross profit</span><strong>' + money(t.gross_profit) + '</strong><small>On ' + money(t.costed_sales) + ' costed sales</small></div>' +
+        '<div><span>Margin</span><strong>' + pct(t.margin_pct) + '</strong><small>Profit ÷ sales</small></div>' +
+        '<div><span>Markup</span><strong>' + pct(t.markup_pct) + '</strong><small>Profit ÷ cost</small></div>' +
+      '</section>' +
+      (t.uncosted_lines
+        ? '<p class="finance-note warn">' + t.uncosted_lines + ' sold line(s) (' + money(t.uncosted_sales) +
+          ' of sales) had no vendor cost on file when they sold, so they are left out of profit. Orders from before vendor pricing was added fall in this group.</p>'
+        : '') +
+      '<p class="finance-note">Profit uses each item\'s vendor cost captured at the moment of sale, so later cost changes never rewrite past profit. ' +
+      'Sales are line totals before order discounts; discounts, shipping, processing fees and tax are shown or handled separately. ' +
+      'Catalog: ' + r.catalog.with_cost + ' of ' + r.catalog.products + ' products have a vendor cost' +
+      (r.catalog.avg_margin_pct !== null ? ' · average list margin ' + pct(r.catalog.avg_margin_pct) : '') +
+      (r.catalog.selling_without_cost ? ' · <strong>' + r.catalog.selling_without_cost + ' selling without a cost</strong> (Catalog → filter “Missing vendor cost”)' : '') + '.</p>' +
+      '<div class="finance-columns">' +
+        '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">BY PRODUCT</span><h2>Profit by product</h2></div></div>' +
+          rows(productRows ? [productRows] : []) + '</section>' +
+        '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">BY MONTH</span><h2>Monthly profit</h2></div></div>' +
+          rows(monthRows ? [monthRows] : []) + '</section>' +
+      '</div>' +
+      (belowCost
+        ? '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">ATTENTION</span><h2>Priced below vendor cost</h2></div><a href="#catalog">Catalog →</a></div>' + belowCost + '</section>'
+        : '')
+    )
+  } catch (error) {
+    el.innerHTML = head('<div class="empty-state error-state"><h2>Could not load profit.</h2><p>' +
+      escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p></div>')
+  }
+  el.querySelector<HTMLSelectElement>('#finance-profit-period')?.addEventListener('change', event => {
+    void renderProfit(helpers, (event.currentTarget as HTMLSelectElement).value as ProfitPeriod)
+  })
+}
+
 export async function bindFinancePage(helpers: Helpers) {
   const root = document.querySelector<HTMLDivElement>('#finance-root')
   if (!root) return
+  void renderProfit(helpers)
 
   try {
     const data = await loadCoreFinance()

@@ -43,3 +43,50 @@ export async function loadCoreFinance(): Promise<CoreFinancePayload> {
   if (!data?.success) throw new Error(data?.error || 'Could not load finance')
   return data as CoreFinancePayload
 }
+
+// ---------- Profit report (2026-10-27): Core-only, reads locked cost tables ----------
+export type ProfitLine = {
+  name: string
+  product_code: string | null
+  units: number
+  sales: number
+  vendor_cost: number | null
+  profit: number | null
+  margin_pct: number | null
+  markup_pct: number | null
+  uncosted_lines: number
+}
+
+export type ProfitReport = {
+  totals: {
+    orders: number
+    lines: number
+    sales: number
+    discounts: number
+    net_sales: number
+    vendor_cost: number
+    costed_sales: number
+    uncosted_sales: number
+    uncosted_lines: number
+    gross_profit: number
+    margin_pct: number | null
+    markup_pct: number | null
+  }
+  by_product: ProfitLine[]
+  by_month: Array<{ month: string; sales: number; vendor_cost: number | null; profit: number | null; margin_pct: number | null; uncosted_lines: number }>
+  catalog: {
+    products: number
+    with_cost: number
+    selling_without_cost: number
+    avg_margin_pct: number | null
+    below_cost: Array<{ name: string; product_code: string | null; price: number; vendor_cost: number }>
+  }
+  generated_at: string
+}
+
+export async function loadProfitReport(from: string | null, to: string | null): Promise<ProfitReport> {
+  const { data, error } = await supabase.functions.invoke('core-profit-report', { body: { from, to } })
+  if (error) throw error
+  if (!data?.success) throw new Error(data?.error || 'Could not load the profit report')
+  return data as ProfitReport
+}

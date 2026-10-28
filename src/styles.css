@@ -2188,3 +2188,21 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
 .import-apply{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:14px}
 .import-confirm{display:flex;align-items:center;gap:8px;font-size:.8rem;color:#f6c177;cursor:pointer}
 .import-confirm input{width:18px;height:18px;accent-color:var(--primary)}
+
+/* Vendor pricing & profit (2026-10-27) — Core only */
+.catalog-pricing-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin:18px 0 0}
+.catalog-pricing-row>div{padding:11px 12px;border:1px solid #233044;border-radius:12px;background:rgba(0,0,0,.2)}
+.catalog-pricing-row span{display:block;color:var(--muted);font-size:.62rem;text-transform:uppercase;letter-spacing:.07em}
+.catalog-pricing-row strong{display:block;margin-top:4px;font-size:.92rem}
+.catalog-pricing-row em{font-style:normal;color:var(--muted);font-weight:600}
+.catalog-pricing-row.gain>div:nth-child(n+3){border-color:color-mix(in srgb,var(--primary) 45%,#233044)}
+.catalog-pricing-row.loss>div:nth-child(n+3){border-color:rgba(197,48,48,.6)}
+.catalog-pricing-row.loss>div:nth-child(n+3) strong{color:#feb2b2}
+.catalog-profit-live{margin:-2px 0 2px;color:var(--muted);font-size:.74rem}
+.catalog-profit-live.loss{color:#feb2b2}
+@media(max-width:760px){.catalog-pricing-row{grid-template-columns:repeat(2,minmax(0,1fr))}.catalog-pricing-row>div:first-child{grid-column:span 2}}
+.finance-profit-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px}
+.finance-profit-head select{min-height:38px;border:1px solid #233044;border-radius:10px;background:#090909;color:var(--text);padding:0 10px;font:inherit}
+.finance-note{color:var(--muted);font-size:.72rem;line-height:1.5;margin:8px 0 0}
+.finance-note.warn{color:#f6c177}
+.finance-row.loss strong{color:#feb2b2}

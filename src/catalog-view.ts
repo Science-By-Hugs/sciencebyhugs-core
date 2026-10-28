@@ -2,6 +2,7 @@ import {
   createCatalogProduct,
   deleteShippingRate,
   listShippingRates,
+  listVendorCosts,
   loadCoreCatalog,
   removeCatalogProduct,
   setCatalogAvailability,
@@ -13,9 +14,15 @@ import {
   type ProductInput,
 } from './services/catalog'
 import { bindImportPanel, importPanelMarkup } from './catalog-import-view'
+import { pct, profitFigures } from './pricing'
 
 // Google exit (2026-10-27): Core is the source of truth for the Nexus catalog.
 // Products are created and edited here; there is no Google Sheet sync.
+
+// Vendor costs come from a locked table via core-catalog-control; Core-only.
+let vendorCosts: Record<string, number> = {}
+const costOf = (productId: string) =>
+  Object.prototype.hasOwnProperty.call(vendorCosts, productId) ? vendorCosts[productId] : null
 
 const CATALOG_VIEW_STATE_KEY = 'sciencebyhugs-core:catalog-view-state'
 
@@ -88,7 +95,9 @@ function productForm(
 
   return '<div class="catalog-editor-grid catalog-product-form">' +
     '<label class="catalog-span-2"><span>Product name *</span><input name="name" maxlength="200" required value="' + v(product?.name) + '"></label>' +
-    '<label><span>Price (USD) *</span><input name="price" inputmode="decimal" placeholder="49.99" value="' + v(product ? Number(product.price).toFixed(2) : '') + '"></label>' +
+    '<label><span>Customer price (USD) *</span><input name="price" inputmode="decimal" placeholder="49.99" value="' + v(product ? Number(product.price).toFixed(2) : '') + '"></label>' +
+    '<label><span>Vendor cost (USD) · Core only</span><input name="vendorCost" inputmode="decimal" placeholder="e.g. 20.00" value="' + v(product && costOf(product.id) !== null ? Number(costOf(product.id)).toFixed(2) : '') + '"></label>' +
+    '<p class="catalog-span-2 catalog-profit-live" aria-live="polite"></p>' +
     '<label><span>Category</span><select name="categoryId">' + categoryOptions.join('') + '</select></label>' +
     '<label><span>Product type</span><input name="productType" maxlength="120" placeholder="e.g. Peptide" value="' + v(product?.product_type) + '"></label>' +
     '<label><span>Ships from</span><select name="shippingFrom">' + shipOptions.join('') + '</select></label>' +
@@ -109,6 +118,24 @@ function productForm(
   '</div>'
 }
 
+function bindProfitLive(form: HTMLElement, helpers: Helpers) {
+  const out = form.querySelector<HTMLElement>('.catalog-profit-live')
+  const price = form.querySelector<HTMLInputElement>('[name="price"]')
+  const cost = form.querySelector<HTMLInputElement>('[name="vendorCost"]')
+  if (!out || !price || !cost) return
+  const update = () => {
+    const figures = profitFigures(price.value.replace(/^\$/, ''), cost.value.replace(/^\$/, ''))
+    out.classList.toggle('loss', figures.profit !== null && figures.profit < 0)
+    out.textContent = figures.profit === null
+      ? 'Enter a vendor cost to see profit. Customers only ever see the customer price.'
+      : 'Profit ' + helpers.money(figures.profit) + ' per unit · margin ' + pct(figures.marginPct) +
+        ' · markup ' + pct(figures.markupPct) + (figures.profit < 0 ? ' · priced below cost' : '')
+  }
+  price.addEventListener('input', update)
+  cost.addEventListener('input', update)
+  update()
+}
+
 function readProductForm(root: HTMLElement): ProductInput {
   const text = (name: string) =>
     (root.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[name="' + name + '"]')?.value || '').trim()
@@ -116,6 +143,7 @@ function readProductForm(root: HTMLElement): ProductInput {
   return {
     name: text('name'),
     price: text('price'),
+    vendorCost: text('vendorCost'),
     categoryId: text('categoryId'),
     productType: text('productType'),
     shippingFrom: text('shippingFrom'),
@@ -137,6 +165,7 @@ function readProductForm(root: HTMLElement): ProductInput {
 function validateProductInput(input: ProductInput): string | null {
   if (!input.name) return 'Product name is required.'
   if (!/^\d{1,6}(\.\d{1,2})?$/.test(input.price.replace(/^\$/, ''))) return 'Price must look like 49 or 49.99.'
+  if (input.vendorCost && !/^\d{1,6}(\.\d{1,2})?$/.test(input.vendorCost.replace(/^\$/, ''))) return 'Vendor cost must look like 20 or 19.50 (or leave it blank).'
   return null
 }
 
@@ -168,8 +197,20 @@ function productCard(
         (product.featured ? '<span class="catalog-storefront">Featured</span>' : '') +
       '</div>' +
     '</div>' +
+    (() => {
+      const cost = costOf(product.id)
+      const figures = profitFigures(product.price, cost)
+      const tone = figures.profit === null ? '' : figures.profit < 0 ? ' loss' : ' gain'
+      return '<div class="catalog-pricing-row' + tone + '">' +
+        '<div><span>Customer price</span><strong>' + money(product.price) + '</strong></div>' +
+        '<div><span>Vendor cost</span><strong>' + (cost === null ? '<em>Not set</em>' : money(cost)) + '</strong></div>' +
+        '<div><span>Profit / unit</span><strong>' + (figures.profit === null ? '—' : money(figures.profit)) + '</strong></div>' +
+        '<div><span>Margin</span><strong>' + pct(figures.marginPct) + '</strong></div>' +
+        '<div><span>Markup</span><strong>' + pct(figures.markupPct) + '</strong></div>' +
+      '</div>'
+    })() +
     '<div class="catalog-meta-grid">' +
-      '<div><span>Price</span><strong>' + money(product.price) + '</strong></div>' +
+      '<div><span>Status</span><strong>' + statusLabel + '</strong></div>' +
       '<div><span>Ships from</span><strong>' + escapeHtml((product.shipping_from || '—') + shipRate) + '</strong></div>' +
       '<div><span>COA</span><strong>' + (product.coa_url ? 'Available' : 'Missing') + '</strong></div>' +
       '<div><span>Last updated</span><strong>' + escapeHtml(dateTime(product.updated_at)) + '</strong></div>' +
@@ -245,7 +286,8 @@ export function catalogPageMarkup(email: string, escapeHtml: Helpers['escapeHtml
       '<option value="not-selling">Not selling</option><option value="hidden">Hidden from Resident/New</option>' +
       '<option value="featured">Featured</option>' +
       '<option value="metadata-incomplete">Metadata incomplete</option><option value="coa-missing">Missing COA</option>' +
-      '<option value="uncategorized">Uncategorized</option><option value="archived">Archived</option>' +
+      '<option value="uncategorized">Uncategorized</option><option value="missing-cost">Missing vendor cost</option>' +
+      '<option value="below-cost">Priced below cost</option><option value="archived">Archived</option>' +
     '</select></section>' +
     '<p class="queue-summary" id="catalog-summary" aria-live="polite"></p>' +
     '<section class="catalog-list" id="catalog-list"><div class="loading">Loading catalog…</div></section>'
@@ -256,7 +298,8 @@ export async function bindCatalogPage(helpers: Helpers) {
   if (!list) return
 
   try {
-    const [payload, rates] = await Promise.all([loadCoreCatalog(), listShippingRates()])
+    const [payload, rates, costs] = await Promise.all([loadCoreCatalog(), listShippingRates(), listVendorCosts()])
+    vendorCosts = costs
     const { products, categories, operations } = payload
 
     // ---------- New product ----------
@@ -274,6 +317,7 @@ export async function bindCatalogPage(helpers: Helpers) {
       if (importPanel) {
         bindImportPanel(importPanel, {
           products,
+          vendorCosts,
           categories,
           helpers,
           reload: () => bindCatalogPage(helpers),
@@ -312,7 +356,7 @@ export async function bindCatalogPage(helpers: Helpers) {
         '<div><span>Selling on Nexus</span><strong>' + live.filter(isSelling).length + '</strong></div>' +
         '<div><span>Not selling</span><strong>' + live.filter(product => !isSelling(product)).length + '</strong></div>' +
         '<div><span>Hidden from Resident/New</span><strong>' + live.filter(product => product.core_hidden).length + '</strong></div>' +
-        '<div><span>Featured</span><strong>' + live.filter(product => product.featured).length + '</strong></div>' +
+        '<div><span>Selling without vendor cost</span><strong>' + live.filter(product => isSelling(product) && costOf(product.id) === null).length + '</strong></div>' +
         '<div><span>Archived</span><strong>' + (products.length - live.length) + '</strong></div>' +
         '<div><span>Metadata complete</span><strong>' + operations.metadata.completeness_percent + '%</strong></div>' +
         '<div><span>Work queue</span><strong>' + operations.action_queue.length + '</strong></div>'
@@ -432,6 +476,7 @@ export async function bindCatalogPage(helpers: Helpers) {
     list.innerHTML = products.length
       ? products.map(product => productCard(product, categories, rates, helpers)).join('')
       : '<div class="empty-state"><h2>No products yet.</h2><p>Use “+ New product” to add one.</p></div>'
+    document.querySelectorAll<HTMLElement>('.catalog-product-form').forEach(form => bindProfitLive(form, helpers))
 
     const categorySelect = document.querySelector<HTMLSelectElement>('#catalog-category')
     if (categorySelect) {
@@ -486,7 +531,9 @@ export async function bindCatalogPage(helpers: Helpers) {
             (state === 'featured' && product.featured) ||
             (state === 'metadata-incomplete' && metadataQueueIds.has(product.id)) ||
             (state === 'coa-missing' && !product.coa_url) ||
-            (state === 'uncategorized' && !product.category_id)
+            (state === 'uncategorized' && !product.category_id) ||
+            (state === 'missing-cost' && costOf(product.id) === null) ||
+            (state === 'below-cost' && costOf(product.id) !== null && Number(product.price) < Number(costOf(product.id)))
           )
         if (state === 'archived' ? archived : !archived) pool += 1
         const visible = categoryMatch && stateMatch && (!search || haystack.includes(search))

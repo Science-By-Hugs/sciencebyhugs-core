@@ -13,7 +13,7 @@ import {
 // off sale (never deleted). Blank cells leave values unchanged.
 
 export const TEMPLATE_COLUMNS = [
-  'product_code', 'name', 'price', 'category', 'product_type', 'ships_from',
+  'product_code', 'name', 'price', 'vendor_cost', 'category', 'product_type', 'ships_from',
   'available', 'featured', 'hide_from_resident_new', 'description', 'image_url',
   'sku', 'research_name', 'purity', 'quantity', 'lot_number', 'coa_url',
 ]
@@ -27,6 +27,7 @@ type Helpers = {
 
 type Context = {
   products: CoreCatalogProduct[]
+  vendorCosts: Record<string, number>
   categories: CoreCatalogCategory[]
   helpers: Helpers
   reload: () => Promise<void>
@@ -40,7 +41,7 @@ export function importPanelMarkup() {
     '<summary><span class="secondary catalog-create-button">Import / Export CSV</span></summary>' +
     '<p class="catalog-editor-note">Upload a CSV to update the whole catalog at once. Nothing is saved until you review the preview and click Apply. ' +
     'The file is treated as your <strong>complete</strong> catalog: products that are selling now but missing from the file are taken off sale (never deleted). ' +
-    'Rows match on <strong>product_code</strong>, or on exact <strong>name</strong> when a row has no code; unmatched rows become new products. Blank cells leave values unchanged.</p>' +
+    '<strong>vendor_cost</strong> is Core-only and never shown to customers. Rows match on <strong>product_code</strong>, or on exact <strong>name</strong> when a row has no code; unmatched rows become new products. Blank cells leave values unchanged.</p>' +
     '<div class="catalog-import-actions">' +
       '<button class="secondary compact import-template" type="button">Download template</button>' +
       '<button class="secondary compact import-export" type="button">Export current catalog</button>' +
@@ -51,13 +52,14 @@ export function importPanelMarkup() {
   '</details>'
 }
 
-function exportRows(products: CoreCatalogProduct[], categories: CoreCatalogCategory[]) {
+function exportRows(products: CoreCatalogProduct[], categories: CoreCatalogCategory[], vendorCosts: Record<string, number>) {
   const categoryName = new Map(categories.map(category => [category.id, category.name]))
   const live = products
     .filter(product => String(product.storefront_status || '').toLowerCase() !== 'archived')
     .sort((a, b) => a.name.localeCompare(b.name))
   return [TEMPLATE_COLUMNS, ...live.map(product => [
     product.product_code, product.name, Number(product.price).toFixed(2),
+    Object.prototype.hasOwnProperty.call(vendorCosts, product.id) ? Number(vendorCosts[product.id]).toFixed(2) : '',
     product.category_id ? categoryName.get(product.category_id) || '' : '',
     product.product_type, product.shipping_from,
     yesNo(product.active && String(product.storefront_status || '').toLowerCase() === 'available'),
@@ -69,7 +71,7 @@ function exportRows(products: CoreCatalogProduct[], categories: CoreCatalogCateg
 
 function formatValue(value: unknown, field: string, money: Helpers['money']) {
   if (value === null || value === undefined || value === '') return '—'
-  if (field === 'price') return money(value as number)
+  if (field === 'price' || field === 'vendor_cost') return money(value as number)
   if (typeof value === 'boolean') return value ? 'yes' : 'no'
   const text = String(value)
   return text.length > 60 ? text.slice(0, 57) + '…' : text
@@ -81,7 +83,7 @@ function previewMarkup(preview: ImportPreviewResult, categories: CoreCatalogCate
   const label = (field: string) => ({
     category_id: 'category', shipping_from: 'ships from', core_hidden: 'hide from Resident/New',
     product_type: 'type', image_url: 'image', coa_url: 'COA', lot_number: 'lot', research_name: 'research name',
-    product_code: 'product code',
+    product_code: 'product code', vendor_cost: 'vendor cost',
   } as Record<string, string>)[field] || field
   const show = (field: string, value: unknown) =>
     escapeHtml(field === 'category_id' ? (categoryName.get(String(value)) || formatValue(value, field, money)) : formatValue(value, field, money))
@@ -110,6 +112,7 @@ function previewMarkup(preview: ImportPreviewResult, categories: CoreCatalogCate
     html += '<details class="import-section" open><summary>New products (' + preview.creates.length + ')</summary><ul>' +
       preview.creates.map(c => '<li><span>Row ' + c.row + '</span> <strong>' + escapeHtml(c.name) + '</strong>' +
         (c.product_code ? ' · ' + escapeHtml(c.product_code) : '') + ' · ' + money(c.price) +
+        (c.vendor_cost !== null ? ' (cost ' + money(c.vendor_cost) + ')' : '') +
         ' · ' + (c.available ? 'selling' : 'not selling') + '</li>').join('') + '</ul></details>'
   }
   if (preview.updates.length) {
@@ -156,7 +159,7 @@ export function bindImportPanel(root: HTMLElement, context: Context) {
   })
 
   root.querySelector<HTMLButtonElement>('.import-export')?.addEventListener('click', () => {
-    const rows = exportRows(context.products, context.categories)
+    const rows = exportRows(context.products, context.categories, context.vendorCosts)
     downloadCsv('core-catalog-' + today() + '.csv', toCsv(rows))
     say('Exported ' + (rows.length - 1) + ' products (archived products are left out).')
   })

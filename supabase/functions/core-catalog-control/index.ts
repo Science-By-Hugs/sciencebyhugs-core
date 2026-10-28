@@ -1,4 +1,3 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { buildImportPlan, planHash, type Category, type Product } from "./catalog-import.ts";
 
@@ -11,6 +10,8 @@ import { buildImportPlan, planHash, type Category, type Product } from "./catalo
 //   set_availability                          - sell / stop selling on Nexus
 //   remove_product                            - archive if ever ordered, otherwise delete
 //   import_preview / import_apply             - CSV catalog import (see catalog-import.ts)
+//   list_vendor_costs                         - vendor costs for Core (locked product_costs table)
+//   create_product / update_product also accept vendorCost ("" clears it)
 //   set_visibility / update_metadata / delete_product - unchanged from deployed v8
 // Every mutation writes core_audit_events.
 
@@ -103,6 +104,50 @@ Deno.serve(async (req: Request) => {
     if (error || !data?.value) throw new Error("Checkout configuration unavailable");
     return data.value as Record<string, unknown>;
   };
+
+  // ---------- Vendor costs (locked table; never exposed to customers) ----------
+  const loadVendorCosts = async (): Promise<Record<string, number>> => {
+    const { data, error } = await admin.from("product_costs").select("product_id,vendor_cost");
+    if (error) throw new Error("Could not load vendor costs");
+    const costs: Record<string, number> = {};
+    for (const row of data || []) costs[row.product_id] = Number(row.vendor_cost);
+    return costs;
+  };
+
+  // Returns undefined when the request does not mention vendorCost, null to clear it.
+  const readVendorCost = (): number | null | undefined => {
+    if (body.vendorCost === undefined) return undefined;
+    const text = String(body.vendorCost ?? "").trim();
+    if (!text) return null;
+    try { return parsePrice(text); } catch { throw new InputError("Vendor cost must be a number like 20 or 19.50"); }
+  };
+
+  const saveVendorCost = async (productId: string, productName: string, next: number | null) => {
+    const { data: current } = await admin.from("product_costs").select("vendor_cost").eq("product_id", productId).maybeSingle();
+    const before = current ? Number(current.vendor_cost) : null;
+    if (before === next) return { changed: false, vendorCost: next };
+    const now = new Date().toISOString();
+    const { error } = next === null
+      ? await admin.from("product_costs").delete().eq("product_id", productId)
+      : await admin.from("product_costs").upsert({ product_id: productId, vendor_cost: next, updated_at: now, updated_by: user.id });
+    if (error) throw new Error("Could not save vendor cost");
+    const { error: auditError } = await audit("catalog.vendor_cost.set", "product", productId,
+      { vendor_cost: before }, { vendor_cost: next }, { product_name: productName });
+    if (auditError) {
+      if (before === null) await admin.from("product_costs").delete().eq("product_id", productId);
+      else await admin.from("product_costs").upsert({ product_id: productId, vendor_cost: before, updated_at: now, updated_by: user.id });
+      throw new Error("Vendor cost change was rolled back because the audit event could not be recorded");
+    }
+    return { changed: true, vendorCost: next };
+  };
+
+  if (action === "list_vendor_costs") {
+    try {
+      return json({ success: true, costs: await loadVendorCosts() });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Could not load vendor costs" }, 500);
+    }
+  }
 
   if (action === "list_shipping_rates") {
     try {
@@ -226,7 +271,9 @@ Deno.serve(async (req: Request) => {
     try { rates = ((await loadCheckoutConfig()).shippingRates as Record<string, number>) || {}; }
     catch { return json({ error: "Checkout configuration unavailable" }, 500); }
 
-    const preview = buildImportPlan(rows, (products || []) as Product[], (categories || []) as Category[], rates);
+    let vendorCosts: Record<string, number>;
+    try { vendorCosts = await loadVendorCosts(); } catch { return json({ error: "Could not load vendor costs" }, 500); }
+    const preview = buildImportPlan(rows, (products || []) as Product[], (categories || []) as Category[], rates, vendorCosts);
     const hash = await planHash(preview.plan);
 
     if (action === "import_preview") {
@@ -265,7 +312,8 @@ Deno.serve(async (req: Request) => {
 
   if (action === "create_product") {
     let fields: Record<string, unknown>;
-    try { fields = await readProductFields(true); } catch (e) {
+    let vendorCost: number | null | undefined;
+    try { fields = await readProductFields(true); vendorCost = readVendorCost(); } catch (e) {
       return json({ error: e instanceof InputError ? e.message : "Could not validate product" }, 400);
     }
     const now = new Date().toISOString();
@@ -279,7 +327,12 @@ Deno.serve(async (req: Request) => {
       await admin.from("products").delete().eq("id", created.id);
       return json({ error: "Product creation was rolled back because the audit event could not be recorded" }, 500);
     }
-    return json({ success: true, product: created });
+    if (vendorCost !== undefined && vendorCost !== null) {
+      try { await saveVendorCost(created.id, created.name, vendorCost); } catch (e) {
+        return json({ success: true, product: created, vendorCost: null, warning: (e as Error).message });
+      }
+    }
+    return json({ success: true, product: created, vendorCost: vendorCost ?? null });
   }
 
   // ---------- Everything below acts on one existing product ----------
@@ -335,10 +388,19 @@ Deno.serve(async (req: Request) => {
     const stale = checkFresh();
     if (stale) return stale;
     let fields: Record<string, unknown>;
-    try { fields = await readProductFields(false); } catch (e) {
+    let vendorCost: number | null | undefined;
+    try { fields = await readProductFields(false); vendorCost = readVendorCost(); } catch (e) {
       return json({ error: e instanceof InputError ? e.message : "Could not validate product" }, 400);
     }
-    return await applyUpdate(fields, "catalog.product.update");
+    const productResponse = await applyUpdate(fields, "catalog.product.update");
+    if (vendorCost === undefined || productResponse.status !== 200) return productResponse;
+    const payload = await productResponse.json();
+    try {
+      const saved = await saveVendorCost(productId, before.name, vendorCost);
+      return json({ ...payload, vendorCost: saved.vendorCost });
+    } catch (e) {
+      return json({ ...payload, warning: (e as Error).message }, 200);
+    }
   }
 
   if (action === "set_availability") {
