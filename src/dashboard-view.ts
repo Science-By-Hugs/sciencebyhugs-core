@@ -1,4 +1,5 @@
 import { loadCoreDashboard, type CoreDashboard } from './services/dashboard'
+import { presetOrdersFilter, type OrdersFilter } from './orders-hub'
 
 // 2026-10-28 redesign: "Today" replaces the old dashboard hero.
 // What needs you first (each row has one action), then a few numbers, then the latest orders.
@@ -9,7 +10,7 @@ type Helpers = {
   dateTime: (value: string | null | undefined) => string
 }
 
-type Todo = { title: string; detail: string; tone: 'warn' | 'error' | 'go' | 'muted'; href: string; action: string }
+type Todo = { title: string; detail: string; tone: 'warn' | 'error' | 'go' | 'muted'; href: string; action: string; filter?: OrdersFilter }
 
 const plural = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 ? one : many)
 
@@ -28,22 +29,22 @@ function todos(data: CoreDashboard): Todo[] {
   if (attention.payment_submitted > 0) list.push({
     title: plural(attention.payment_submitted, 'payment') + ' to verify',
     detail: 'Customers submitted payment. Verify it so the order can ship.',
-    tone: 'warn', href: '#operations', action: 'Review',
+    tone: 'warn', href: '#orders', action: 'Review', filter: 'action',
   })
   if (attention.delayed_orders > 0) list.push({
     title: plural(attention.delayed_orders, 'delayed order'),
     detail: 'Update the customer or the delivery estimate.',
-    tone: 'error', href: '#operations', action: 'Open',
+    tone: 'error', href: '#orders', action: 'Open', filter: 'action',
   })
   if (toShip > 0) list.push({
     title: plural(toShip, 'order') + ' to ship',
     detail: 'Paid or ordered, not yet shipped.',
-    tone: 'go', href: '#operations', action: 'Open',
+    tone: 'go', href: '#orders', action: 'Open', filter: 'ship',
   })
   if (attention.active_unpaid_orders > 0) list.push({
     title: plural(attention.active_unpaid_orders, 'unpaid order'),
     detail: 'Checkouts that were started but not paid.',
-    tone: 'muted', href: '#checkout-pending', action: 'View',
+    tone: 'muted', href: '#orders', action: 'View', filter: 'unpaid',
   })
   if (attention.missing_coa > 0) list.push({
     title: plural(attention.missing_coa, 'product') + ' without a COA link',
@@ -86,7 +87,7 @@ export async function bindDashboardPage(helpers: Helpers) {
       '<h2 id="today-attention">Needs attention</h2>' +
       (items.length
         ? items.map(t =>
-            '<a class="today-row" href="' + t.href + '">' +
+            '<a class="today-row" href="' + t.href + '"' + (t.filter ? ' data-filter="' + t.filter + '"' : '') + '>' +
               '<span class="today-dot ' + t.tone + '" aria-hidden="true"></span>' +
               '<span class="today-row-main"><strong>' + escapeHtml(t.title) + '</strong><small>' + escapeHtml(t.detail) + '</small></span>' +
               '<span class="today-action">' + escapeHtml(t.action) + '</span>' +
@@ -121,6 +122,10 @@ export async function bindDashboardPage(helpers: Helpers) {
     '</section>'
 
     root.innerHTML = attention + stats + latest
+    root.querySelectorAll<HTMLAnchorElement>('a[data-filter]').forEach(a =>
+      a.addEventListener('click', () => presetOrdersFilter(a.dataset.filter as OrdersFilter)))
+    root.querySelectorAll<HTMLAnchorElement>('a.today-order, #today-latest a').forEach(a =>
+      a.addEventListener('click', () => presetOrdersFilter('all')))
   } catch (error) {
     root.innerHTML = '<div class="empty-state error-state"><h2>Could not load Today.</h2><p>' +
       escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p>' +
