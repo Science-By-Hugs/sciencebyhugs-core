@@ -23,6 +23,7 @@ import {
   updateFulfillment,
   type CoreInvoice,
 } from './services/invoices'
+import './slate.css' // loaded last: 2026-10-28 slate redesign
 
 const appRoot = document.querySelector<HTMLDivElement>('#app')
 if (!appRoot) throw new Error('App root not found')
@@ -67,6 +68,7 @@ type CoreView =
   | 'notifications'
   | 'audit'
   | 'account'
+  | 'more'
 
 const CORE_VIEWS: CoreView[] = [
   'dashboard',
@@ -82,6 +84,7 @@ const CORE_VIEWS: CoreView[] = [
   'notifications',
   'audit',
   'account',
+  'more',
 ]
 
 const LAST_CORE_VIEW_KEY = 'sciencebyhugs-core:last-view'
@@ -121,55 +124,51 @@ function keepCoreViewInUrl(view: CoreView) {
   history.replaceState(null, '', '#' + view)
 }
 
+const ICONS: Record<string, string> = {
+  today: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  orders: '<path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+  fulfillment: '<path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>',
+  customers: '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-6"/>',
+  catalog: '<path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+  finance: '<path d="M3 20h18M6 16v-6M11 16V6M16 16v-8M21 16V4"/>',
+  more: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+}
+const svg = (name: string) =>
+  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + '</svg>'
+
+// 2026-10-28 redesign: five main destinations; everything else lives under More.
+const MAIN_NAV: Array<[CoreView, string, string]> = [
+  ['dashboard', 'Today', 'today'],
+  ['orders', 'Orders', 'orders'],
+  ['operations', 'Fulfillment', 'fulfillment'],
+  ['customers', 'Customers', 'customers'],
+  ['catalog', 'Catalog', 'catalog'],
+  ['finance', 'Finance', 'finance'],
+]
+const MORE_NAV: Array<[CoreView, string]> = [
+  ['checkout-pending', 'Unpaid checkouts'],
+  ['referrals', 'Referrals'],
+  ['analytics', 'Analytics'],
+  ['notifications', 'Alerts'],
+  ['audit', 'Audit log'],
+  ['admin-tools', 'Settings'],
+  ['account', 'Account'],
+]
+const TAB_VIEWS: CoreView[] = ['dashboard', 'orders', 'customers', 'catalog']
+
+function moreScreen(email: string) {
+  // Phone "More": everything that isn't a bottom tab, plus account and sign out.
+  const links: Array<[CoreView, string]> = [['operations', 'Fulfillment'], ['finance', 'Finance'], ...MORE_NAV.filter(([v]) => v !== 'account')]
+  return '<section class="dashboard-head"><h1 class="dashboard-title">More</h1></section>' +
+    '<a class="more-account" href="#account">' + avatarMarkup() + '<span><strong>Account</strong><small>' + escapeHtml(email) + '</small></span></a>' +
+    '<nav class="more-list" aria-label="More sections">' +
+      links.map(([view, label]) => '<a href="#' + view + '">' + escapeHtml(label) + '</a>').join('') +
+    '</nav>' +
+    '<button class="more-signout" id="more-sign-out" type="button">Sign out</button>'
+}
+
 function shell(content: string, signedIn = false) {
   const activeView = resolveCoreView()
-  const navIcon: Record<CoreView, string> = {
-    dashboard: '⌂',
-    operations: '▤',
-    orders: '▱',
-    'checkout-pending': '⌛',
-    customers: '◎',
-    catalog: '◇',
-    analytics: '↗',
-    finance: '$',
-    referrals: '⌘',
-    'admin-tools': '⚙',
-    notifications: '!',
-    audit: '≡',
-    account: '◎',
-  }
-
-  const navLink = (view: CoreView, label: string) =>
-    '<a href="#' + view + '" class="' + (activeView === view ? 'active' : '') + '"' +
-    (activeView === view ? ' aria-current="page"' : '') + '>' +
-    '<span class="core-nav-icon" aria-hidden="true">' + navIcon[view] + '</span>' +
-    '<span>' + label + '</span></a>'
-
-  const navigation = signedIn
-    ? '<nav class="core-nav" aria-label="Core navigation">' +
-      '<div class="core-nav-group">' +
-        navLink('dashboard', 'Dashboard') +
-      '</div>' +
-      '<div class="core-nav-group"><span class="core-nav-label">OPERATIONS</span>' +
-        navLink('orders', 'Orders') +
-        navLink('checkout-pending', 'Checkout Pending') +
-        navLink('operations', 'Fulfillment') +
-        navLink('finance', 'Payments') +
-      '</div>' +
-      '<div class="core-nav-group"><span class="core-nav-label">BUSINESS</span>' +
-        navLink('customers', 'Customers') +
-        navLink('catalog', 'Catalog') +
-        navLink('referrals', 'Referrals') +
-        navLink('analytics', 'Analytics') +
-      '</div>' +
-      '<div class="core-nav-group"><span class="core-nav-label">SYSTEM</span>' +
-        navLink('admin-tools', 'Admin') +
-        navLink('notifications', 'Alerts') +
-        navLink('audit', 'Audit Log') +
-        navLink('account', 'Account') +
-      '</div>' +
-      '</nav>'
-    : ''
 
   if (!signedIn) {
     app.innerHTML = `
@@ -179,7 +178,6 @@ function shell(content: string, signedIn = false) {
           <div class="core-brand">
             <img class="core-brand-lockup" src="${coreLogoUrl}" alt="Core — Science By Hugs" />
           </div>
-          <span class="status">SYSTEM READY</span>
         </header>
         <div id="core-content" tabindex="-1">${content}</div>
       </main>
@@ -187,109 +185,49 @@ function shell(content: string, signedIn = false) {
     return
   }
 
+  const link = (view: CoreView, label: string, icon?: string) =>
+    '<a href="#' + view + '" class="' + (activeView === view ? 'active' : '') + '"' +
+    (activeView === view ? ' aria-current="page"' : '') + '>' + (icon ? svg(icon) : '') + '<span>' + label + '</span></a>'
+
+  const moreActive = activeView === 'more' || !TAB_VIEWS.includes(activeView)
+  const tab = (view: CoreView, label: string, icon: string, active: boolean) =>
+    '<a href="#' + view + '" class="' + (active ? 'active' : '') + '"' + (active ? ' aria-current="page"' : '') + '>' + svg(icon) + label + '</a>'
+
   app.innerHTML = `
     <a class="skip-link" href="#core-content">Skip to content</a>
-    ${pushPrompt()}
-    <div class="core-app-shell">
-      <aside class="core-sidebar" id="core-sidebar" aria-label="CORE workspace navigation">
-        <div class="core-sidebar-brand">
-          <img class="core-brand-lockup" src="${coreLogoUrl}" alt="Core — Science By Hugs" />
-          <button class="core-nav-close" id="core-nav-close" type="button" aria-label="Close navigation">×</button>
-        </div>
-        ${navigation}
-        <div class="core-sidebar-footer">
-          <div class="core-system-state"><i aria-hidden="true"></i><span>SYSTEM ONLINE</span></div>
-          <button class="ghost compact core-sign-out" id="sign-out">Sign out</button>
+    <div class="app">
+      <aside class="app-side" aria-label="Core navigation">
+        <a class="app-wordmark" href="#dashboard" aria-label="core. home">core<span>.</span></a>
+        <nav class="app-nav" aria-label="Main">${MAIN_NAV.map(([v, l, i]) => link(v, l, i)).join('')}</nav>
+        <div class="app-nav-sep"></div>
+        <span class="app-nav-label">More</span>
+        <nav class="app-nav app-nav-more" aria-label="More">${MORE_NAV.filter(([v]) => v !== 'account').map(([v, l]) => link(v, l)).join('')}</nav>
+        <div class="app-side-foot">
+          <a class="app-me core-account-shortcut" href="#account" title="Account">${avatarMarkup()}<span>Account</span></a>
+          <button class="app-signout secondary" id="sign-out" type="button">Sign out</button>
         </div>
       </aside>
-      <button class="core-nav-backdrop" id="core-nav-backdrop" type="button" aria-label="Close navigation"></button>
-
-      <section class="core-workspace">
-        <header class="core-commandbar">
-          <div class="core-command-search">
-            <span aria-hidden="true">⌕</span>
-            <input id="core-command-search" type="search" placeholder="Jump to a section…" autocomplete="off" />
-            <kbd>⌘K</kbd>
-          </div>
-          <div class="core-command-actions">
-            <a href="#account" class="core-command-icon core-account-shortcut" aria-label="Open account" title="Account">${avatarMarkup()}</a>
-            <a href="#notifications" class="core-command-icon" aria-label="Open alerts">!</a>
-            <span class="core-command-state"><i aria-hidden="true"></i> Live</span>
-          </div>
+      <div class="app-main">
+        <header class="app-topbar">
+          <a class="app-topbar-mark" href="#dashboard" aria-label="core. home">core<span>.</span></a>
+          <a class="app-me core-account-shortcut" href="#account" aria-label="Account">${avatarMarkup()}</a>
         </header>
-
-        <header class="core-mobile-bar">
-          <button class="core-menu-button" id="core-nav-toggle" type="button" aria-controls="core-sidebar" aria-expanded="false">
-            <span aria-hidden="true">☰</span><b>Menu</b>
-          </button>
-          <img class="core-mobile-logo" src="${coreLogoUrl}" alt="Core — Science By Hugs" />
-          <a href="#account" class="core-mobile-alert core-account-shortcut" aria-label="Open account" title="Account">${avatarMarkup()}</a>
-        </header>
-
-        <main class="core-content-shell" id="core-content" tabindex="-1">${content}</main>
-
-        <nav class="core-mobile-bottom-nav" aria-label="Mobile quick navigation">
-          <a href="#dashboard" class="${activeView === 'dashboard' ? 'active' : ''}"><span>⌂</span><b>Dashboard</b></a>
-          <a href="#orders" class="${activeView === 'orders' ? 'active' : ''}"><span>▱</span><b>Orders</b></a>
-          <a href="#finance" class="${activeView === 'finance' ? 'active' : ''}"><span>$</span><b>Finance</b></a>
-          <a href="#customers" class="${activeView === 'customers' ? 'active' : ''}"><span>◎</span><b>Customers</b></a>
-          <button id="core-mobile-more" type="button"><span>•••</span><b>More</b></button>
-        </nav>
-      </section>
+        <main class="app-content core-content-shell" id="core-content" tabindex="-1">${pushPrompt()}${content}</main>
+      </div>
+      <nav class="app-tabs" aria-label="Core sections">
+        ${tab('dashboard', 'Today', 'today', activeView === 'dashboard')}
+        ${tab('orders', 'Orders', 'orders', activeView === 'orders')}
+        ${tab('customers', 'Customers', 'customers', activeView === 'customers')}
+        ${tab('catalog', 'Catalog', 'catalog', activeView === 'catalog')}
+        ${tab('more', 'More', 'more', moreActive)}
+      </nav>
     </div>
   `
 
   void bindPushPanel()
   void bindAvatars('', activeView === 'account')
-  const sidebar = document.querySelector<HTMLElement>('#core-sidebar')
-  const toggle = document.querySelector<HTMLButtonElement>('#core-nav-toggle')
-  const close = document.querySelector<HTMLButtonElement>('#core-nav-close')
-  const backdrop = document.querySelector<HTMLButtonElement>('#core-nav-backdrop')
-  const more = document.querySelector<HTMLButtonElement>('#core-mobile-more')
-  const commandSearch = document.querySelector<HTMLInputElement>('#core-command-search')
 
-  const setNavigationOpen = (open: boolean) => {
-    document.body.classList.toggle('core-nav-open', open)
-    toggle?.setAttribute('aria-expanded', String(open))
-    sidebar?.setAttribute('aria-hidden', String(!open && window.matchMedia('(max-width: 900px)').matches))
-  }
-
-  const sectionMap: Array<[string, CoreView]> = [
-    ['dashboard', 'dashboard'], ['operations', 'operations'], ['fulfillment', 'operations'],
-    ['orders', 'orders'], ['checkout pending', 'checkout-pending'], ['pending checkout', 'checkout-pending'],
-    ['customers', 'customers'], ['catalog', 'catalog'],
-    ['finance', 'finance'], ['payments', 'finance'], ['analytics', 'analytics'],
-    ['referrals', 'referrals'], ['admin', 'admin-tools'], ['alerts', 'notifications'],
-    ['notifications', 'notifications'], ['audit', 'audit'], ['account', 'account'], ['profile', 'account'],
-  ]
-
-  const jumpToSearch = () => {
-    const query = commandSearch?.value.trim().toLowerCase()
-    if (!query) return
-    const match = sectionMap.find(([label]) => label.includes(query))
-    if (match) location.hash = match[1]
-  }
-
-  toggle?.addEventListener('click', () => setNavigationOpen(!document.body.classList.contains('core-nav-open')))
-  more?.addEventListener('click', () => setNavigationOpen(true))
-  close?.addEventListener('click', () => setNavigationOpen(false))
-  backdrop?.addEventListener('click', () => setNavigationOpen(false))
-  commandSearch?.addEventListener('keydown', event => {
-    if (event.key === 'Enter') jumpToSearch()
-  })
-  document.addEventListener('keydown', event => {
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-      event.preventDefault()
-      commandSearch?.focus()
-      return
-    }
-    if (event.key === 'Escape') setNavigationOpen(false)
-  })
-  document.querySelectorAll<HTMLAnchorElement>('.core-nav a').forEach(link =>
-    link.addEventListener('click', () => setNavigationOpen(false)),
-  )
-
-  document.querySelectorAll<HTMLButtonElement>('#sign-out, #account-sign-out').forEach(button=>button.addEventListener('click', async () => {
+  document.querySelectorAll<HTMLButtonElement>('#sign-out, #account-sign-out, #more-sign-out').forEach(button=>button.addEventListener('click', async () => {
     button.disabled=true
     try {
       await disablePush()
@@ -653,7 +591,7 @@ async function renderOperations(email: string) {
     <section class="dashboard-head dashboard-head-compact">
       <div>
         <span class="eyebrow">OPERATIONS</span>
-        <h1 class="dashboard-title">Operations</h1>
+        <h1 class="dashboard-title">Fulfillment</h1>
         <p class="copy">Work the live queue: invoices, payments, and fulfillment from one operational workspace.</p>
       </div>
       <div class="operator">Signed in as <strong>${escapeHtml(email)}</strong></div>
@@ -1083,6 +1021,11 @@ async function render() {
   if (activeView === 'account') {
     shell(accountScreen(email,accountRecovery),true)
     await bindAccount(email,accountRecovery,()=>{accountRecovery=false;location.hash='dashboard'})
+    return
+  }
+
+  if (activeView === 'more') {
+    shell(moreScreen(email), true)
     return
   }
 
