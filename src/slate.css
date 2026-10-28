@@ -28,7 +28,7 @@ h1,h2,h3,h4,.dashboard-title,.login-title{font-family:var(--sl-font)!important}
 
 /* Flat everywhere */
 *,*::before,*::after{box-shadow:none!important;text-shadow:none!important}
-body *:not(svg):not(path){background-image:none!important}
+body *:not(svg):not(path):not(select){background-image:none!important}
 :focus-visible{outline:2px solid var(--sl-text)!important;outline-offset:2px}
 
 /* Lines are quiet; controls get the 3:1 control border */
@@ -270,3 +270,19 @@ label>span,.customer-notes-editor span,.membership-control span,.account-status-
 @media (max-width:900px){
   .catalog-metrics{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(140px,44%);overflow-x:auto;scrollbar-width:none}
 }
+
+/* Dropdowns: one consistent chevron, inset from the rounded edge, text vertically centred (2026-10-28) */
+select{
+  -webkit-appearance:none!important;-moz-appearance:none!important;appearance:none!important;
+  background-color:var(--sl-bg)!important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A8B0B2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")!important;
+  background-repeat:no-repeat!important;
+  background-position:right 14px center!important;
+  background-size:16px 16px!important;
+  padding:0 42px 0 14px!important;
+  min-height:44px;line-height:normal!important;
+  text-overflow:ellipsis;cursor:pointer;
+}
+select::-ms-expand{display:none}
+select:disabled{opacity:.6;cursor:not-allowed}
+select option{background:var(--sl-surface);color:var(--sl-text)}
