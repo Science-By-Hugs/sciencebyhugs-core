@@ -1007,7 +1007,7 @@ async function renderCheckoutPending(email: string) {
 
 async function renderCustomers(email: string) {
   shell(customersPageMarkup(email, escapeHtml), true)
-  await bindCustomersPage({ escapeHtml, money, dateTime })
+  await bindCustomersPage({ escapeHtml, money, dateTime }, () => renderCustomers(email))
 }
 
 async function renderCatalog(email: string) {
