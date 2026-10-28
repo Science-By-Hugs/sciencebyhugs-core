@@ -9,9 +9,10 @@
 //    taken off sale (never deleted). Archived products are left alone.
 //  - Blank cells leave the existing value unchanged.
 //  - Any error blocks the whole import.
+//  - vendor_cost is stored in the locked product_costs table (never customer-visible).
 
 export const TEMPLATE_COLUMNS = [
-  "product_code", "name", "price", "category", "product_type", "ships_from",
+  "product_code", "name", "price", "vendor_cost", "category", "product_type", "ships_from",
   "available", "featured", "hide_from_resident_new", "description", "image_url",
   "sku", "research_name", "purity", "quantity", "lot_number", "coa_url",
 ] as const;
@@ -21,6 +22,7 @@ const HEADER_ALIASES: Record<string, string> = {
   shipping: "ships_from", selling: "available", selling_on_nexus: "available",
   hidden: "hide_from_resident_new", core_hidden: "hide_from_resident_new", image: "image_url",
   coa: "coa_url", lot: "lot_number", type: "product_type",
+  cost: "vendor_cost", vendor_price: "vendor_cost", unit_cost: "vendor_cost", customer_price: "price",
 };
 
 export type Product = {
@@ -45,7 +47,7 @@ export type ImportPlan = {
 export type ImportPreview = {
   plan: ImportPlan;
   summary: { rows: number; create: number; update: number; unchanged: number; takeOffSale: number; errors: number; currentlySelling: number };
-  creates: Array<{ row: number; name: string; product_code: string | null; price: number; available: boolean }>;
+  creates: Array<{ row: number; name: string; product_code: string | null; price: number; vendor_cost: number | null; available: boolean }>;
   updates: Array<{ row: number; name: string; product_code: string | null; matchedBy: "code" | "name"; changes: Change[] }>;
   takeoffs: Array<{ name: string; product_code: string | null }>;
   errors: Issue[];
@@ -82,6 +84,7 @@ export function buildImportPlan(
   products: Product[],
   categories: Category[],
   shippingRates: Record<string, number>,
+  vendorCosts: Record<string, number> = {},
 ): ImportPreview {
   const errors: Issue[] = [];
   const warnings: string[] = [];
@@ -139,6 +142,11 @@ export function buildImportPlan(
       const text = r.price.replace(/^\$/, "").replace(/,/g, "");
       if (!/^\d{1,6}(\.\d{1,2})?$/.test(text) || Number(text) > 100000) rowErrors.push(`price “${r.price}” must look like 49 or 49.99`);
       else fields.price = Math.round(Number(text) * 100) / 100;
+    }
+    if (has("vendor_cost")) {
+      const text = r.vendor_cost.replace(/^\$/, "").replace(/,/g, "");
+      if (!/^\d{1,6}(\.\d{1,2})?$/.test(text) || Number(text) > 100000) rowErrors.push(`vendor_cost “${r.vendor_cost}” must look like 20 or 19.50`);
+      else fields.vendor_cost = Math.round(Number(text) * 100) / 100;
     }
     for (const [col, max] of [["product_code", 120], ["sku", 120], ["research_name", 200], ["product_type", 120],
       ["purity", 120], ["quantity", 120], ["lot_number", 120], ["description", 5000]] as const) {
@@ -217,7 +225,8 @@ export function buildImportPlan(
     if (!match) {
       const selling = available === true;
       plan.creates.push({ row, fields: { ...fields, active: selling, storefront_status: selling ? "Available" : "Inactive" } });
-      creates.push({ row, name: String(fields.name), product_code: (fields.product_code as string) || null, price: Number(fields.price), available: selling });
+      creates.push({ row, name: String(fields.name), product_code: (fields.product_code as string) || null, price: Number(fields.price),
+        vendor_cost: fields.vendor_cost === undefined ? null : Number(fields.vendor_cost), available: selling });
       return;
     }
 
@@ -226,7 +235,9 @@ export function buildImportPlan(
     const changes: Change[] = [];
     const current = match as unknown as Record<string, unknown>;
     for (const [key, value] of Object.entries(fields)) {
-      const before = key === "price" ? Number(current.price) : (current[key] ?? null);
+      const before = key === "price" ? Number(current.price)
+        : key === "vendor_cost" ? (Object.prototype.hasOwnProperty.call(vendorCosts, match.id) ? Number(vendorCosts[match.id]) : null)
+        : (current[key] ?? null);
       // Match keys: a case-only difference is not a change (keeps the catalog's casing).
       const same = key === "product_code" || key === "name"
         ? norm(String(before ?? "")) === norm(String(value ?? ""))

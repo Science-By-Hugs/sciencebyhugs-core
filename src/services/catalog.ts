@@ -194,6 +194,7 @@ export async function deleteCatalogProduct(productId: string) {
 export type ProductInput = {
   name: string
   price: string
+  vendorCost: string
   categoryId: string
   productType: string
   shippingFrom: string
@@ -284,7 +285,7 @@ export type ImportPreviewResult = {
     errors: number
     currentlySelling: number
   }
-  creates: Array<{ row: number; name: string; product_code: string | null; price: number; available: boolean }>
+  creates: Array<{ row: number; name: string; product_code: string | null; price: number; vendor_cost: number | null; available: boolean }>
   updates: Array<{ row: number; name: string; product_code: string | null; matchedBy: 'code' | 'name'; changes: ImportChange[] }>
   takeoffs: Array<{ name: string; product_code: string | null }>
   errors: Array<{ row: number; message: string }>
@@ -312,4 +313,11 @@ export async function applyCatalogImport(
 ) {
   return catalogControl<ImportApplyResult>(
     { action: 'import_apply', rows, fileName, planHash, confirmTakeoffs }, 'The import failed and nothing was saved')
+}
+
+// ---------- Vendor pricing (2026-10-27): Core-only, never sent to Nexus ----------
+export async function listVendorCosts() {
+  const data = await catalogControl<{ costs: Record<string, number> }>(
+    { action: 'list_vendor_costs' }, 'Could not load vendor costs')
+  return data.costs || {}
 }
