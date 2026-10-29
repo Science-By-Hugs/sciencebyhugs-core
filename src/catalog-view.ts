@@ -485,9 +485,10 @@ export async function bindCatalogPage(helpers: Helpers) {
 
     const categorySelect = document.querySelector<HTMLSelectElement>('#catalog-category')
     if (categorySelect) {
-      categorySelect.insertAdjacentHTML('beforeend', categories.map(category =>
+      // The toolbar survives reloads, so rebuild the list instead of appending to it.
+      categorySelect.innerHTML = '<option value="all">All categories</option>' + categories.map(category =>
         '<option value="' + helpers.escapeHtml(category.slug) + '">' + helpers.escapeHtml(category.name) + '</option>'
-      ).join(''))
+      ).join('')
     }
 
     const savedViewState = loadCatalogViewState()
@@ -681,21 +682,21 @@ export async function bindCatalogPage(helpers: Helpers) {
       })
     })
 
-    searchInput?.addEventListener('input', event => {
+    if (searchInput) searchInput.oninput = event => {
       search = (event.currentTarget as HTMLInputElement).value.trim().toLowerCase()
       saveCatalogViewState({ search, category, state })
       apply()
-    })
-    categorySelect?.addEventListener('change', event => {
+    }
+    if (categorySelect) categorySelect.onchange = event => {
       category = (event.currentTarget as HTMLSelectElement).value
       saveCatalogViewState({ search, category, state })
       apply()
-    })
-    stateSelect?.addEventListener('change', event => {
+    }
+    if (stateSelect) stateSelect.onchange = event => {
       state = (event.currentTarget as HTMLSelectElement).value
       saveCatalogViewState({ search, category, state })
       apply()
-    })
+    }
     apply()
 
     // 2026-10-28 redesign: compact product list; the full product card opens in a side panel / phone sheet.
