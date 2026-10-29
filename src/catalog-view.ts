@@ -15,6 +15,7 @@ import {
   type ProductInput,
 } from './services/catalog'
 import { bindImportPanel, importPanelMarkup } from './catalog-import-view'
+import { bindCatalogBulk, bulkBarMarkup, bulkToolbarMarkup } from './catalog-bulk'
 import { pct, profitFigures } from './pricing'
 
 // Google exit (2026-10-27): Core is the source of truth for the Nexus catalog.
@@ -291,7 +292,8 @@ export function catalogPageMarkup(email: string, escapeHtml: Helpers['escapeHtml
       '<option value="metadata-incomplete">Metadata incomplete</option><option value="coa-missing">Missing COA</option>' +
       '<option value="uncategorized">Uncategorized</option><option value="missing-cost">Missing vendor cost</option>' +
       '<option value="below-cost">Priced below cost</option><option value="archived">Archived</option>' +
-    '</select></section>' +
+    '</select>' + bulkToolbarMarkup() + '</section>' +
+    '<div id="catalog-bulk"></div>' +
     '<p class="queue-summary" id="catalog-summary" aria-live="polite"></p>' +
     '<section class="catalog-list" id="catalog-list"><div class="loading">Loading catalog…</div></section>'
 }
@@ -697,7 +699,9 @@ export async function bindCatalogPage(helpers: Helpers) {
     apply()
 
     // 2026-10-28 redesign: compact product list; the full product card opens in a side panel / phone sheet.
-    mountMasterDetail({
+    let onSelection: (ids: string[]) => void = () => {}
+    const controller = mountMasterDetail({
+      onSelectionChange: ids => onSelection(ids),
       list,
       cardSelector: '.catalog-card',
       idOf: card => card.dataset.productId || '',
@@ -716,6 +720,33 @@ export async function bindCatalogPage(helpers: Helpers) {
         }
       },
     })
+
+    // 2026-10-29: bulk select (checkboxes) for mass changes and deletes.
+    const bulkEl = document.querySelector<HTMLElement>('#catalog-bulk')
+    const toolbar = document.querySelector<HTMLElement>('.catalog-toolbar')
+    const toggle = toolbar?.querySelector<HTMLButtonElement>('.catalog-select-toggle')
+    if (bulkEl && toolbar && toggle && controller) {
+      // The toolbar survives reloads; swap the button so listeners never stack up.
+      const freshToggle = toggle.cloneNode(true) as HTMLButtonElement
+      freshToggle.textContent = 'Select'
+      freshToggle.setAttribute('aria-pressed', 'false')
+      freshToggle.hidden = false
+      toggle.replaceWith(freshToggle)
+      bulkEl.innerHTML = bulkBarMarkup(categories, helpers.escapeHtml)
+      const refresh = bindCatalogBulk(document.body, {
+        products,
+        categories,
+        controller,
+        helpers,
+        reload: async () => {
+          saveCatalogViewState({ search, category, state })
+          await bindCatalogPage(helpers)
+        },
+      })
+      if (refresh) onSelection = refresh
+    } else if (toggle) {
+      toggle.hidden = true
+    }
   } catch (error) {
     list.innerHTML = '<div class="empty-state error-state"><h2>Could not load catalog.</h2><p>' +
       helpers.escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p></div>'

@@ -20,6 +20,18 @@ type Options = {
   row: (card: HTMLElement) => RowInfo
   key: string
   backLabel: string
+  /** Called whenever the bulk selection changes (selection mode only). */
+  onSelectionChange?: (ids: string[]) => void
+}
+
+/** Returned by mountMasterDetail so a page can offer bulk selection over its rows. */
+export type MasterDetailController = {
+  setSelecting: (on: boolean) => void
+  isSelecting: () => boolean
+  selectedIds: () => string[]
+  /** Select every row that is currently shown (respects search and filters). */
+  selectVisible: () => void
+  clear: () => void
 }
 
 const esc = (value: unknown) =>
@@ -43,12 +55,12 @@ function remember(key: string, id: string | null) {
   } catch { /* convenience only */ }
 }
 
-export function mountMasterDetail(opts: Options) {
+export function mountMasterDetail(opts: Options): MasterDetailController | null {
   const { list } = opts
   document.body.classList.remove('md-open')
-  list.classList.remove('md-has-open')
+  list.classList.remove('md-has-open', 'md-selecting')
   const cards = Array.from(list.querySelectorAll<HTMLElement>(opts.cardSelector))
-  if (!cards.length) return
+  if (!cards.length) return null
 
   const store = document.createElement('div')
   store.className = 'md-store'
@@ -104,6 +116,18 @@ export function mountMasterDetail(opts: Options) {
     if (focus) panel.querySelector<HTMLElement>('.md-close')?.focus({ preventScroll: true })
   }
 
+  let selecting = false
+  const selected = new Set<string>()
+  const notify = () => opts.onSelectionChange?.(Array.from(selected))
+  const paint = (id: string) => {
+    const r = rowById.get(id)
+    if (!r) return
+    const on = selected.has(id)
+    r.classList.toggle('md-row-selected', on)
+    if (selecting) r.setAttribute('aria-pressed', String(on))
+    else r.removeAttribute('aria-pressed')
+  }
+
   for (const card of cards) {
     const id = opts.idOf(card)
     const info = opts.row(card)
@@ -112,15 +136,30 @@ export function mountMasterDetail(opts: Options) {
     row.className = 'md-row'
     row.setAttribute('aria-expanded', 'false')
     row.innerHTML =
+      '<span class="md-check" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></span>' +
       '<span class="md-row-main"><strong>' + esc(info.title) + '</strong>' +
         (info.sub ? '<small>' + esc(info.sub) + '</small>' : '') + '</span>' +
       '<span class="md-row-side">' +
         (info.meta ? '<b>' + esc(info.meta) + '</b>' : '') +
         (info.badge ? '<span class="tone ' + (info.tone || 'muted') + '">' + esc(info.badge) + '</span>' : '') +
       '</span>'
-    row.addEventListener('click', () => (openCard === card ? close() : open(id, true)))
+    row.addEventListener('click', () => {
+      if (selecting) {
+        if (selected.has(id)) selected.delete(id)
+        else selected.add(id)
+        paint(id)
+        notify()
+        return
+      }
+      if (openCard === card) close()
+      else open(id, true)
+    })
     row.hidden = card.hidden
-    new MutationObserver(() => { row.hidden = card.hidden }).observe(card, { attributes: true, attributeFilter: ['hidden'] })
+    new MutationObserver(() => {
+      row.hidden = card.hidden
+      // A row that a filter hides cannot stay selected: bulk actions only touch what you can see.
+      if (card.hidden && selected.delete(id)) { paint(id); notify() }
+    }).observe(card, { attributes: true, attributeFilter: ['hidden'] })
     rowById.set(id, row)
     rows.appendChild(row)
   }
@@ -137,5 +176,28 @@ export function mountMasterDetail(opts: Options) {
   else if (!isPhone()) {
     const first = cards.find(c => !c.hidden)
     if (first) open(opts.idOf(first))
+  }
+
+  return {
+    setSelecting(on: boolean) {
+      selecting = on
+      list.classList.toggle('md-selecting', on)
+      if (on) close()
+      else selected.clear()
+      rowById.forEach((_, id) => paint(id))
+      notify()
+    },
+    isSelecting: () => selecting,
+    selectedIds: () => Array.from(selected),
+    selectVisible() {
+      rowById.forEach((r, id) => { if (!r.hidden) selected.add(id) })
+      rowById.forEach((_, id) => paint(id))
+      notify()
+    },
+    clear() {
+      selected.clear()
+      rowById.forEach((_, id) => paint(id))
+      notify()
+    },
   }
 }
