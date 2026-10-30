@@ -326,3 +326,16 @@ select option{background:var(--sl-surface);color:var(--sl-text)}
 .md-selecting .md-row:focus{background:transparent!important;color:var(--sl-text)!important}
 .md-selecting .md-row.md-row-selected:focus,.md-selecting .md-row.md-row-selected{background:var(--sl-raised)!important;color:var(--sl-text)!important}
 .md-selecting .md-row:focus-visible{outline:2px solid var(--sl-text);outline-offset:-2px}
+
+/* 2026-10-30 discount codes in Referrals */
+.discount-code-filter{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 10px}
+.discount-code-filter .active{background:var(--sl-raised)!important;color:var(--sl-text)!important}
+.discount-code-admin-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--sl-line)}
+.discount-code-admin-row:last-child{border-bottom:0}
+.discount-code-admin-row strong{display:block;font-size:15px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.discount-code-admin-row small{display:block;margin-top:2px;font-size:13px;color:var(--sl-muted)}
+.discount-code-admin-row b{font-size:12px;letter-spacing:.06em;color:var(--sl-muted)}
+.discount-code-admin-row b[data-status="available"],.discount-code-admin-row b[data-status="always-on"]{color:var(--sl-text)}
+.generated-discount-code{border-color:var(--sl-control)!important;background:var(--sl-raised)!important}
+.generated-discount-code>strong{color:var(--sl-text)!important}
+.discount-generator-row select{border-color:var(--sl-control)!important;background:var(--sl-bg)!important}

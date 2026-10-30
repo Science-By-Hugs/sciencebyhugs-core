@@ -1,4 +1,5 @@
 import { loadCoreReferrals } from './services/referrals'
+import { bindDiscountCodesPanel, discountCodesPanelMarkup } from './discount-codes-panel'
 
 type Helpers = {
   escapeHtml: (value: unknown) => string
@@ -72,7 +73,9 @@ export async function bindReferralsPage(helpers: Helpers) {
             ).join('') + '</div>'
           : '<p class="dashboard-muted">No referral records.</p>') +
       '</section>' +
+      discountCodesPanelMarkup() +
       '<p class="dashboard-generated">Referrals generated ' + helpers.escapeHtml(helpers.dateTime(data.generated_at)) + '</p>'
+    await bindDiscountCodesPanel(helpers)
   } catch (error) {
     root.innerHTML = '<div class="empty-state error-state"><h2>Could not load referrals.</h2><p>' +
       helpers.escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p></div>'
