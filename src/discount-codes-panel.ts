@@ -32,7 +32,7 @@ export function discountCodesPanelMarkup() {
           '<select id="dc-type" aria-label="Discount type"><option value="percent">% off products</option><option value="shipping">$ off shipping</option></select>' +
           '<input id="dc-amount" inputmode="decimal" placeholder="15" aria-label="Amount"></span></label>' +
         '<label><span>Uses</span><select id="dc-uses"><option value="one">One time</option><option value="many">Reusable</option></select></label>' +
-        '<label><span>Expires (optional)</span><input id="dc-expires" type="date"></label>' +
+        '<label><span>Expires (optional)</span><input id="dc-expires" type="date" aria-label="Expiry date (optional)"></label>' +
         '<div class="dc-assign"><span class="dc-field-label">Assign to a customer (optional)</span>' +
           '<div class="dc-assign-picked" hidden><strong></strong><button type="button" class="ghost compact dc-unassign">Remove</button></div>' +
           '<input id="dc-customer-search" type="search" autocomplete="off" placeholder="Search name, email or SBH-####">' +
@@ -216,6 +216,12 @@ export async function bindDiscountCodesPanel(helpers: Helpers) {
   })
   pickedBox.querySelector('.dc-unassign')!.addEventListener('click', () => setPicked(null))
 
+  // iOS Safari leaves an empty date input blank; mark when it has a value so CSS can show a hint.
+  const expiresInput = $<HTMLInputElement>('#dc-expires')
+  const syncDate = () => expiresInput.classList.toggle('has-value', Boolean(expiresInput.value))
+  expiresInput.addEventListener('input', syncDate)
+  expiresInput.addEventListener('change', syncDate)
+
   // ---- Create custom discount ----
   const typeSelect = $<HTMLSelectElement>('#dc-type')
   const amountInput = $<HTMLInputElement>('#dc-amount')
@@ -246,6 +252,7 @@ export async function bindDiscountCodesPanel(helpers: Helpers) {
       showNew(result.code.code)
       say(result.code.code + ' created' + (picked ? ' for ' + customerName(picked) + '. It now shows in their account.' : '.') + ' Audit event recorded.')
       ;['#dc-code', '#dc-label', '#dc-expires'].forEach(sel => { $<HTMLInputElement>(sel).value = '' })
+      syncDate()
       amountInput.value = ''
       setPicked(null)
     } catch (error) {
