@@ -369,3 +369,25 @@ select option{background:var(--sl-surface);color:var(--sl-text)}
 }
 .generated-discount-code[hidden]{display:none!important}
 .discount-code-admin-row .dc-row-actions{display:flex!important;flex-direction:row;align-items:center}
+
+/* 2026-10-30: every field in the discount form is the same box (iOS Safari draws date
+   inputs natively: shorter, wider and blank unless we reset them). */
+.discount-form :is(input,select),.discount-form .dc-amount-row :is(input,select),#dc-customer-search{
+  -webkit-appearance:none!important;appearance:none!important;display:block!important;
+  width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;
+  height:48px!important;min-height:48px!important;margin:0!important;padding:0 14px!important;
+  border:1px solid var(--sl-control)!important;border-radius:12px!important;
+  background:var(--sl-surface)!important;color:var(--sl-text)!important;
+  font:inherit!important;font-size:16px!important;line-height:48px!important;text-align:left!important}
+.discount-form select,.discount-form .dc-amount-row select{padding-right:40px!important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23A8B0B2' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")!important;
+  background-repeat:no-repeat!important;background-position:right 14px center!important}
+.discount-form input[type="date"]{position:relative}
+.discount-form input[type="date"]::-webkit-date-and-time-value{text-align:left;margin:0;line-height:48px}
+.discount-form input[type="date"]::-webkit-calendar-picker-indicator{opacity:.7;filter:invert(1)}
+/* Empty date shows a hint instead of a blank box. */
+.discount-form input[type="date"]:not(.has-value)::before{content:"No expiry";color:var(--sl-muted)}
+.discount-form input[type="date"]:not(.has-value):focus::before{content:""}
+.discount-form input::placeholder{color:var(--sl-muted)!important;opacity:1}
+.dc-amount-row{grid-template-columns:minmax(0,1fr) minmax(0,120px)!important}
+.discount-form label>span:first-child,.dc-field-label{font-size:13px!important;letter-spacing:.02em!important;margin-bottom:8px!important}
