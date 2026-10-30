@@ -100,10 +100,19 @@ export async function sendCustomerActivationEmail(email: string) {
 }
 
 
+export type DiscountCustomer = {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  customer_number: string | null
+  email: string | null
+}
+
 export type DiscountCodeRecord = {
   id: string
   code: string
-  kind: 'free_shipping' | 'referral_bonus' | 'new_customer' | 'group_buy'
+  kind: 'free_shipping' | 'referral_bonus' | 'new_customer' | 'group_buy' | 'custom'
+  label?: string | null
   discount_percent: number | null
   shipping_discount: number | null
   one_time: boolean
@@ -111,6 +120,53 @@ export type DiscountCodeRecord = {
   active: boolean
   created_at: string
   used_at: string | null
+  expires_at?: string | null
+  assigned_profile_id?: string | null
+  assigned?: DiscountCustomer | null
+}
+
+export type CustomDiscountInput = {
+  code: string
+  label: string
+  type: 'percent' | 'shipping'
+  amount: string
+  oneTime: boolean
+  expiresAt: string | null
+  assignedProfileId: string | null
+}
+
+async function discountControl<T>(body: Record<string, unknown>, fallback: string): Promise<T> {
+  const { data, error } = await supabase.functions.invoke('core-discount-codes', { body })
+  if (error) {
+    let message = fallback
+    try {
+      const context = (error as { context?: Response }).context
+      const payload = context ? await context.json() : null
+      if (payload?.error) message = payload.error
+    } catch {
+      // keep fallback
+    }
+    throw new Error(message)
+  }
+  if (!data?.success) throw new Error(data?.error || fallback)
+  return data as T
+}
+
+export async function createCustomDiscountCode(input: CustomDiscountInput) {
+  return discountControl<{ success: true; code: { id: string; code: string }; codes: DiscountCodeRecord[] }>(
+    { action: 'create', ...input }, 'Could not create discount code')
+}
+
+export async function setDiscountCodeActive(id: string, active: boolean) {
+  const data = await discountControl<{ codes: DiscountCodeRecord[] }>(
+    { action: 'set_active', id, active }, 'Could not update discount code')
+  return data.codes
+}
+
+export async function searchDiscountCustomers(query: string) {
+  const data = await discountControl<{ customers: DiscountCustomer[] }>(
+    { action: 'customers', query }, 'Could not search customers')
+  return data.customers
 }
 
 export async function loadDiscountCodes(): Promise<DiscountCodeRecord[]> {

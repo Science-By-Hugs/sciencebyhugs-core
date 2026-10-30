@@ -326,3 +326,46 @@ select option{background:var(--sl-surface);color:var(--sl-text)}
 .md-selecting .md-row:focus{background:transparent!important;color:var(--sl-text)!important}
 .md-selecting .md-row.md-row-selected:focus,.md-selecting .md-row.md-row-selected{background:var(--sl-raised)!important;color:var(--sl-text)!important}
 .md-selecting .md-row:focus-visible{outline:2px solid var(--sl-text);outline-offset:-2px}
+
+/* 2026-10-30 discount codes in Referrals */
+.discount-code-filter{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 10px}
+.discount-code-filter .active{background:var(--sl-raised)!important;color:var(--sl-text)!important}
+.discount-code-admin-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--sl-line)}
+.discount-code-admin-row:last-child{border-bottom:0}
+.discount-code-admin-row strong{display:block;font-size:15px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.discount-code-admin-row small{display:block;margin-top:2px;font-size:13px;color:var(--sl-muted)}
+.discount-code-admin-row b{font-size:12px;letter-spacing:.06em;color:var(--sl-muted)}
+.discount-code-admin-row b[data-status="available"],.discount-code-admin-row b[data-status="always-on"]{color:var(--sl-text)}
+.generated-discount-code{border-color:var(--sl-control)!important;background:var(--sl-raised)!important}
+.generated-discount-code>strong{color:var(--sl-text)!important}
+.discount-generator-row select{border-color:var(--sl-control)!important;background:var(--sl-bg)!important}
+.discount-create,.discount-quick{margin:12px 0;border:1px solid var(--sl-line);border-radius:12px;background:var(--sl-bg)}
+.discount-create>summary,.discount-quick>summary{cursor:pointer;padding:14px 16px;list-style:none;display:flex;flex-direction:column;gap:2px}
+.discount-create>summary::-webkit-details-marker,.discount-quick>summary::-webkit-details-marker{display:none}
+.discount-create>summary small,.discount-quick>summary small{font-size:13px;color:var(--sl-muted)}
+.discount-quick .discount-generator-row{padding:0 16px 16px}
+.discount-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;padding:0 16px}
+.discount-form label>span:first-child,.dc-field-label{display:block;margin-bottom:6px;font-size:12px;letter-spacing:.04em;color:var(--sl-muted)}
+.discount-form input,.discount-form select{width:100%;min-height:44px;border:1px solid var(--sl-control);border-radius:10px;background:var(--sl-surface);color:var(--sl-text);padding:0 12px;font:inherit;font-size:15px;box-sizing:border-box}
+.dc-amount-row{display:grid!important;grid-template-columns:minmax(0,1fr) 110px;gap:8px;margin:0!important;font-size:inherit!important;color:inherit!important;letter-spacing:0!important}
+.dc-assign{grid-column:1/-1}
+.dc-assign>small{display:block;margin-top:6px;font-size:12px;color:var(--sl-muted)}
+.dc-assign-picked{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:0 6px 0 12px;border:1px solid var(--sl-control);border-radius:10px;background:var(--sl-raised)}
+.dc-assign-picked[hidden]{display:none}
+.dc-customer-results{display:grid;gap:2px;margin-top:6px;max-height:220px;overflow:auto}
+.dc-customer{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:2px;width:100%;padding:10px 12px!important;border:0!important;border-radius:8px!important;background:var(--sl-surface)!important;color:var(--sl-text)!important;text-align:left;font:inherit}
+.dc-customer:hover{background:var(--sl-raised)!important}
+.dc-customer small{font-size:12px;color:var(--sl-muted)}
+.discount-form-actions{display:flex;justify-content:flex-end;padding:14px 16px 16px}
+.discount-code-admin-row{grid-template-columns:minmax(0,1fr) auto auto!important}
+.dc-row-actions{display:flex;gap:6px;flex-wrap:nowrap;justify-content:flex-end}
+.dc-meta{color:var(--sl-text)!important;opacity:.8}
+.discount-code-admin-row b[data-status="off"],.discount-code-admin-row b[data-status="expired"]{color:var(--sl-warning)}
+@media(max-width:700px){
+  .discount-form{grid-template-columns:1fr}
+  .discount-code-admin-row{grid-template-columns:minmax(0,1fr) auto!important}
+  .discount-code-admin-row>b{grid-column:2;grid-row:1}
+  .dc-row-actions{grid-column:1/-1;justify-content:flex-start}
+}
+.generated-discount-code[hidden]{display:none!important}
+.discount-code-admin-row .dc-row-actions{display:flex!important;flex-direction:row;align-items:center}

@@ -1,4 +1,4 @@
-import { generateDiscountCode, inviteCustomerProfile, loadAdminTools, loadDiscountCodes, saveMessageTemplate, sendCustomerActivationEmail, type DiscountCodeRecord, type MessageTemplate } from './services/admin-tools'
+import { inviteCustomerProfile, loadAdminTools, saveMessageTemplate, sendCustomerActivationEmail, type MessageTemplate } from './services/admin-tools'
 
 type Helpers = {
   escapeHtml: (value: unknown) => string
@@ -58,16 +58,7 @@ export async function bindAdminToolsPage(helpers: Helpers) {
         '</section>' +
       '</div>' +
 
-      '<section class="admin-panel discount-admin-panel"><div class="dashboard-section-head"><div><span class="eyebrow">PROMOTIONS</span><h2>Discount code generator</h2></div></div>' +
-        '<p class="admin-note">Generate a one-time code for Free Shipping ($20 off shipping) or Referral Bonus (10% off). Generated codes use the SBH### format.</p>' +
-        '<div class="discount-generator-row">' +
-          '<label><span>Discount type</span><select id="discount-code-kind"><option value="free_shipping">Free Shipping</option><option value="referral_bonus">Referral Bonus</option></select></label>' +
-          '<button id="generate-discount-code" class="primary" type="button">Generate Code</button>' +
-        '</div>' +
-        '<div id="generated-discount-code" class="generated-discount-code" hidden></div>' +
-        '<p id="discount-generator-message" class="card-message"></p>' +
-        '<div class="discount-code-list" id="discount-code-list"></div>' +
-      '</section>' +
+      '<p class="admin-note">Discount codes moved to <a href="#referrals">Referrals → Discount codes</a>.</p>' +
 
       '<section class="admin-panel"><div class="dashboard-section-head"><div><span class="eyebrow">MESSAGE LIBRARY</span><h2>Canned responses</h2></div></div>' +
         (data.templates.length
@@ -79,60 +70,6 @@ export async function bindAdminToolsPage(helpers: Helpers) {
             ).join('') + '</div>'
           : '<p class="dashboard-muted">No message templates yet.</p>') +
       '</section>'
-
-    const discountList = document.querySelector<HTMLDivElement>('#discount-code-list')
-    const renderDiscountCodes = (codes: DiscountCodeRecord[]) => {
-      if (!discountList) return
-      discountList.innerHTML = codes.length
-        ? codes.map(code => {
-            const label =
-              code.kind === 'free_shipping' ? 'Free Shipping' :
-              code.kind === 'referral_bonus' ? 'Referral Bonus · 10%' :
-              code.kind === 'new_customer' ? 'New Customer · 5%' :
-              'Group Buy · 50%'
-            const status = code.one_time
-              ? (code.used_at ? 'USED' : 'AVAILABLE')
-              : 'ALWAYS ON'
-            return '<div class="discount-code-admin-row">' +
-              '<span><strong>' + helpers.escapeHtml(code.code) + '</strong><small>' + helpers.escapeHtml(label) + '</small></span>' +
-              '<b data-status="' + status.toLowerCase().replaceAll(' ','-') + '">' + status + '</b>' +
-            '</div>'
-          }).join('')
-        : '<p class="dashboard-muted">No discount codes yet.</p>'
-    }
-
-    try {
-      renderDiscountCodes(await loadDiscountCodes())
-    } catch {
-      if (discountList) discountList.innerHTML = '<p class="dashboard-muted">Could not load discount codes.</p>'
-    }
-
-    document.querySelector<HTMLButtonElement>('#generate-discount-code')?.addEventListener('click', async event => {
-      const button = event.currentTarget as HTMLButtonElement
-      const select = document.querySelector<HTMLSelectElement>('#discount-code-kind')
-      const message = document.querySelector<HTMLParagraphElement>('#discount-generator-message')
-      const output = document.querySelector<HTMLDivElement>('#generated-discount-code')
-      const kind = select?.value === 'referral_bonus' ? 'referral_bonus' : 'free_shipping'
-      button.disabled = true
-      if (message) message.textContent = 'Generating secure one-time code…'
-      try {
-        const result = await generateDiscountCode(kind)
-        if (output) {
-          output.hidden = false
-          output.innerHTML = '<span>NEW CODE</span><strong>' + helpers.escapeHtml(result.code.code) + '</strong><button type="button" class="secondary" id="copy-generated-code">Copy</button>'
-        }
-        document.querySelector<HTMLButtonElement>('#copy-generated-code')?.addEventListener('click', async () => {
-          await navigator.clipboard.writeText(result.code.code)
-          if (message) message.textContent = 'Copied ' + result.code.code + ' to clipboard.'
-        })
-        renderDiscountCodes(result.codes)
-        if (message) message.textContent = result.code.code + ' is ready for one-time use.'
-      } catch (error) {
-        if (message) message.textContent = error instanceof Error ? error.message : 'Could not generate discount code.'
-      } finally {
-        button.disabled = false
-      }
-    })
 
     document.querySelectorAll<HTMLButtonElement>('.send-customer-activation').forEach(button => {
       button.addEventListener('click', async () => {
