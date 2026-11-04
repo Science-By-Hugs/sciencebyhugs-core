@@ -1,5 +1,6 @@
 import { pushPanel, bindPushPanel } from './push'
 import { loadCoreNotifications, loadNexusPushRecipients, sendNexusPush } from './services/notifications'
+import { nexusOnboardingPanelMarkup, bindNexusOnboardingPanel } from './nexus-onboarding-view'
 
 type Helpers = {
   escapeHtml: (value: unknown) => string
@@ -24,11 +25,13 @@ export function notificationsPageMarkup(email: string, escapeHtml: Helpers['esca
       '<div class="nexus-push-actions"><p id="nexus-push-status" class="form-message" aria-live="polite">Loading eligible Nexus recipients…</p>' +
       '<button id="nexus-push-send" class="primary" type="button" disabled>Send Notification</button></div>' +
     '</section>' +
+    nexusOnboardingPanelMarkup() +
     '<section id="notifications-root"><div class="loading">Loading notifications…</div></section>'
 }
 
 export async function bindNotificationsPage(helpers: Helpers) {
   void bindPushPanel()
+  void bindNexusOnboardingPanel(helpers)
 
   const mode = document.querySelector<HTMLSelectElement>('#nexus-push-mode')
   const customerWrap = document.querySelector<HTMLElement>('#nexus-push-customer-wrap')
