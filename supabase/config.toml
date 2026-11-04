@@ -1,0 +1,4 @@
+# Only the private order-email cron handler uses a separate long random dispatch token.
+# Its handler rejects unauthorized requests; no browser-facing CORS or public send API.
+[functions.order-email-dispatch]
+verify_jwt = false
