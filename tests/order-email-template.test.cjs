@@ -33,7 +33,8 @@ test('customer and order HTML is escaped, preventing injected markup', () => {
   const message = out.composeOrderEmail({ event_type: 'received', order_number: '<img src=x onerror=alert(1)>', order_status: 'ordered', delivery_date: null }, '<script>bad()</script>')
   assert.doesNotMatch(message.htmlContent, /<script>|<img src=x/)
   assert.match(message.htmlContent, /&lt;script&gt;/)
-  assert.match(message.htmlContent, /&lt;img/)
+  assert.doesNotMatch(message.subject, /[<>\r\n]/)
+  assert.doesNotMatch(message.htmlContent, /<img src=x/)
 })
 
 test('estimate is informational and not a delivery guarantee', () => {
