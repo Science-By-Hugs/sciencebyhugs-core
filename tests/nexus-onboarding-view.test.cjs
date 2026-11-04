@@ -6,17 +6,14 @@ const source = fs.readFileSync(path.join(__dirname, '../src/nexus-onboarding-vie
 const service = fs.readFileSync(path.join(__dirname, '../src/services/onboarding.ts'), 'utf8')
 const notifications = fs.readFileSync(path.join(__dirname, '../src/notifications-view.ts'), 'utf8')
 
-test('Core Notifications includes an owner-facing beta request queue and adoption counts', () => {
+test('Core Notifications displays aggregate onboarding metrics', () => {
   assert.match(notifications, /nexusOnboardingPanelMarkup\(\)/)
   assert.match(notifications, /bindNexusOnboardingPanel\(helpers\)/)
-  assert.match(source, /Beta requests/)
-  assert.match(source, /adoptionEvents/)
-  assert.match(source, /escape\(request\.email\)/)
+  assert.match(source, /loadAdoptionCounts/)
+  assert.match(service, /beta_text_opened/)
+  assert.doesNotMatch(source, /loadBetaAccessRequests|setBetaAccessStatus|data-beta-mark/)
 })
-
-test('mark invited is explicitly a manual record, not a TestFlight send', () => {
-  assert.match(source, /This action will NOT send one/)
-  assert.match(service, /does NOT send a TestFlight invitation/)
-  assert.match(service, /eq\('status', 'pending'\)/)
-  assert.doesNotMatch(service, /sendEmail|sendInvitation|testflight\.apple\.com/)
+test('opening an SMS composer is not counted as a sent message', () => {
+  assert.match(source, /not texts actually sent/)
+  assert.doesNotMatch(service, /sendInvitation|sendEmail|testflight\.apple\.com/)
 })
