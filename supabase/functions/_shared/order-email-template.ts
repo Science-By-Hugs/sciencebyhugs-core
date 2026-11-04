@@ -43,7 +43,7 @@ function deliveryDateText(value: string | null) {
 }
 
 export function composeOrderEmail(event: OrderEmailEvent, displayName: string) {
-  const reference = String(event.order_number || '').trim() || 'your order'
+  const reference = String(event.order_number || '').replace(/[^A-Za-z0-9#_\- ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'your order'
   const referenceText = reference === 'your order' ? 'Your order' : 'Order ' + reference
   const statusText = orderStatusText(event.order_status)
   let title = referenceText + ' update'
