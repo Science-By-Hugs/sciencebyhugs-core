@@ -1,30 +1,24 @@
-# Step 3 — Nexus onboarding, PWA education, and iOS beta requests
+# Step 3 — Nexus PWA onboarding and iOS beta SMS request
 
 ## Repositories
-- `Science-By-Hugs/sciencebyhugs-core`: database tables, operator analytics and manual beta queue
-- `Science-By-Hugs/sciencebyhugs-nexus`: customer invitation, Home Screen guidance, persistent beta request action
+- `Science-By-Hugs/sciencebyhugs-core`: distinct signed-in account onboarding event metrics
+- `Science-By-Hugs/sciencebyhugs-nexus`: gentle onboarding, Home Screen guide, email setup, SMS-to-owner beta request
+
+## iOS beta request
+The beta button composes a prefilled text to **(725) 310-7502** from the customer's own Messages app. The text contains the signed-in customer's account name and email, when available. They **must tap Send themselves**. When a name is unavailable, the text contains an editable [Your name] placeholder. The business does not send SMS and no Twilio or Brevo SMS messaging is involved.
+
+SMS URI body support may vary by browser. Provide copy-text and direct-phone fallbacks; test on an actual iPhone Safari browser. Analytics record only the attempt to open a text, not whether the text was sent or received. Customers who text will be handled via the owner's messaging inbox and existing Apple TestFlight invitation process. No automatic invitation or in-app beta queue is created.
 
 ## Release dependency
-1. Review Core PR and merge after CI succeeds.
-2. Apply its `nexus_onboarding_and_beta_requests` migration to shared production Supabase, verify RLS, policies and grants.
-3. Merge the Nexus PR only after the new tables exist and run its tests/CI.
-4. Open Nexus on an iPhone Safari tab, verify the lightweight prompt appears once for a signed-in unconfigured account, dismiss, reload, and verify it stays dismissed.
-5. Open the PWA from Home Screen; ensure no automatic push permission prompt, and test Account → Notifications manually.
-6. Submit a beta request using a test account. Verify a pending request appears in Core → Notifications and that only an owner/admin can view the full queue or mark a sent invite.
+1. Core branch CI and code review pass; merge Core.
+2. Apply its `nexus_onboarding_adoption` migration to the shared production Supabase project; verify policies and admin-only analytics read.
+3. Nexus branch CI passes, then merge; Nexus deploys automatically from main.
+4. iPhone Safari acceptance: a signed-in unconfigured account sees optional invitation; not-now persists for 30 days; install steps display; email opt-in saves.
+5. From both the optional invitation and Account → Notifications, request beta; Messages opens to 725-310-7502, with name/email prefilled where supported; verify message can be edited and sent manually.
+6. Real installed PWA retains push notifications and test notification feature.
 
-## Behavior
-- “Email updates” is an explicit opt-in for order/status email preferences only; no marketing consent changes.
-- Existing Push subscription system is unchanged. iOS Safari visitors see Share → Add to Home Screen → Open as Web App; iPhone-installed PWA users are directed to Account → Notifications.
-- A customer can request beta access using their authenticated account email. Duplicate requests are not resubmitted.
-- No TestFlight invite is sent automatically. Core's **Mark invite sent** is a manual acknowledgement with confirmation after an invitation is sent in Apple TestFlight.
-- “Not now” is stored in local browser storage per account for 30 days. An action is recorded at most once per user/event in `nexus_onboarding_events`, without storing email in the metrics table.
-- Preference or tracking errors should not block checkout, and the rollout preserves existing push delivery.
-
-## Security considerations
-- Both tables use RLS and explicit grants. Beta request email is checked against the signed-in JWT email.
-- An ordinary signed-in customer can read their own beta status only; only owner/admin from immutable `app_metadata.role` can review/update all records and read analytics.
-- Customer beta records are not publicly accessible; removing a customer auth account cascades removal.
-- The release depends on Apple TestFlight external testing being set up separately; do not publish an unverified invitation URL.
-
-## Validation
-GitHub CI: `npm run build` and `node --test tests/*.test.cjs` on both repositories. Verify migration schema and policies before Nexus production deployment.
+## Customer consent & privacy
+- Order email preferences remain distinct from marketing consent.
+- No new server-side storage of personal name/email for beta enrollment. The SMS leaves the app via the customer's own Messages handler.
+- No automatic permission dialogs, repeated popups, or automatically sent texts.
+- Core counts unique signed-in customer onboarding actions, never claims SMS send completion.
