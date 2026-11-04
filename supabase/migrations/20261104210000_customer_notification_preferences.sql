@@ -11,7 +11,8 @@ alter table public.customer_notification_preferences enable row level security;
 revoke all on public.customer_notification_preferences from anon, authenticated;
 grant select on public.customer_notification_preferences to authenticated;
 grant insert(user_id, order_email_enabled) on public.customer_notification_preferences to authenticated;
-grant update(order_email_enabled) on public.customer_notification_preferences to authenticated;
+-- PostgREST upsert's conflict update can include the user_id key; RLS still enforces user_id = auth.uid().
+grant update(user_id, order_email_enabled) on public.customer_notification_preferences to authenticated;
 
 create policy notification_preference_owner_select
 on public.customer_notification_preferences for select to authenticated
