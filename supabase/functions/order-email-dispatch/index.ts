@@ -25,6 +25,16 @@ Deno.serve(async (req: Request) => {
     return json({ enabled: false, processed: 0, sent: 0 })
   }
 
+  // Optional, fail-closed one-message test scope. Never enable the production queue
+  // for a controlled test. These IDs are configured privately, not committed.
+  const testMode = Deno.env.get('ORDER_EMAIL_TEST_MODE') === 'true'
+  const testUserId = Deno.env.get('ORDER_EMAIL_TEST_USER_ID') || ''
+  const testOutboxId = Deno.env.get('ORDER_EMAIL_TEST_OUTBOX_ID') || ''
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if (testMode && (!uuidPattern.test(testUserId) || !uuidPattern.test(testOutboxId))) {
+    return json({ error: 'Scoped test configuration incomplete' }, 503)
+  }
+
   const brevoKey = Deno.env.get('BREVO_API_KEY') || ''
   const senderEmail = Deno.env.get('BREVO_ORDER_SENDER_EMAIL') || ''
   const databaseUrl = Deno.env.get('SUPABASE_DB_URL') || ''
@@ -37,19 +47,30 @@ Deno.serve(async (req: Request) => {
   try {
     const settings = await sql`
       select queue_enabled from private.order_email_settings where singleton = true`
-    if (!settings[0]?.queue_enabled) return json({ enabled: false, ...stats })
+    const queueEnabled = settings[0]?.queue_enabled === true
+    // Test mode must never coexist with a production-wide queue.
+    if (testMode && queueEnabled) return json({ error: 'Scoped test requires queue disabled' }, 409)
+    if (!queueEnabled && !testMode) return json({ enabled: false, ...stats })
 
     const events = await sql<OutboxRow[]>`
       update private.order_email_outbox
       set state = 'processing', locked_at = now(), attempts = attempts + 1
       where id in (
-        select id from private.order_email_outbox
+        select id from private.order_email_outbox e
         where (
           (state in ('queued','retry') and available_at <= now())
           or (state = 'processing' and locked_at < now() - interval '15 minutes')
         ) and attempts < 5
+          and (
+            ${queueEnabled}::boolean
+            or (
+              ${testMode}::boolean
+              and e.id = ${testOutboxId || '00000000-0000-0000-0000-000000000000'}::uuid
+              and e.user_id = ${testUserId || '00000000-0000-0000-0000-000000000000'}::uuid
+            )
+          )
         order by created_at
-        limit 10
+        limit ${testMode ? 1 : 10}
         for update skip locked
       )
       returning id, order_id, user_id, event_type, order_number, order_status,
@@ -101,9 +122,9 @@ Deno.serve(async (req: Request) => {
           body: JSON.stringify({
             sender: { name: 'Science By Hugs', email: senderEmail },
             to: [{ email: recipients[0].email, name: recipients[0].name }],
-            subject,
+            subject: testMode ? '[TEST] ' + subject : subject,
             htmlContent,
-            tags: ['nexus-order-update'],
+            tags: testMode ? ['nexus-order-update', 'nexus-controlled-test'] : ['nexus-order-update'],
             headers: { IdempotencyKey: event.id },
           }),
           signal: AbortSignal.timeout(12000),
