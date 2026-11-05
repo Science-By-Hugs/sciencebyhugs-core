@@ -1,5 +1,5 @@
 import {
-  addInventoryVendor,createInventoryPurchase,listInventory,listInventoryLotLabels,
+  addInventoryVendor,classifyInventoryProduct,createInventoryPurchase,listInventory,listInventoryLotLabels,
   lookupInventoryUnit,receiveInventoryPurchase,saveVendorOffer,
   type InventoryLot,type InventoryPurchase,type InventorySnapshot,type InventoryUnitLabel,
 } from './services/inventory'
@@ -134,6 +134,25 @@ function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
     }).join(''):'<p class="inv-empty">Receiving lots will appear here.</p>')+'</div>')
 }
 
+function classificationForm(data:InventorySnapshot,h:Helpers) {
+  const codes=data.products.map(p=>option(p.id,
+    (p.product_code||'—')+' · '+p.name,h.escapeHtml)).join('')
+  const counts={
+    physical:data.settings.filter(s=>s.supply_mode==='physical').length,
+    vendor:data.settings.filter(s=>s.supply_mode==='vendor').length,
+  }
+  return card('<div class="inv-panel-head"><h2>6. Product supply mode</h2>'+
+    '<p>Classify physical on-hand stock separately from vendor-supplied products. This does not change what Nexus sells.</p></div>'+
+    '<p class="inv-helper">'+counts.physical+' physical · '+counts.vendor+
+    ' vendor-supplied · '+(data.products.length-counts.physical-counts.vendor)+' unreviewed</p>'+
+    '<form id="inv-classify-product" class="inv-form">'+
+    field('Core product','<select name="productId" required>'+codes+'</select>')+
+    field('Supply mode','<select name="supplyMode"><option value="unreviewed">Unreviewed</option>'+
+      '<option value="physical">Physical stock</option><option value="vendor">Vendor-supplied</option></select>')+
+    field('Low-stock alert at',input('reorderPoint','number','required min="0" max="100000" step="1" value="0"'))+
+    '<div class="inv-form-action"><button class="primary" type="submit">Save classification</button></div></form>')
+}
+
 function printLabelHtml(labels:InventoryUnitLabel[],h:Helpers) {
   return labels.map(l=>{
     const qr='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(l.qr_svg||'')
@@ -177,7 +196,7 @@ export async function bindInventoryPage(h:Helpers) {
       (vendorOptions?offersForm(data,h):card('<h2>2. Vendor price book</h2><p>Add a vendor first.</p>'))+
       (data.offers.length?purchaseForm(data,h):card('<h2>3. Purchase kits</h2><p>Add an offering first.</p>'))+
       receivingForm(data,h)+
-      lotRows(data.lots,data,h)+'</div>'+
+      lotRows(data.lots,data,h)+classificationForm(data,h)+'</div>'+
       '<section id="inventory-lookup" class="inv-panel" hidden></section>'
 
     const form=(name:string,fn:(f:HTMLFormElement)=>Promise<void>)=>{
@@ -200,6 +219,21 @@ export async function bindInventoryPage(h:Helpers) {
         estimatedInboundShipping:num(f,'estimatedInboundShipping'),
         vendorSku:val(f,'vendorSku'),leadTimeDays:val(f,'leadTimeDays'),
       })
+    })
+    const classification=id('inv-classify-product') as HTMLFormElement|null
+    const classifiedProduct=classification?.elements.namedItem('productId') as HTMLSelectElement|null
+    const updateClassification=()=>{
+      const current=data.settings.find(s=>s.product_id===classifiedProduct?.value)
+      const mode=classification?.elements.namedItem('supplyMode') as HTMLSelectElement|null
+      const reorder=classification?.elements.namedItem('reorderPoint') as HTMLInputElement|null
+      if(mode) mode.value=current?.supply_mode||'unreviewed'
+      if(reorder) reorder.value=String(current?.reorder_point||0)
+    }
+    classifiedProduct?.addEventListener('change',updateClassification)
+    updateClassification()
+    form('inv-classify-product',async f=>{
+      await classifyInventoryProduct(val(f,'productId'),
+        val(f,'supplyMode') as 'unreviewed'|'physical'|'vendor',num(f,'reorderPoint'))
     })
     const purchaseId=uuid()
     form('inv-create-po',async f=>{
