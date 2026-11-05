@@ -359,7 +359,8 @@ create table public.orders (
  customer_id uuid,
  total numeric not null default 0,
  admin_notes text,
- created_at timestamptz not null default now()
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now()
 );
 create table public.order_items(
  id uuid primary key default gen_random_uuid(),
