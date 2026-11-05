@@ -1,11 +1,12 @@
 import {
   addInventoryVendor,classifyInventoryProduct,listInventory,listInventoryLotLabels,
-  lookupInventoryUnit,receiveInventoryPurchase,saveVendorOffer,
+  lookupInventoryUnit,receiveInventoryPurchase,saveVendorOffer,loadInventoryMonitoring,
   type InventoryLot,type InventoryPurchase,type InventorySnapshot,type InventoryUnitLabel,
 } from './services/inventory'
 import { inventoryBoxPng, inventoryPngFilename, inventoryUnitPng, inventoryVialPng, lotBoxFilename, suggestedVialFields, vialPngFilename } from './inventory-png'
 import { mountMultiInventory } from './inventory-multi'
 import { mountInventoryDashboard } from './inventory-dashboard'
+import { mountInventoryMonitor } from './inventory-monitor'
 import { mountInventoryAudit } from './inventory-audit'
 import './inventory.css'
 
@@ -295,7 +296,7 @@ export async function bindInventoryPage(h:Helpers) {
   try {
     const data=await listInventory()
     const vendorOptions=data.vendors.length
-    root.innerHTML='<div id="inv-overview" class="inv-overview"></div>'+ '<div id="inv-audit-slot"></div>'+  
+    root.innerHTML='<div id="inv-monitor-slot" class="inv-monitor-slot"></div>'+ '<div id="inv-overview" class="inv-overview"></div>'+ '<div id="inv-audit-slot"></div>'+  
       '<p class="inv-helper">Live Nexus stock limits remain disabled until physical counts are reconciled.</p>'+ 
       '<div class="inv-grid">'+
       vendorForm(h)+
@@ -306,6 +307,8 @@ export async function bindInventoryPage(h:Helpers) {
       '<section id="inv-png-downloads" class="inv-panel" hidden></section>'+ 
       '<section id="inventory-lookup" class="inv-panel" hidden></section>'
 
+    const monitorSlot=id('inv-monitor-slot')
+    if(monitorSlot) mountInventoryMonitor(monitorSlot,loadInventoryMonitoring)
     const overview=id('inv-overview')
     if(overview) mountInventoryDashboard(overview,data,async()=>bindInventoryPage(h))
     const auditSlot=id('inv-audit-slot')
