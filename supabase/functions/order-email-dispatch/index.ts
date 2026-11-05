@@ -57,10 +57,11 @@ Deno.serve(async (req: Request) => {
       set state = 'processing', locked_at = now(), attempts = attempts + 1
       where id in (
         select id from private.order_email_outbox e
-        where (
-          (state in ('queued','retry') and available_at <= now())
-          or (state = 'processing' and locked_at < now() - interval '15 minutes')
-        ) and attempts < 5
+        -- An interrupted send may have reached Brevo before its DB acknowledgement.
+        -- Never reclaim a stale 'processing' row automatically: require manual
+        -- reconciliation with Brevo before an operator decides to retry.
+        where state in ('queued','retry') and available_at <= now()
+          and attempts < 5
           and (
             ${queueEnabled}::boolean
             or (
