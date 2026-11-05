@@ -2,15 +2,15 @@
 # Separate PostgreSQL sessions compete for the same last physical stock.
 # Runs only inside CI's disposable PostgreSQL service; NEVER on production.
 set -euo pipefail
-export PGPASSWORD="\${PGPASSWORD:-postgres}"
+export PGPASSWORD="${PGPASSWORD:-postgres}"
 DB="inventory_phase5b_race"
 TMP="$(mktemp -d)"
 cleanup() {
-  psql -h 127.0.0.1 -U postgres -d postgres -X -q -c "DROP DATABASE IF EXISTS \${DB} WITH (FORCE)" >/dev/null 2>&1 || true
+  psql -h 127.0.0.1 -U postgres -d postgres -X -q -c "DROP DATABASE IF EXISTS ${DB} WITH (FORCE)" >/dev/null 2>&1 || true
   rm -rf "$TMP"
 }
 trap cleanup EXIT
-psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -q -c "CREATE DATABASE \${DB};"
+psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -q -c "CREATE DATABASE ${DB};"
 # The existing integration suite contains an entire synthetic inventory
 # fixture, owner reconciliations and future checkout flows, rolled back by
 # default. Commit it ONLY in this brand-new throwaway test database.
