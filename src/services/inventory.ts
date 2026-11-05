@@ -121,7 +121,7 @@ export const resolveLotCount=(countId:string,missingUnitIds:string[])=>
   }}>({action:'resolve_lot_count',countId,missingUnitIds})
 
 
-// Phase 5C. All values are computed live by a service-role-only SQL function,
+// Phase 5C. All values are computed by a private database function,
 // surfaced only after the existing Core inventory API verifies owner JWT role.
 // No inventory writes, refunds, reservations or recoveries occur on this call.
 export type InventoryMonitoringAlert = {
