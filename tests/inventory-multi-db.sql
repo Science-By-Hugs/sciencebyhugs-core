@@ -375,7 +375,8 @@ create table public.payments (
  amount numeric not null,
  provider text,
  customer_id uuid,
- provider_capture_id text
+ provider_capture_id text,
+ provider_order_id text
 );
 create table public.internal_runtime_config(
  key text primary key,value jsonb not null
