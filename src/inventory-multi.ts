@@ -218,6 +218,7 @@ export function mountMultiInventory(
       lines.push({offerId:available.id,packs:1,shipping:0,fees:0})
       renderRows()
     })
+    const purchaseRequestId=crypto.randomUUID()
     form.addEventListener('submit',async event=>{
       event.preventDefault()
       if(submit.disabled)return
@@ -237,7 +238,7 @@ export function mountMultiInventory(
         const result=await createMultiInventoryPurchase({
           vendorId:vendor.select.value,lines:requestLines,
           shipping,fees:feeTotal,allocationMethod:methodValue,
-          requestId:crypto.randomUUID(),
+          requestId:purchaseRequestId,
         })
         message.textContent='Created '+result.purchase.po_number
         await onChange()
@@ -290,6 +291,7 @@ export function mountMultiInventory(
       form.appendChild(button)
       const message=text('p','','inv-helper')
       form.appendChild(message)
+      const receiptRequestId=crypto.randomUUID()
       form.addEventListener('submit',async event=>{
         event.preventDefault()
         const usable=Number(accepted.field.value),bad=Number(damaged.field.value)
@@ -304,7 +306,7 @@ export function mountMultiInventory(
           const result=await receiveMultiInventoryLine({
             lineId:line.id,accepted:usable,damaged:bad,
             supplierLot:supplierLot.field.value.trim(),expiryDate:expiry.field.value,
-            requestId:crypto.randomUUID(),
+            requestId:receiptRequestId,
           })
           message.textContent='Received as lot '+result.receipt.internal_lot
           await onChange()
@@ -315,6 +317,6 @@ export function mountMultiInventory(
       receiving.appendChild(form)
     }
   }
-  root.prepend(receiving)
-  root.prepend(purchase)
+  const mount=root.querySelector('#inv-multi-anchor')
+  if(mount) mount.replaceChildren(purchase,receiving)
 }
