@@ -269,12 +269,21 @@ Deno.serve(async (req: Request) => {
   }
 
   if (existingPayment.status === "verified") {
+    // A second verification request can reconcile an earlier post-payment
+    // inventory sync failure without changing the verified payment itself.
+    const { error: inventoryRetryError } = await admin.rpc(
+      "core_checkout_commit_inventory", { p_order_id: order.id },
+    );
+    if (inventoryRetryError) console.error("core_inventory_commit_retry_failed", {
+      orderId: order.id, code: inventoryRetryError.code || "rpc_error",
+    });
     return json({
       success: true,
       action: "verify",
       orderId: order.id,
       orderNumber,
       alreadyVerified: true,
+      inventorySyncPending: Boolean(inventoryRetryError),
     });
   }
 
@@ -319,6 +328,16 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Payment verified, but order processing sync needs review" }, 500);
   }
 
+  // Phase 5B commits already-held *physical* units only after a verified
+  // payment and paid order. Both inventory flags default OFF; this RPC is a
+  // no-op until the separate future Core stock cutover is approved.
+  const { error: inventorySyncError } = await admin.rpc(
+    "core_checkout_commit_inventory", { p_order_id: order.id },
+  );
+  if (inventorySyncError) console.error("core_inventory_commit_failed", {
+    orderId: order.id, code: inventorySyncError.code || "rpc_error",
+  });
+
   await qualifyReferral(admin, order.customer_id, orderNumber);
 
   if (invoice?.id) {
@@ -347,5 +366,6 @@ Deno.serve(async (req: Request) => {
     orderId: order.id,
     orderNumber,
     payment,
+    inventorySyncPending: Boolean(inventorySyncError),
   });
 });
