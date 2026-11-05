@@ -203,6 +203,11 @@ begin
   if not found or not v_offer.active or not v_offer.vendor_active then
     raise exception 'Vendor offering is unavailable';
   end if;
+  -- Keep Phase 1 receiving and label printing bounded. Larger orders require
+  -- multi-batch receipts and pagination (Phase 2).
+  if p_packs * v_offer.units_per_pack > 100 then
+    raise exception 'Phase 1 supports at most 100 units per purchase order';
+  end if;
   insert into public.inventory_purchase_orders(
     vendor_id,request_id,shipping_actual,fees_actual,created_by
   ) values(
