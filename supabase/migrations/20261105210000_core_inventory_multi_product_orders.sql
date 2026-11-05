@@ -65,6 +65,7 @@ declare
   v_total_cost numeric := 0;
   v_weight numeric;
   v_weight_total numeric;
+  v_weight_left numeric;
   v_ship numeric(14,2);
   v_fee numeric(14,2);
   v_ship_left numeric(14,2);
@@ -150,6 +151,8 @@ begin
       'expected_units',v_expected,'line_count',v_line_count,'already_created',true);
   end if;
 
+  v_weight_left:=case when p_allocation_method='by_cost' and v_total_cost>0
+    then v_total_cost else v_total_kits end;
   for v_item in select value from jsonb_array_elements(v_saved) loop
     v_index:=v_index+1;
     v_packs:=(v_item->>'packs')::integer;
@@ -175,11 +178,12 @@ begin
         v_ship:=v_ship_left;
         v_fee:=v_fee_left;
       else
-        v_ship:=round(p_shipping * v_weight / v_weight_total,2);
-        v_fee:=round(p_fees * v_weight / v_weight_total,2);
+        v_ship:=round(v_ship_left * v_weight / v_weight_left,2);
+        v_fee:=round(v_fee_left * v_weight / v_weight_left,2);
       end if;
       v_ship_left:=v_ship_left-v_ship;
       v_fee_left:=v_fee_left-v_fee;
+      v_weight_left:=v_weight_left-v_weight;
     end if;
     insert into public.inventory_purchase_lines(
       purchase_order_id,offer_id,product_id,packs_ordered,
