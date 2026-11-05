@@ -11,6 +11,7 @@ const api=read('supabase/functions/core-inventory-control/index.ts')
 const view=read('src/inventory-view.ts')
 const service=read('src/services/inventory.ts')
 const front=read('src/inventory-monitor.ts')
+const main=read('src/main.ts')
 const css=read('src/inventory.css')
 
 test('monitor is server-only, read-only, and leaves inventory feature flags untouched',()=>{
@@ -77,4 +78,12 @@ test('state model distinguishes blocked activation, actionable alerts and unread
   assert.equal(urgent.critical,1)
   assert.equal(urgent.clipped,true)
   assert.match(urgent.label,/Immediate attention/)
+})
+
+test('owner panel is not mounted for admin accounts; server authorization is unchanged',()=>{
+  assert.match(main,/await renderInventory\(email, role\)/)
+  assert.match(main,/isOwner: role === 'owner'/)
+  assert.match(view,/\(h\.isOwner\?'<div id="inv-monitor-slot"/)
+  assert.match(view,/if\(h\.isOwner && monitorSlot\) mountInventoryMonitor/)
+  assert.match(api,/if \(role !== "owner"\) return json\(\{error:"Owner access required"\},403\)/)
 })
