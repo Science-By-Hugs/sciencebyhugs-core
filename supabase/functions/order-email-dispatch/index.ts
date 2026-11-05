@@ -31,7 +31,7 @@ Deno.serve(async (req: Request) => {
         send_enabled: Deno.env.get('ORDER_EMAIL_SEND_ENABLED') === 'true',
         test_mode: Deno.env.get('ORDER_EMAIL_TEST_MODE') === 'true',
         brevo_key_configured: Boolean(Deno.env.get('BREVO_API_KEY')),
-        sender_email_configured: /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(Deno.env.get('BREVO_ORDER_SENDER_EMAIL') || ''),
+        sender_email_configured: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(Deno.env.get('BREVO_ORDER_SENDER_EMAIL') || ''),
         database_url_configured: Boolean(Deno.env.get('SUPABASE_DB_URL')),
       },
     })
