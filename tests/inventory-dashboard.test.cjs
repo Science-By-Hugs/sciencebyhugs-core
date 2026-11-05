@@ -13,9 +13,9 @@ const css=read('src/inventory.css')
 const compiled=ts.transpileModule(dash,{compilerOptions:{
   module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
 }}).outputText
-const exports={}
-vm.runInNewContext(compiled,{exports,require:()=>({}),Intl,Math,Number,Map,Set,Date,Error})
-const {buildStockDashboardModel}=exports
+const moduleExports={}
+vm.runInNewContext(compiled,{exports:moduleExports,require:()=>({}),Intl,Math,Number,Map,Set,Date,Error})
+const {buildStockDashboardModel}=moduleExports
 
 function fixtures(){
   return {
