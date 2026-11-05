@@ -20,6 +20,11 @@ Deno.serve(async (req: Request) => {
   if (dispatchToken.length < 24 || req.headers.get('x-order-email-token') !== dispatchToken) {
     return json({ error: 'Unauthorized' }, 401)
   }
+  // Authenticated, side-effect-free probe for private cron/Vault setup.
+  // Must be handled before any send flags, database access or Brevo API requests.
+  if (req.headers.get('x-order-email-preflight') === 'true') {
+    return json({ preflight: true, authenticated: true, processed: 0, sent: 0 })
+  }
   // Fail closed: configuring a key or deploying this function alone cannot send email.
   if (Deno.env.get('ORDER_EMAIL_SEND_ENABLED') !== 'true') {
     return json({ enabled: false, processed: 0, sent: 0 })
