@@ -70,7 +70,7 @@ begin
     'orderIds',to_jsonb(v_ids)
   );
 end;
-$function$
+$function$;
 
 
 -- Keep push notifications aligned with the new statuses; payment updates remain separate.
@@ -126,7 +126,7 @@ begin
 
   return null;
 end;
-$function$
+$function$;
 
 
 -- Orders are submitted first. Processing is payment-gated for all write paths.
