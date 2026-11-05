@@ -353,6 +353,7 @@ end $audit$;
 -- ephemeral Postgres database. All production flags start disabled.
 create table public.orders (
  id uuid primary key,
+ order_number text,
  status text not null,
  payment_status text not null,
  payment_method text,
