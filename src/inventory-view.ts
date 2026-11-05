@@ -5,6 +5,7 @@ import {
 } from './services/inventory'
 import { inventoryBoxPng, inventoryPngFilename, inventoryUnitPng, inventoryVialPng, lotBoxFilename, suggestedVialFields, vialPngFilename } from './inventory-png'
 import { mountMultiInventory } from './inventory-multi'
+import { mountInventoryDashboard } from './inventory-dashboard'
 import './inventory.css'
 
 type Helpers = {
@@ -22,7 +23,7 @@ const number = (v:unknown) => Number(v || 0)
 export function inventoryPageMarkup(email:string,escapeHtml:Helpers['escapeHtml']) {
   return '<section class="dashboard-head dashboard-head-compact"><div>' +
     '<span class="eyebrow">STOCK & PROCUREMENT</span><h1 class="dashboard-title">Inventory</h1>' +
-    '<p class="copy">Track vendor costs, receive kits as individual units, and download traceable PNG labels.</p>' +
+    '<p class="copy">See physical stock, supplier pricing, reorder alerts and traceable lots in one place.</p>' +
     '</div><div class="operator">Signed in as <strong>'+escapeHtml(email)+'</strong></div></section>' +
     '<section id="inventory-app"><div class="loading">Loading inventory…</div></section>'
 }
@@ -34,19 +35,6 @@ function card(content:string) { return '<section class="inv-panel">'+content+'</
 function field(label:string,html:string) { return '<label class="inv-field"><span>'+label+'</span>'+html+'</label>' }
 const input = (name:string,type='text',extra='')=>
   '<input name="'+name+'" type="'+type+'" '+extra+'>'
-
-function summary(data:InventorySnapshot,h:Helpers) {
-  const physical=data.lots.reduce((sum,l)=>sum+number(l.accepted_units),0)
-  const damaged=data.lots.reduce((sum,l)=>sum+number(l.damaged_units),0)
-  const open=data.orders.filter(x=>x.status==='ordered').length
-  return '<div class="inv-metrics">'+[
-    ['Received units',physical],['Damaged units',damaged],
-    ['Open purchases',open],['Supplier offers',data.offers.length],
-  ].map(([label,value])=>'<div class="inv-metric"><strong>'+h.escapeHtml(value)+
-    '</strong><small>'+h.escapeHtml(label)+'</small></div>').join('')+'</div>'+
-    '<p class="inv-helper">These are recorded receipts, not a sellable-stock guarantee. '+
-    'Live Nexus stock limits remain disabled until physical counts are reconciled.</p>'
-}
 
 function vendorForm(h:Helpers) {
   return card('<div class="inv-panel-head"><h2>1. Vendors</h2><p>Give each source its own cost history.</p></div>'+
@@ -306,7 +294,7 @@ export async function bindInventoryPage(h:Helpers) {
   try {
     const data=await listInventory()
     const vendorOptions=data.vendors.length
-    root.innerHTML=summary(data,h)+'<div class="inv-grid">'+
+    root.innerHTML='<div id="inv-overview" class="inv-overview"></div>'+'<div class="inv-grid">'+
       vendorForm(h)+
       (vendorOptions?offersForm(data,h):card('<h2>2. Vendor price book</h2><p>Add a vendor first.</p>'))+
       '<div id="inv-multi-anchor" class="inv-multi-anchor"></div>'+ 
@@ -315,6 +303,8 @@ export async function bindInventoryPage(h:Helpers) {
       '<section id="inv-png-downloads" class="inv-panel" hidden></section>'+ 
       '<section id="inventory-lookup" class="inv-panel" hidden></section>'
 
+    const overview=id('inv-overview')
+    if(overview) mountInventoryDashboard(overview,data,async()=>bindInventoryPage(h))
     mountMultiInventory(root,data,async()=>bindInventoryPage(h))
 
     const form=(name:string,fn:(f:HTMLFormElement)=>Promise<void>)=>{
