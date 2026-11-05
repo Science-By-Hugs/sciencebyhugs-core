@@ -61,6 +61,16 @@ test('label is a real QR code on 2 inch by 1 inch thermal media',()=>{
   assert.match(ui,/SCIENCE BY HUGS/)
 })
 
+test('physical and vendor-supplied classification remains separate from Nexus listings',()=>{
+  assert.match(sql,/create table if not exists public\.inventory_product_settings/)
+  assert.match(sql,/supply_mode in \('unreviewed','physical','vendor'\)/)
+  assert.match(api,/action === "classify_product"/)
+  assert.match(ui,/Physical stock/)
+  assert.match(ui,/Vendor-supplied/)
+  assert.match(ui,/classifyInventoryProduct\(/)
+  assert.match(nav,/location\.hash\.startsWith\('#inventory\?unit='\)/)
+})
+
 test('new inventory screen is reachable by navigation and secure QR deep-link',()=>{
   assert.match(nav,/\| 'inventory'/)
   assert.match(nav,/\['inventory', 'Inventory', 'inventory'\]/)
