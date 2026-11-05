@@ -26,7 +26,7 @@ export type InventoryLot = {
 export type InventoryReceipt = {id:string;purchase_order_id:string;purchase_line_id:string|null;
   accepted_units:number;damaged_units:number;received_at:string}
 export type InventorySettings = { product_id:string; supply_mode:string; reorder_point:number }
-export type InventoryUnitCount = {product_id:string;state:'available'|'reserved'|'shipped'|'damaged'|'quarantined'|'returned';count:number}
+export type InventoryUnitCount = {product_id:string;state:'available'|'reserved'|'shipped'|'damaged'|'quarantined'|'returned'|'missing';count:number}
 export type InventorySnapshot = {
   vendors:InventoryVendor[]; offers:VendorOffer[]; products:InventoryProduct[];
   orders:InventoryPurchase[]; lines:InventoryPurchaseLine[]; lots:InventoryLot[];
@@ -87,3 +87,35 @@ export const receiveMultiInventoryLine=(details:{
   damaged_units:number;landed_unit_cost:number|null;cost_finalized:boolean}}>({
   action:'receive_multi_line',...details,
 })
+
+
+export type InventoryCountStatus = 'matched'|'pending'|'resolved'
+export type InventoryStockAudit = {
+  id:string;status:InventoryCountStatus;
+  expected_available:number;expected_damaged:number;
+  counted_available:number;counted_damaged:number;
+  notes:string;created_at:string;resolved_at:string|null;resolved_unit_ids:string[]
+}
+export type InventoryAuditUnit = {
+  id:string;ordinal:number;state:string
+}
+export type InventoryAuditLot = {
+  lot:{id:string;internal_lot:string;product_id:string;supplier_lot:string;
+    accepted_units:number;damaged_units:number};
+  units:InventoryAuditUnit[];
+  counts:{available:number;damaged:number;missing:number;reserved:number;quarantined:number};
+  history:InventoryStockAudit[]
+}
+export const loadLotAudit=(lotId:string)=>
+  callInventory<InventoryAuditLot>({action:'audit_lot',lotId})
+export const submitLotCount=(details:{
+  lotId:string;countedAvailable:number;countedDamaged:number;notes:string;requestId:string
+})=>callInventory<{audit:{
+  count_id:string;status:InventoryCountStatus;
+  expected_available:number;expected_damaged:number;
+  counted_available:number;counted_damaged:number;already_saved:boolean
+}}>({action:'submit_lot_count',...details})
+export const resolveLotCount=(countId:string,missingUnitIds:string[])=>
+  callInventory<{reconciliation:{
+    count_id:string;status:'resolved';changed_units:number;already_resolved:boolean
+  }}>({action:'resolve_lot_count',countId,missingUnitIds})
