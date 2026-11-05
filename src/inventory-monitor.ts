@@ -27,7 +27,7 @@ export function monitorDisplayState(snapshot:InventoryMonitoringSnapshot){
 }
 
 // Not available in the customer storefront, only inside authenticated Core.
-// All rendered text uses textContent, never innerHTML or untrusted HTML.
+// Alert content is always rendered as plain text, never parsed as markup.
 export function mountInventoryMonitor(root:HTMLElement,load:Loader){
   root.replaceChildren()
   const panel=el('section','inv-panel inv-monitor')
