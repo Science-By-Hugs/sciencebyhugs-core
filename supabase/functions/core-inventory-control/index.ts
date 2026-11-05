@@ -65,6 +65,20 @@ Deno.serve(async req => {
   catch { return json({error:"Invalid request"},400); }
   const action = text(body.action,50);
   try {
+    // Phase 5C: read-only monitoring is *owner-only*, unlike inventory
+    // management actions which also admit admins. No customer records or
+    // vendor/lot details are sent outside the authenticated Core workspace.
+    if (action === "monitor") {
+      if (role !== "owner") return json({error:"Owner access required"},403);
+      const {data,error} = await db.rpc("core_inventory_monitor_snapshot");
+      if (error || !data) {
+        console.error("core_inventory_monitor_read_failed",{
+          code:error?.code || "empty_snapshot",
+        });
+        return json({error:"Inventory monitoring is temporarily unavailable"},503);
+      }
+      return json({success:true,monitor:data});
+    }
     if (action === "list") {
       const [vendors,offers,products,orders,lines,lots,settings,receipts] = await Promise.all([
         db.from("inventory_vendors").select("id,code,name,active,notes").order("name"),
