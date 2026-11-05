@@ -201,12 +201,12 @@ test('single-message smoke test works while global queue remains disabled and is
   assert.equal(first.body.sent, 1)
   assert.equal(second.body.processed, 0)
   assert.equal(h.state.providerCalls.length, 1)
-  assert.match(h.state.providerCalls[0].body.subject, /^\\[TEST\\]/)
+  assert.ok(h.state.providerCalls[0].body.subject.startsWith('[TEST] '))
   assert.ok(h.state.providerCalls[0].body.tags.includes('nexus-controlled-test'))
   assert.equal(h.state.providerCalls[0].body.to[0].email, 'safe-test@example.invalid')
-  assert.match(worker, /e\\.id = \\$/)
-  assert.match(worker, /e\\.user_id = \\$/)
-  assert.match(worker, /limit \\$(?:[{]testMode)/)
+  assert.ok(worker.includes('and e.id = ${testOutboxId'))
+  assert.ok(worker.includes('and e.user_id = ${testUserId'))
+  assert.ok(worker.includes('limit ${testMode ? 1 : 10}'))
 })
 
 test('scoped test cannot send another user or another outbox row', async () => {
