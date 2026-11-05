@@ -32,6 +32,7 @@ This branch introduces a separate **Inventory** destination in Core. It is inten
 - `inventory_product_settings` is created but remains **unreviewed** for existing products. Existing `products.quantity` is text and must **not** be converted into stock.
 - No existing 125 products are auto-classified as physical or vendor-supplied. The current shipping source is *not* evidence of the purchasing vendor.
 - Existing `product_costs` (125 records) remains an unattributed reference cost, *not* automatically labeled as Gigi's cost.
+- Core provides a product supply-mode classification form: Unreviewed / Physical / Vendor-Supplied. Classification **does not** automatically change Nexus listings.
 - Stock data and QR lookups are owner/admin-only; **Nexus still uses existing availability**, without stock decrement/reservations in this milestone.
 - No supplier quote, existing retail price, or vendor ID is exposed in a public label.
 - This is an internal traceability system, not proof of manufacturing origin or legal sale eligibility. Retain genuine manufacturer batch records and comply with applicable product rules.
