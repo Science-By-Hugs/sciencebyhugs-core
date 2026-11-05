@@ -210,7 +210,7 @@ end $$;
 -- and rolls back, never touching production.
 \i supabase/migrations/20261105233000_core_inventory_lot_reconciliation.sql
 
-do $
+do $audit$
 begin
  if (select count(*) from public.inventory_stock_counts)<>0 then
    raise exception 'Migration should not invent counts for historical lots'; end if;
@@ -218,7 +218,7 @@ begin
    raise exception 'Existing stock counts were modified by migration'; end if;
  if (select count(*) from public.inventory_movements)<>30 then
    raise exception 'Existing movement history was modified by migration'; end if;
-end $;
+end $audit$;
 
 -- Matching count: audit only, no stock mutation.
 select public.core_inventory_count_lot(
@@ -227,14 +227,14 @@ select public.core_inventory_count_lot(
  'e1111111-1111-4111-8111-111111111111',
  '99999999-9999-4999-8999-999999999999'
 );
-do $
+do $audit$
 begin
  if (select status from public.inventory_stock_counts
    where request_id='e1111111-1111-4111-8111-111111111111')<>'matched' then
    raise exception 'Matching count was not recorded as matched'; end if;
  if (select count(*) from public.inventory_movements)<>30 then
    raise exception 'Matching count must not create stock movements'; end if;
-end $;
+end $audit$;
 
 -- Shortage count: still records evidence, does not automatically mark units.
 select public.core_inventory_count_lot(
@@ -250,7 +250,7 @@ select public.core_inventory_count_lot(
  'e2222222-2222-4222-8222-222222222222',
  '99999999-9999-4999-8999-999999999999'
 );
-do $
+do $audit$
 declare rejected boolean:=false;
 begin
  if (select count(*) from public.inventory_stock_counts
@@ -269,7 +269,7 @@ begin
    );
  exception when others then rejected:=true; end;
  if not rejected then raise exception 'Insufficient exact missing units were allowed'; end if;
-end $;
+end $audit$;
 
 -- Explicitly approve original tracked units 09 and 10 as missing.
 select public.core_inventory_resolve_lot_count(
@@ -281,7 +281,7 @@ select public.core_inventory_resolve_lot_count(
     and ordinal in (9,10)),
  '99999999-9999-4999-8999-999999999999'
 );
-do $
+do $audit$
 begin
  if (select count(*) from public.inventory_units where state='available')<>27 then
    raise exception 'Shortage reconciliation did not subtract exactly two available units'; end if;
@@ -296,7 +296,7 @@ begin
    raise exception 'Reconciliation modified original landed costs'; end if;
  if (select accepted_units from public.inventory_lots where supplier_lot='RT-20')<>10 then
    raise exception 'Reconciliation modified original receipt quantities'; end if;
-end $;
+end $audit$;
 
 -- Retry should not create another ledger event.
 select public.core_inventory_resolve_lot_count(
@@ -308,11 +308,11 @@ select public.core_inventory_resolve_lot_count(
     and ordinal in (9,10)),
  '99999999-9999-4999-8999-999999999999'
 );
-do $
+do $audit$
 begin
  if (select count(*) from public.inventory_movements)<>32 then
    raise exception 'Retry created duplicate movement'; end if;
-end $;
+end $audit$;
 
 -- A surplus stays pending, cannot mint fictional unit IDs.
 select public.core_inventory_count_lot(
@@ -321,7 +321,7 @@ select public.core_inventory_count_lot(
  'e3333333-3333-4333-8333-333333333333',
  '99999999-9999-4999-8999-999999999999'
 );
-do $
+do $audit$
 declare rejected boolean:=false;
 begin
  begin
@@ -333,9 +333,9 @@ begin
  if not rejected then raise exception 'Unverified surplus was allowed to create inventory'; end if;
  if (select count(*) from public.inventory_units)<>30 then
    raise exception 'Surplus audit changed tracked unit count'; end if;
-end $;
+end $audit$;
 
-do $
+do $audit$
 begin
  if has_function_privilege('anon',
   'public.core_inventory_count_lot(uuid,integer,integer,text,uuid,uuid)','EXECUTE') then
@@ -346,6 +346,6 @@ begin
  if not has_function_privilege('service_role',
   'public.core_inventory_resolve_lot_count(uuid,uuid[],uuid)','EXECUTE') then
    raise exception 'Service role cannot reconcile inventory'; end if;
-end $;
+end $audit$;
 
 rollback;
