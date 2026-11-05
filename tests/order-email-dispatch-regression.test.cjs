@@ -10,6 +10,13 @@ const source = ts.transpileModule(worker.replace(/^import .*$/gm, ''), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
 
+// Run the actual customer email template inside the same isolated test VM.
+const templateSource = fs.readFileSync(path.join(__dirname, '../supabase/functions/_shared/order-email-template.ts'), 'utf8')
+const templateExports = {}
+vm.runInNewContext(ts.transpileModule(templateSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText, { exports: templateExports, Intl, Date, Number, String })
+
 const TOKEN = 'isolated-unit-test-token-not-for-production'
 const EVENT_ID = '00000000-0000-4000-8000-000000000101'
 const ORDER_ID = '00000000-0000-4000-8000-000000000102'
@@ -34,7 +41,7 @@ function harness(options = {}) {
   }
   const event = {
     id: options.eventId ?? EVENT_ID, order_id: ORDER_ID, user_id: options.eventUserId ?? USER_ID,
-    event_type: 'status_changed', order_number: 'SAMPLE-1',
+    event_type: 'status_changed', order_number: 'SBH-TEST-STATUS-001',
     order_status: 'delivered', delivery_date: null,
   }
   async function sql(strings, ...values) {
@@ -97,10 +104,7 @@ function harness(options = {}) {
     Deno, Response, Request, AbortSignal, console,
     postgres: () => sql,
     fetch: fakeFetch,
-    composeOrderEmail: () => ({
-      subject: 'Sample order status',
-      htmlContent: '<p>Sample order update</p>',
-    }),
+    composeOrderEmail: templateExports.composeOrderEmail,
   })
   assert.equal(typeof handler, 'function')
 
@@ -201,7 +205,11 @@ test('single-message smoke test works while global queue remains disabled and is
   assert.equal(first.body.sent, 1)
   assert.equal(second.body.processed, 0)
   assert.equal(h.state.providerCalls.length, 1)
-  assert.ok(h.state.providerCalls[0].body.subject.startsWith('[TEST] '))
+  assert.equal(h.state.providerCalls[0].body.subject, '[TEST] Order SBH-TEST-STATUS-001: delivered')
+  assert.match(h.state.providerCalls[0].body.htmlContent, /Your order is now delivered/)
+  assert.match(h.state.providerCalls[0].body.htmlContent, /href="https:\/\/nexus\.sciencebyhugs\.com"/)
+  assert.match(h.state.providerCalls[0].body.htmlContent, /Hi Test Customer/)
+  assert.doesNotMatch(h.state.providerCalls[0].body.htmlContent, /coupon|discount code|tracking number|shipping address/i)
   assert.ok(h.state.providerCalls[0].body.tags.includes('nexus-controlled-test'))
   assert.equal(h.state.providerCalls[0].body.to[0].email, 'safe-test@example.invalid')
   assert.ok(worker.includes('and e.id = ${testOutboxId'))
