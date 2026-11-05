@@ -7,6 +7,7 @@ import { supabase } from './services/supabase'
 import { bindOrdersHub, ordersHubMarkup, presetOrdersFilter } from './orders-hub'
 import { bindCustomersPage, customersPageMarkup } from './customers-view'
 import { bindCatalogPage, catalogPageMarkup } from './catalog-view'
+import { bindInventoryPage, inventoryPageMarkup } from './inventory-view'
 import { bindDashboardPage, dashboardPageMarkup } from './dashboard-view'
 import { bindAuditPage, auditPageMarkup } from './audit-view'
 import { bindAnalyticsPage, analyticsPageMarkup } from './analytics-view'
@@ -52,6 +53,7 @@ type CoreView =
   | 'checkout-pending'
   | 'customers'
   | 'catalog'
+  | 'inventory'
   | 'analytics'
   | 'finance'
   | 'referrals'
@@ -68,6 +70,7 @@ const CORE_VIEWS: CoreView[] = [
   'checkout-pending',
   'customers',
   'catalog',
+  'inventory',
   'analytics',
   'finance',
   'referrals',
@@ -81,7 +84,7 @@ const CORE_VIEWS: CoreView[] = [
 const LAST_CORE_VIEW_KEY = 'sciencebyhugs-core:last-view'
 
 function viewFromHash(hash = location.hash): CoreView | null {
-  const value = hash.replace(/^#/, '') as CoreView
+  const value = hash.replace(/^#/, '').split('?')[0] as CoreView
   return CORE_VIEWS.includes(value) ? value : null
 }
 
@@ -111,6 +114,8 @@ function resolveCoreView(): CoreView {
 }
 
 function keepCoreViewInUrl(view: CoreView) {
+  // QR codes use a hash deep-link; do not strip their unit token during render.
+  if (view === 'inventory' && location.hash.startsWith('#inventory?unit=')) return
   if (location.hash === '#' + view) return
   history.replaceState(null, '', '#' + view)
 }
@@ -121,6 +126,7 @@ const ICONS: Record<string, string> = {
   fulfillment: '<path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>',
   customers: '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-6"/>',
   catalog: '<path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+  inventory: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12M14 13h4M14 17h4"/>',
   finance: '<path d="M3 20h18M6 16v-6M11 16V6M16 16v-8M21 16V4"/>',
   more: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
 }
@@ -133,6 +139,7 @@ const MAIN_NAV: Array<[CoreView, string, string]> = [
   ['orders', 'Orders', 'orders'],
   ['customers', 'Customers', 'customers'],
   ['catalog', 'Catalog', 'catalog'],
+  ['inventory', 'Inventory', 'inventory'],
   ['finance', 'Finance', 'finance'],
 ]
 const MORE_NAV: Array<[CoreView, string]> = [
@@ -147,7 +154,7 @@ const TAB_VIEWS: CoreView[] = ['dashboard', 'orders', 'customers', 'catalog']
 
 function moreScreen(email: string) {
   // Phone "More": everything that isn't a bottom tab, plus account and sign out.
-  const links: Array<[CoreView, string]> = [['finance', 'Finance'], ...MORE_NAV.filter(([v]) => v !== 'account')]
+  const links: Array<[CoreView, string]> = [['inventory', 'Inventory'], ['finance', 'Finance'], ...MORE_NAV.filter(([v]) => v !== 'account')]
   return '<section class="dashboard-head"><h1 class="dashboard-title">More</h1></section>' +
     '<a class="more-account" href="#account">' + avatarMarkup() + '<span><strong>Account</strong><small>' + escapeHtml(email) + '</small></span></a>' +
     '<nav class="more-list" aria-label="More sections">' +
@@ -291,6 +298,11 @@ async function renderCatalog(email: string) {
   await bindCatalogPage({ escapeHtml, money, dateTime })
 }
 
+async function renderInventory(email: string) {
+  shell(inventoryPageMarkup(email, escapeHtml), true)
+  await bindInventoryPage({ escapeHtml, money, dateTime })
+}
+
 async function renderExecutiveDashboard(email: string) {
   shell(dashboardPageMarkup(email, escapeHtml), true)
   await bindDashboardPage({ escapeHtml, money, dateTime })
@@ -385,6 +397,11 @@ async function render() {
 
   if (activeView === 'catalog') {
     await renderCatalog(email)
+    return
+  }
+
+  if (activeView === 'inventory') {
+    await renderInventory(email)
     return
   }
 

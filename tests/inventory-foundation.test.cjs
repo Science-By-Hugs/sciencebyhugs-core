@@ -1,0 +1,87 @@
+const test = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const file = p => fs.readFileSync(path.join(__dirname,'..',p),'utf8')
+const sql = file('supabase/migrations/20261105180000_core_inventory_foundation.sql')
+const api = file('supabase/functions/core-inventory-control/index.ts')
+const ui = file('src/inventory-view.ts')
+const css = file('src/inventory.css')
+const nav = file('src/main.ts')
+
+test('Core vendor offers remain separate from retail prices and legacy reference costs',()=>{
+  assert.match(sql,/create table if not exists public\.inventory_vendors/i)
+  assert.match(sql,/create table if not exists public\.inventory_vendor_offers/i)
+  assert.match(sql,/unique\(vendor_id,product_id,units_per_pack\)/)
+  assert.match(sql,/inventory_vendor_price_history/)
+  assert.match(sql,/pack_price_snapshot/)
+  assert.doesNotMatch(sql,/update\s+public\.products\s+set/i)
+  assert.doesNotMatch(sql,/update\s+public\.product_costs\s+set/i)
+})
+
+test('a ten-unit kit becomes ten individually traceable units after verified receipt',()=>{
+  assert.match(sql,/units_per_pack_snapshot/)
+  assert.match(sql,/expected_units integer generated always as \(packs_ordered \* units_per_pack_snapshot\) stored/)
+  assert.match(sql,/from generate_series\(1,v_line\.expected_units\)/)
+  assert.match(sql,/unique\(lot_id,ordinal\)/)
+  assert.match(sql,/scan_token uuid not null unique default gen_random_uuid\(\)/)
+  assert.match(sql,/supplier_lot text not null/)
+  assert.match(sql,/internal_lot text not null unique/)
+})
+
+test('full receipts are atomic, idempotent and preserve landed cost',()=>{
+  assert.match(sql,/where id=p_order_id for update/)
+  assert.match(sql,/request_id uuid not null unique/)
+  assert.match(sql,/v_po\.shipping_actual \+ v_po\.fees_actual/)
+  assert.match(sql,/\/ p_accepted,4/)
+  assert.match(sql,/accepted \+ p_damaged <> v_line\.expected_units/)
+  assert.match(sql,/inventory_movements_immutable/)
+})
+
+test('inventory data is private and Core API verifies role',()=>{
+  assert.match(sql,/enable row level security/i)
+  assert.match(sql,/revoke all on table public\.%I from public, anon, authenticated/)
+  assert.match(sql,/grant execute on function public\.core_inventory_receive_purchase.*to service_role/)
+  assert.match(api,/userClient\.auth\.getUser\(\)/)
+  assert.match(api,/user\.app_metadata\?\.role/)
+  assert.match(api,/\["owner","admin"\]/)
+  assert.doesNotMatch(api,/\/\/\s*TODO.*bypass auth/i)
+})
+
+test('label is a real QR code on 2 inch by 1 inch thermal media',()=>{
+  assert.match(api,/QRCode\.toString\(/)
+  assert.match(api,/type:"svg"/)
+  assert.match(api,/target\.hash = "inventory\?unit="/)
+  assert.match(css,/@page\{size:2in 1in;margin:0\}/)
+  assert.match(css,/width:2in!important;height:1in!important/)
+  assert.match(css,/background:#fff!important/)
+  assert.match(ui,/window\.print\(\)/)
+  assert.match(ui,/document\.body\.appendChild\(target\)/)
+  assert.match(ui,/UNIT /)
+  assert.match(ui,/SCIENCE BY HUGS/)
+})
+
+test('physical and vendor-supplied classification remains separate from Nexus listings',()=>{
+  assert.match(sql,/create table if not exists public\.inventory_product_settings/)
+  assert.match(sql,/supply_mode in \('unreviewed','physical','vendor'\)/)
+  assert.match(api,/action === "classify_product"/)
+  assert.match(ui,/Physical stock/)
+  assert.match(ui,/Vendor-supplied/)
+  assert.match(ui,/classifyInventoryProduct\(/)
+  assert.match(nav,/location\.hash\.startsWith\('#inventory\?unit='\)/)
+})
+
+test('new inventory screen is reachable by navigation and secure QR deep-link',()=>{
+  assert.match(nav,/\| 'inventory'/)
+  assert.match(nav,/\['inventory', 'Inventory', 'inventory'\]/)
+  assert.match(nav,/\.split\('\?'\)\[0\]/)
+  assert.match(nav,/await renderInventory\(email\)/)
+  assert.match(ui,/lookupInventoryUnit\(unitToken\)/)
+})
+
+test('current order emails and checkout are not altered in this inventory milestone',()=>{
+  assert.doesNotMatch(sql,/order_email_outbox|queue_enabled|order_email_dispatch|status_changed/i)
+  assert.doesNotMatch(sql,/alter table public\.orders/i)
+  assert.doesNotMatch(sql,/alter table public\.products/i)
+  assert.match(ui,/Live Nexus stock limits remain disabled/)
+})
