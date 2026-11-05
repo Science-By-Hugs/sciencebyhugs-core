@@ -114,7 +114,7 @@ function receivingForm(data:InventorySnapshot,h:Helpers) {
     field('Original supplier/manufacturer lot',input('supplierLot','text','required maxlength="120" placeholder="As printed on packaging"'))+
     field('Expiration (if printed)',input('expiryDate','date',''))+
     '<div class="inv-form-action"><button class="primary" type="submit">Confirm & generate unit IDs</button></div></form>':
-    '<p class="inv-empty">No open purchase orders. Create an order above to receive stock.</p>')
+    '<p class="inv-empty">No open purchase orders. Create an order above to receive stock.</p>'))
 }
 
 function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
