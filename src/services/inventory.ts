@@ -26,7 +26,7 @@ export type InventoryLot = {
 export type InventoryReceipt = {id:string;purchase_order_id:string;purchase_line_id:string|null;
   accepted_units:number;damaged_units:number;received_at:string}
 export type InventorySettings = { product_id:string; supply_mode:string; reorder_point:number }
-export type InventoryUnitCount = {product_id:string;state:'available'|'reserved'|'shipped'|'damaged'|'quarantined'|'returned'|'missing';count:number}
+export type InventoryUnitCount = {product_id:string;state:'available'|'reserved'|'allocated'|'shipped'|'damaged'|'quarantined'|'returned'|'missing';count:number}
 export type InventorySnapshot = {
   vendors:InventoryVendor[]; offers:VendorOffer[]; products:InventoryProduct[];
   orders:InventoryPurchase[]; lines:InventoryPurchaseLine[]; lots:InventoryLot[];
