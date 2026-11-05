@@ -358,6 +358,7 @@ create table public.orders (
  payment_status text not null,
  payment_method text,
  customer_id uuid,
+ paid_at timestamptz,
  total numeric not null default 0,
  admin_notes text,
  created_at timestamptz not null default now(),
