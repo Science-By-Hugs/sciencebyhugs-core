@@ -6,6 +6,7 @@ import {
 import { inventoryBoxPng, inventoryPngFilename, inventoryUnitPng, inventoryVialPng, lotBoxFilename, suggestedVialFields, vialPngFilename } from './inventory-png'
 import { mountMultiInventory } from './inventory-multi'
 import { mountInventoryDashboard } from './inventory-dashboard'
+import { mountInventoryAudit } from './inventory-audit'
 import './inventory.css'
 
 type Helpers = {
@@ -104,7 +105,7 @@ function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
         (l.expiry_date?' · Expires '+h.escapeHtml(l.expiry_date):'')+'</small></div>'+
         '<div class="inv-right"><strong>'+h.escapeHtml(l.cost_finalized === false ? 'Pending final cost' : (l.landed_unit_cost===null?'—':h.money(l.landed_unit_cost)))+
         ' / unit</strong><button class="secondary inv-download-lot" data-lot="'+h.escapeHtml(l.id)+
-        '" type="button">Prepare box + vial PNGs</button></div></div>'
+        '" type="button">Prepare box + vial PNGs</button><button class="secondary inv-audit-lot" data-lot="'+h.escapeHtml(l.id)+'" type="button">Count stock</button></div></div>'
     }).join(''):'<p class="inv-empty">Receiving lots will appear here.</p>')+'</div>')
 }
 
@@ -294,7 +295,7 @@ export async function bindInventoryPage(h:Helpers) {
   try {
     const data=await listInventory()
     const vendorOptions=data.vendors.length
-    root.innerHTML='<div id="inv-overview" class="inv-overview"></div>'+ 
+    root.innerHTML='<div id="inv-overview" class="inv-overview"></div>'+ '<div id="inv-audit-slot"></div>'+  
       '<p class="inv-helper">Live Nexus stock limits remain disabled until physical counts are reconciled.</p>'+ 
       '<div class="inv-grid">'+
       vendorForm(h)+
@@ -307,6 +308,8 @@ export async function bindInventoryPage(h:Helpers) {
 
     const overview=id('inv-overview')
     if(overview) mountInventoryDashboard(overview,data,async()=>bindInventoryPage(h))
+    const auditSlot=id('inv-audit-slot')
+    if(auditSlot) mountInventoryAudit(auditSlot,data,async()=>bindInventoryPage(h))
     mountMultiInventory(root,data,async()=>bindInventoryPage(h))
 
     const form=(name:string,fn:(f:HTMLFormElement)=>Promise<void>)=>{
@@ -364,6 +367,11 @@ export async function bindInventoryPage(h:Helpers) {
         expiryDate:val(f,'expiryDate'),requestId:receiveId,
       })
     })
+    root.querySelectorAll<HTMLButtonElement>('.inv-audit-lot').forEach(b=>
+      b.addEventListener('click',()=>document.dispatchEvent(
+        new CustomEvent('core-inventory-audit-lot',{detail:b.dataset.lot||''})
+      ))
+    )
     root.querySelectorAll<HTMLButtonElement>('.inv-download-lot').forEach(b=>
       b.addEventListener('click',async()=>{
         b.disabled=true
@@ -389,7 +397,14 @@ export async function bindInventoryPage(h:Helpers) {
           details.textContent=(product?.name||'Product')+' · '+lot.internal_lot+
             ' · '+lot.accepted_units+' accepted / '+lot.damaged_units+' damaged'+
             ' · Supplier lot: '+lot.supplier_lot
-          panel.replaceChildren(heading,details)
+          const countButton=document.createElement('button')
+          countButton.type='button'
+          countButton.className='secondary'
+          countButton.textContent='Count this lot'
+          countButton.addEventListener('click',()=>document.dispatchEvent(
+            new CustomEvent('core-inventory-audit-lot',{detail:lot.id})
+          ))
+          panel.replaceChildren(heading,details,countButton)
         }
         panel.scrollIntoView({block:'start'})
       }
