@@ -84,7 +84,7 @@ test('new inventory screen is reachable by navigation and secure QR deep-link',(
   assert.match(nav,/\| 'inventory'/)
   assert.match(nav,/\['inventory', 'Inventory', 'inventory'\]/)
   assert.match(nav,/\.split\('\?'\)\[0\]/)
-  assert.match(nav,/await renderInventory\(email\)/)
+  assert.match(nav,/await renderInventory\(email, role\)/)
   assert.match(ui,/lookupInventoryUnit\(unitToken\)/)
 })
 

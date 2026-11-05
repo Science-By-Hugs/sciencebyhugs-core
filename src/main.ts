@@ -298,9 +298,9 @@ async function renderCatalog(email: string) {
   await bindCatalogPage({ escapeHtml, money, dateTime })
 }
 
-async function renderInventory(email: string) {
+async function renderInventory(email: string, role: string) {
   shell(inventoryPageMarkup(email, escapeHtml), true)
-  await bindInventoryPage({ escapeHtml, money, dateTime })
+  await bindInventoryPage({ escapeHtml, money, dateTime, isOwner: role === 'owner' })
 }
 
 async function renderExecutiveDashboard(email: string) {
@@ -401,7 +401,7 @@ async function render() {
   }
 
   if (activeView === 'inventory') {
-    await renderInventory(email)
+    await renderInventory(email, role)
     return
   }
 
