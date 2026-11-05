@@ -78,8 +78,27 @@ Deno.serve(async req => {
       ]);
       const failed = [vendors,offers,products,orders,lines,lots,settings,receipts].find(x=>x.error);
       if (failed?.error) return json({error:"Inventory database is not yet available: "+failed.error.message},503);
+      // Aggregate actual unit statuses for the owner dashboard; never return individual
+      // scan tokens, customer data or financial credentials in this summary.
+      // PostgREST responses are capped at 1,000 rows by default: page explicitly.
+      const counts=new Map<string,{product_id:string;state:string;count:number}>();
+      let countsComplete=false;
+      for (let page=0;page<100;page++) {
+        const {data:units,error:unitError}=await db.from("inventory_units")
+          .select("product_id,state").order("id",{ascending:true})
+          .range(page*1000,page*1000+999);
+        if (unitError) return json({error:"Could not calculate live stock counts"},503);
+        for (const unit of units||[]) {
+          const key=unit.product_id+":"+unit.state;
+          const old=counts.get(key);
+          if (old) old.count++;
+          else counts.set(key,{product_id:unit.product_id,state:unit.state,count:1});
+        }
+        if ((units?.length||0)<1000) { countsComplete=true;break; }
+      }
       return json({success:true, vendors:vendors.data, offers:offers.data, products:products.data,
-        orders:orders.data, lines:lines.data, lots:lots.data, settings:settings.data,receipts:receipts.data});
+        orders:orders.data, lines:lines.data, lots:lots.data, settings:settings.data,receipts:receipts.data,
+        unit_counts:[...counts.values()],counts_complete:countsComplete});
     }
     if (action === "add_vendor") {
       const name = text(body.name);

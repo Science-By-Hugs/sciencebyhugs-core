@@ -71,3 +71,40 @@
 .inv-multi-receive-line>small{color:var(--sl-muted,#abb0b3)}
 .inv-multi-receive-line button{align-self:flex-start}
 @media(max-width:550px){.inv-multi-line,.inv-multi-workspace{padding:12px}.inv-multi-manual{grid-template-columns:minmax(0,1fr)}.inv-multi-preview .inv-line{align-items:flex-start}.inv-multi-preview .inv-line strong{max-width:100%;text-align:left}}
+
+/* Phase 3 owner stock dashboard. Uses existing slate variables and compact type. */
+.inv-overview{margin:12px 0 20px}
+.inv-stock-dashboard{padding:20px}
+.inv-stock-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
+.inv-stock-heading h2{font-size:1.32rem;letter-spacing:-.02em;margin:5px 0 0}
+.inv-stock-heading button{font-size:.78rem;border-radius:8px;white-space:nowrap;padding:9px 12px;align-self:center}
+.inv-stock-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}
+.inv-stock-stat{background:var(--sl-raised,#303639);border:1px solid var(--sl-line,#35393b);padding:13px 12px;border-radius:10px;display:flex;flex-direction:column;min-width:0;gap:5px}
+.inv-stock-stat strong{font-size:1.6rem;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.025em;color:var(--sl-text,#fff)}
+.inv-stock-stat span{font-size:.76rem;font-weight:680;color:var(--sl-text,#fff)}
+.inv-stock-stat small{color:var(--sl-muted,#abb0b3);font-size:.69rem;line-height:1.3}
+.inv-stock-warning{border:1px solid var(--sl-warning,#e3b866);padding:10px 12px;border-radius:8px;font-size:.82rem;line-height:1.45;margin:15px 0}
+.inv-stock-controls{display:flex;gap:9px;margin:18px 0 10px;align-items:center}
+.inv-stock-controls input,.inv-stock-controls select{border:1px solid var(--sl-line,#35393b);border-radius:8px;background:var(--sl-raised,#303639);color:var(--sl-text,#fff);font:inherit;font-size:.84rem;min-height:40px;padding:9px 12px}
+.inv-stock-controls input{flex:1;min-width:0}
+.inv-stock-controls select{width:180px;max-width:48%}
+.inv-stock-table-wrap{overflow:auto;max-width:100%;border:1px solid var(--sl-line,#35393b);border-radius:10px}
+.inv-stock-table{width:100%;border-collapse:collapse;min-width:840px;font-size:.78rem}
+.inv-stock-table caption{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap}
+.inv-stock-table th,.inv-stock-table td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--sl-line,#35393b);vertical-align:middle}
+.inv-stock-table th{font-size:.7rem;letter-spacing:.02em;color:var(--sl-muted,#abb0b3);white-space:nowrap;background:var(--sl-raised,#303639)}
+.inv-stock-table tr:last-child td{border-bottom:none}
+.inv-stock-table td strong,.inv-stock-table td small{display:block}
+.inv-stock-table td strong{font-size:.83rem}
+.inv-stock-table td small{color:var(--sl-muted,#abb0b3);margin-top:5px;line-height:1.25;font-size:.72rem}
+.inv-stock-number{text-align:right!important;font-weight:650;font-variant-numeric:tabular-nums}
+.inv-stock-state{display:inline-block;font-weight:650;font-size:.72rem}
+.inv-stock-state.is-low{color:var(--sl-warning,#e3b866)}
+.inv-stock-state.is-review{color:var(--sl-warning,#e3b866)}
+.inv-stock-actions{display:flex;gap:5px;flex-wrap:wrap;min-width:110px}
+.inv-stock-action{border-radius:7px;border:1px solid var(--sl-line,#35393b);color:var(--sl-text,#fff);background:transparent;font-size:.72rem;padding:6px 8px;cursor:pointer}
+.inv-stock-action:hover,.inv-stock-action:focus-visible{outline:1px solid var(--sl-text,#fff);outline-offset:1px}
+.inv-stock-empty{text-align:center!important;padding:22px!important;color:var(--sl-muted,#abb0b3)}
+.inv-stock-footnote{font-size:.72rem;line-height:1.45;color:var(--sl-muted,#abb0b3);margin:11px 0 0}
+@media(max-width:920px){.inv-stock-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:550px){.inv-stock-dashboard{padding:13px}.inv-stock-heading{align-items:center}.inv-stock-heading h2{font-size:1.15rem}.inv-stock-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.inv-stock-stat{min-height:102px}.inv-stock-controls{flex-direction:column;align-items:stretch}.inv-stock-controls input,.inv-stock-controls select{width:100%;max-width:none}.inv-stock-table{min-width:790px}}
