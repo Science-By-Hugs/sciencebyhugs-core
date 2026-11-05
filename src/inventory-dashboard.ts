@@ -1,6 +1,6 @@
 import type { InventorySnapshot } from './services/inventory'
 
-type Status = 'available'|'reserved'|'damaged'|'quarantined'|'returned'|'shipped'
+type Status = 'available'|'reserved'|'damaged'|'quarantined'|'returned'|'shipped'|'missing'
 type SupplyMode = 'physical'|'vendor'|'unreviewed'
 export type StockProductRow = {
   id:string
@@ -13,6 +13,7 @@ export type StockProductRow = {
   quarantined:number
   returned:number
   shipped:number
+  missing:number
   reorderPoint:number
   reorderConfigured:boolean
   lowStock:boolean
@@ -105,7 +106,8 @@ export function buildStockDashboardModel(data:InventorySnapshot):StockDashboardM
     const quarantined=value.quarantined||0
     const returned=value.returned||0
     const shipped=value.shipped||0
-    const hasPhysical=available+reserved+damaged+quarantined+returned>0
+    const missing=value.missing||0
+    const hasPhysical=available+reserved+damaged+quarantined+returned+missing>0
     const lowStock=mode==='physical' && reorderPoint>0 &&
       available<=reorderPoint && data.counts_complete===true
     const needsClassification=mode==='unreviewed' && hasPhysical ||
@@ -114,7 +116,7 @@ export function buildStockDashboardModel(data:InventorySnapshot):StockDashboardM
     const quote=offers.get(product.id)
     return {
       id:product.id,name:product.name,code:product.product_code||'—',
-      mode,available,reserved,damaged,quarantined,returned,shipped,
+      mode,available,reserved,damaged,quarantined,returned,shipped,missing,
       reorderPoint,reorderConfigured:reorderPoint>0,lowStock,
       needsClassification,pendingUnits:pendingByProduct.get(product.id)||0,
       latestLandedCost:lot?.lastCost??null,finalCostPending:lot?.pending||false,
@@ -249,7 +251,7 @@ export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,
     const mode=filter.value
     const rows=model.rows.filter(row=>{
       const hasTracked=row.available+row.reserved+row.damaged+
-        row.quarantined+row.returned+row.pendingUnits>0 ||
+        row.quarantined+row.returned+row.missing+row.pendingUnits>0 ||
         row.supplierQuote!==null || row.mode!=='unreviewed'
       if(mode==='tracked'&&!hasTracked)return false
       if(mode==='physical'&&row.mode!=='physical')return false
@@ -271,6 +273,7 @@ export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,
       const available=node('td','inv-stock-number',String(row.available))
       const other=node('td')
       other.append(node('small','',row.reserved+' reserved · '+row.damaged+' damaged'))
+      if(row.missing)other.append(node('small','',''+row.missing+' missing / reconciled'))
       if(row.quarantined||row.returned)
         other.append(node('small','',row.quarantined+' quarantined · '+row.returned+' returned'))
       const source=node('td')
