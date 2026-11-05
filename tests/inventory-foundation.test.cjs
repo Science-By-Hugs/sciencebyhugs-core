@@ -67,7 +67,7 @@ test('unit QR codes are exported as independent, smaller 300 DPI PNG files',()=>
   assert.match(png,/unit\.ordinal/)
   assert.doesNotMatch(ui,/window\.print\(\)/)
   assert.match(css,/\.inv-png-preview/)
-  assert.match(ui,/SCIENCE BY HUGS/)
+  assert.match(png,/SCIENCE BY HUGS/)
 })
 
 test('physical and vendor-supplied classification remains separate from Nexus listings',()=>{
