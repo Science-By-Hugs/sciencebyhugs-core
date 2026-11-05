@@ -33,7 +33,7 @@ function harness(options = {}) {
     providerStatus: options.providerStatus ?? 201,
     providerThrows: options.providerThrows ?? false,
     providerMessageId: options.providerMessageId ?? '<fake-id@provider.invalid>',
-    outboxState: 'queued',
+    outboxState: options.initialOutboxState ?? 'queued',
     attempts: 0,
     providerCalls: [],
     dbCalls: [],
@@ -242,4 +242,17 @@ test('scoped test fails closed if global queue is enabled', async () => {
   assert.equal(result.status, 409)
   assert.equal(h.state.outboxState, 'queued')
   assert.equal(h.state.providerCalls.length, 0)
+})
+
+test('stale processing messages are held for provider reconciliation, never auto-reclaimed', async () => {
+  const h = harness({ initialOutboxState: 'processing' })
+  const result = await h.dispatch()
+  assert.equal(result.status, 200)
+  assert.equal(result.body.sent, 0)
+  assert.equal(result.body.processed, 0)
+  assert.equal(h.state.outboxState, 'processing')
+  assert.equal(h.state.attempts, 0)
+  assert.equal(h.state.providerCalls.length, 0)
+  assert.ok(worker.includes("where state in ('queued','retry') and available_at <= now()"))
+  assert.ok(!worker.includes("or (state = 'processing' and locked_at < now()"))
 })
