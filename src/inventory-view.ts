@@ -3,6 +3,7 @@ import {
   lookupInventoryUnit,receiveInventoryPurchase,saveVendorOffer,
   type InventoryLot,type InventoryPurchase,type InventorySnapshot,type InventoryUnitLabel,
 } from './services/inventory'
+import { inventoryPngFilename, inventoryUnitPng } from './inventory-png'
 import './inventory.css'
 
 type Helpers = {
@@ -20,7 +21,7 @@ const number = (v:unknown) => Number(v || 0)
 export function inventoryPageMarkup(email:string,escapeHtml:Helpers['escapeHtml']) {
   return '<section class="dashboard-head dashboard-head-compact"><div>' +
     '<span class="eyebrow">STOCK & PROCUREMENT</span><h1 class="dashboard-title">Inventory</h1>' +
-    '<p class="copy">Track vendor costs, receive kits as individual units, and print traceable QR labels.</p>' +
+    '<p class="copy">Track vendor costs, receive kits as individual units, and download traceable PNG labels.</p>' +
     '</div><div class="operator">Signed in as <strong>'+escapeHtml(email)+'</strong></div></section>' +
     '<section id="inventory-app"><div class="loading">Loading inventory…</div></section>'
 }
@@ -119,7 +120,7 @@ function receivingForm(data:InventorySnapshot,h:Helpers) {
 
 function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
   return card('<div class="inv-panel-head"><h2>5. Lots & QR labels</h2>'+
-    '<p>Print individual 2 × 1 inch landscape thermal labels, with one QR per vial.</p></div>'+
+    '<p>Download individual 1.90 × 0.90 inch horizontal 300 DPI PNGs, with one unique QR per vial. No Apple printer connection needed.</p></div>'+
     '<div class="inv-list">'+(lots.length?lots.map(l=>{
       const p=data.products.find(p=>p.id===l.product_id)
       const v=data.vendors.find(v=>v.id===l.vendor_id)
@@ -129,8 +130,8 @@ function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
         '<small>Original lot: '+h.escapeHtml(l.supplier_lot)+
         (l.expiry_date?' · Expires '+h.escapeHtml(l.expiry_date):'')+'</small></div>'+
         '<div class="inv-right"><strong>'+h.escapeHtml(l.landed_unit_cost===null?'—':h.money(l.landed_unit_cost))+
-        ' / unit</strong><button class="secondary inv-print-lot" data-lot="'+h.escapeHtml(l.id)+
-        '" type="button">Print labels</button></div></div>'
+        ' / unit</strong><button class="secondary inv-download-lot" data-lot="'+h.escapeHtml(l.id)+
+        '" type="button">Prepare PNG downloads</button></div></div>'
     }).join(''):'<p class="inv-empty">Receiving lots will appear here.</p>')+'</div>')
 }
 
@@ -153,36 +154,72 @@ function classificationForm(data:InventorySnapshot,h:Helpers) {
     '<div class="inv-form-action"><button class="primary" type="submit">Save classification</button></div></form>')
 }
 
-function printLabelHtml(labels:InventoryUnitLabel[],h:Helpers) {
-  return labels.map(l=>{
-    const qr='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(l.qr_svg||'')
-    return '<div class="inv-thermal-label"><img class="inv-qr" alt="Unit QR" src="'+qr+'">'+
-      '<div class="inv-label-copy"><strong>SCIENCE BY HUGS</strong>'+
-      '<span>'+h.escapeHtml(l.product_code||'PRODUCT')+'</span>'+
-      '<b>'+h.escapeHtml(l.internal_lot)+'</b>'+
-      '<small>UNIT '+String(l.ordinal).padStart(2,'0')+'/'+String(l.total_units).padStart(2,'0')+'</small>'+
-      '</div></div>'
-  }).join('')
-}
+const activePngUrls:string[]=[]
 
-async function printLot(lotId:string,h:Helpers) {
+async function prepareLotPngDownloads(lotId:string) {
+  const panel=id('inv-png-downloads')
+  if (!panel) throw new Error('PNG download panel unavailable')
+  panel.hidden=false
+  panel.textContent='Preparing individual PNG labels…'
   const base=location.origin+location.pathname
-  const {units}=await listInventoryLotLabels(lotId,base)
-  if (!units.length) throw new Error('No printable units were found')
-  if (units.length===100) alert('Only the first 100 labels are available in one batch')
-  // Print sheet lives at body level, outside the replaceable Core app shell.
-  // Reuse it for reprints to avoid duplicate hidden label pages.
-  let target=document.body.querySelector<HTMLElement>('#inventory-print-sheet')
-  if (!target) {
-    target=document.createElement('section')
-    target.id='inventory-print-sheet'
-    target.setAttribute('aria-hidden','true')
-    document.body.appendChild(target)
+  try {
+    const {units}=await listInventoryLotLabels(lotId,base)
+    if (!units.length) throw new Error('No inventory units found for this lot')
+    // Build PNGs in the operator's browser. Existing unit QR tokens are reused.
+    const files:{unit:InventoryUnitLabel;url:string}[]=[]
+    try {
+      for (const unit of units) {
+        const png=await inventoryUnitPng(unit)
+        files.push({unit,url:URL.createObjectURL(png)})
+      }
+    } catch(err) {
+      files.forEach(file=>URL.revokeObjectURL(file.url))
+      throw err
+    }
+    for (const oldUrl of activePngUrls) URL.revokeObjectURL(oldUrl)
+    activePngUrls.splice(0,activePngUrls.length,...files.map(file=>file.url))
+
+    panel.replaceChildren()
+    const title=document.createElement('h2')
+    title.textContent='Download PNG labels'
+    panel.appendChild(title)
+    const info=document.createElement('p')
+    info.className='inv-helper'
+    info.textContent='1.90 × 0.90 inches, horizontal, 570 × 270 pixels at 300 DPI. Each unit has its own QR. Download the PNG files, then open them in your thermal-printer software.'
+    panel.appendChild(info)
+    const preview=document.createElement('img')
+    preview.className='inv-png-preview'
+    preview.alt='Preview of first unit label'
+    preview.src=files[0].url
+    panel.appendChild(preview)
+
+    const list=document.createElement('div')
+    list.className='inv-list'
+    files.forEach(({unit,url})=>{
+      const row=document.createElement('div')
+      row.className='inv-line'
+      const label=document.createElement('strong')
+      label.textContent='Unit '+String(unit.ordinal).padStart(2,'0')+' of '+unit.total_units
+      const link=document.createElement('a')
+      link.className='secondary inv-png-link'
+      link.textContent='Download PNG'
+      link.href=url
+      link.download=inventoryPngFilename(unit)
+      row.append(label,link)
+      list.appendChild(row)
+    })
+    panel.appendChild(list)
+    if (units.length===100) {
+      const note=document.createElement('p')
+      note.className='inv-helper'
+      note.textContent='Only the first 100 units are available per download batch.'
+      panel.appendChild(note)
+    }
+    panel.scrollIntoView({block:'start',behavior:'smooth'})
+  } catch(err) {
+    panel.textContent=err instanceof Error?err.message:'PNG label generation failed'
+    throw err
   }
-  target.innerHTML=printLabelHtml(units,h)
-  const imgs=Array.from(target.querySelectorAll<HTMLImageElement>('img'))
-  await Promise.all(imgs.map(img=>img.decode().catch(()=>undefined)))
-  window.print()
 }
 
 export async function bindInventoryPage(h:Helpers) {
@@ -196,7 +233,8 @@ export async function bindInventoryPage(h:Helpers) {
       (vendorOptions?offersForm(data,h):card('<h2>2. Vendor price book</h2><p>Add a vendor first.</p>'))+
       (data.offers.length?purchaseForm(data,h):card('<h2>3. Purchase kits</h2><p>Add an offering first.</p>'))+
       receivingForm(data,h)+
-      lotRows(data.lots,data,h)+classificationForm(data,h)+'</div>'+
+      lotRows(data.lots,data,h)+classificationForm(data,h)+'</div>'+ 
+      '<section id="inv-png-downloads" class="inv-panel" hidden></section>'+ 
       '<section id="inventory-lookup" class="inv-panel" hidden></section>'
 
     const form=(name:string,fn:(f:HTMLFormElement)=>Promise<void>)=>{
@@ -259,11 +297,11 @@ export async function bindInventoryPage(h:Helpers) {
         expiryDate:val(f,'expiryDate'),requestId:receiveId,
       })
     })
-    root.querySelectorAll<HTMLButtonElement>('.inv-print-lot').forEach(b=>
+    root.querySelectorAll<HTMLButtonElement>('.inv-download-lot').forEach(b=>
       b.addEventListener('click',async()=>{
         b.disabled=true
-        try{await printLot(b.dataset.lot||'',h)}
-        catch(err){alert(err instanceof Error?err.message:'Could not print lot labels')}
+        try{await prepareLotPngDownloads(b.dataset.lot||'')}
+        catch(err){alert(err instanceof Error?err.message:'Could not create PNG labels')}
         finally{b.disabled=false}
       })
     )
