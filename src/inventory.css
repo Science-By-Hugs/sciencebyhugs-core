@@ -53,3 +53,21 @@
   .inv-label-copy b{font:bold 7.5pt Arial,sans-serif!important;overflow-wrap:anywhere!important}
   .inv-label-copy small{font:7pt Arial,sans-serif!important}
 }
+
+/* Multi-product purchasing: single shared shipping/fees, line allocation preview. */
+.inv-multi-anchor{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.inv-multi-workspace{padding:18px}
+.inv-multi-workspace h3{font-size:1rem;margin:18px 0 12px}
+.inv-multi-form{display:flex;flex-direction:column;gap:12px}
+.inv-multi-lines{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px}
+.inv-multi-line{border:1px solid var(--sl-line,#35393b);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.inv-multi-manual{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.inv-multi-line button{align-self:flex-start}
+.inv-multi-preview{border-top:1px solid var(--sl-line,#35393b);margin-top:8px;padding-top:12px}
+.inv-multi-preview .inv-line span{font-size:.81rem;min-width:0}
+.inv-multi-preview .inv-line strong{font-size:.81rem;text-align:right;max-width:48%}
+.inv-multi-receive-line{border-top:1px solid var(--sl-line,#35393b);padding:14px 0;display:flex;flex-direction:column;gap:12px}
+.inv-multi-receive-line>strong{font-size:.96rem}
+.inv-multi-receive-line>small{color:var(--sl-muted,#abb0b3)}
+.inv-multi-receive-line button{align-self:flex-start}
+@media(max-width:550px){.inv-multi-line,.inv-multi-workspace{padding:12px}.inv-multi-manual{grid-template-columns:minmax(0,1fr)}.inv-multi-preview .inv-line{align-items:flex-start}.inv-multi-preview .inv-line strong{max-width:100%;text-align:left}}

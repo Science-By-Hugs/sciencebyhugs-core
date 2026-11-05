@@ -66,19 +66,20 @@ Deno.serve(async req => {
   const action = text(body.action,50);
   try {
     if (action === "list") {
-      const [vendors,offers,products,orders,lines,lots,settings] = await Promise.all([
+      const [vendors,offers,products,orders,lines,lots,settings,receipts] = await Promise.all([
         db.from("inventory_vendors").select("id,code,name,active,notes").order("name"),
         db.from("inventory_vendor_offers").select("id,vendor_id,product_id,vendor_sku,units_per_pack,price_per_pack,estimated_inbound_shipping,lead_time_days,quote_date,active").order("updated_at",{ascending:false}),
         db.from("products").select("id,product_code,name,price,product_type").order("name").limit(250),
-        db.from("inventory_purchase_orders").select("id,po_number,vendor_id,status,shipping_actual,fees_actual,ordered_at,received_at").order("ordered_at",{ascending:false}).limit(100),
-        db.from("inventory_purchase_lines").select("id,purchase_order_id,offer_id,product_id,packs_ordered,units_per_pack_snapshot,pack_price_snapshot,expected_units").limit(100),
-        db.from("inventory_lots").select("id,receipt_id,product_id,vendor_id,internal_lot,supplier_lot,expiry_date,accepted_units,damaged_units,landed_unit_cost,created_at").order("created_at",{ascending:false}).limit(100),
+        db.from("inventory_purchase_orders").select("id,po_number,vendor_id,status,shipping_actual,fees_actual,ordered_at,received_at,multi_line,allocation_method").order("ordered_at",{ascending:false}).limit(100),
+        db.from("inventory_purchase_lines").select("id,purchase_order_id,offer_id,product_id,packs_ordered,units_per_pack_snapshot,pack_price_snapshot,expected_units,shipping_allocated,fees_allocated").limit(100),
+        db.from("inventory_lots").select("id,receipt_id,product_id,vendor_id,internal_lot,supplier_lot,expiry_date,accepted_units,damaged_units,landed_unit_cost,cost_finalized,created_at").order("created_at",{ascending:false}).limit(100),
         db.from("inventory_product_settings").select("product_id,supply_mode,reorder_point").limit(250),
+        db.from("inventory_receipts").select("id,purchase_order_id,purchase_line_id,accepted_units,damaged_units,received_at").order("received_at",{ascending:false}).limit(1000),
       ]);
-      const failed = [vendors,offers,products,orders,lines,lots,settings].find(x=>x.error);
+      const failed = [vendors,offers,products,orders,lines,lots,settings,receipts].find(x=>x.error);
       if (failed?.error) return json({error:"Inventory database is not yet available: "+failed.error.message},503);
       return json({success:true, vendors:vendors.data, offers:offers.data, products:products.data,
-        orders:orders.data, lines:lines.data, lots:lots.data, settings:settings.data});
+        orders:orders.data, lines:lines.data, lots:lots.data, settings:settings.data,receipts:receipts.data});
     }
     if (action === "add_vendor") {
       const name = text(body.name);
@@ -146,6 +147,49 @@ Deno.serve(async req => {
         p_request_id:text(body.requestId,36),p_actor_id:user.id,
       });
       if (error) return json({error:"Could not receive inventory: "+error.message},409);
+      return json({success:true,receipt:data});
+    }
+    if (action === "create_multi_purchase") {
+      const vendorId = text(body.vendorId,36);
+      const allocationMethod = text(body.allocationMethod,12);
+      if (!["per_kit","by_cost","manual"].includes(allocationMethod))
+        return json({error:"Select an allocation method"},400);
+      if (!Array.isArray(body.lines) || body.lines.length<1 || body.lines.length>25)
+        return json({error:"Choose 1 to 25 product offerings"},400);
+      const lines=body.lines.map(raw=>{
+        if (!raw || typeof raw !== "object") throw new Error("Invalid product line");
+        const row=raw as Record<string,unknown>;
+        const result:Record<string,unknown>={
+          offerId:text(row.offerId,36),packs:quantity(row.packs),
+        };
+        if (allocationMethod==="manual") {
+          result.shipping=cents(row.shipping);
+          result.fees=cents(row.fees);
+        }
+        return result;
+      });
+      const {data,error}=await db.rpc("core_inventory_create_multi_purchase",{
+        p_vendor_id:vendorId,p_lines:lines,p_shipping:cents(body.shipping),
+        p_fees:cents(body.fees),p_allocation_method:allocationMethod,
+        p_request_id:text(body.requestId,36),p_actor_id:user.id,
+      });
+      if (error) return json({error:"Could not create multi-product purchase: "+error.message},409);
+      return json({success:true,purchase:data});
+    }
+    if (action === "receive_multi_line") {
+      const accepted=Number(body.accepted),damaged=Number(body.damaged);
+      if (!Number.isInteger(accepted)||!Number.isInteger(damaged)||
+        accepted<0||damaged<0||accepted+damaged<1||accepted+damaged>100)
+        return json({error:"Enter 1 to 100 total received units (usable + damaged)"},400);
+      const date=text(body.expiryDate,10);
+      if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date))
+        return json({error:"Invalid expiration date"},400);
+      const {data,error}=await db.rpc("core_inventory_receive_multi_line",{
+        p_line_id:text(body.lineId,36),p_accepted:accepted,p_damaged:damaged,
+        p_supplier_lot:text(body.supplierLot,120),p_expiry:date||null,
+        p_request_id:text(body.requestId,36),p_actor_id:user.id,
+      });
+      if (error) return json({error:"Could not receive purchase line: "+error.message},409);
       return json({success:true,receipt:data});
     }
     if (action === "lookup_unit" || action === "labels_for_lot") {

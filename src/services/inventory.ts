@@ -9,22 +9,27 @@ export type VendorOffer = {
 }
 export type InventoryPurchase = {
   id:string; po_number:string; vendor_id:string; status:string;
-  shipping_actual:number; fees_actual:number; ordered_at:string; received_at:string|null
+  shipping_actual:number; fees_actual:number; ordered_at:string; received_at:string|null;
+  multi_line:boolean; allocation_method:'per_kit'|'by_cost'|'manual'|null
 }
 export type InventoryPurchaseLine = {
   id:string; purchase_order_id:string; offer_id:string; product_id:string;
-  packs_ordered:number; units_per_pack_snapshot:number; pack_price_snapshot:number; expected_units:number
+  packs_ordered:number; units_per_pack_snapshot:number; pack_price_snapshot:number; expected_units:number;
+  shipping_allocated:number; fees_allocated:number
 }
 export type InventoryLot = {
   id:string; receipt_id:string; vendor_id:string; product_id:string;
   internal_lot:string; supplier_lot:string; expiry_date:string|null;
-  accepted_units:number; damaged_units:number; landed_unit_cost:number|null; created_at:string
+  accepted_units:number; damaged_units:number; landed_unit_cost:number|null;
+  cost_finalized:boolean; created_at:string
 }
+export type InventoryReceipt = {id:string;purchase_order_id:string;purchase_line_id:string|null;
+  accepted_units:number;damaged_units:number;received_at:string}
 export type InventorySettings = { product_id:string; supply_mode:string; reorder_point:number }
 export type InventorySnapshot = {
   vendors:InventoryVendor[]; offers:VendorOffer[]; products:InventoryProduct[];
   orders:InventoryPurchase[]; lines:InventoryPurchaseLine[]; lots:InventoryLot[];
-  settings:InventorySettings[]
+  settings:InventorySettings[]; receipts:InventoryReceipt[]
 }
 export type InventoryUnitLabel = {
   unit_id:string; scan_token:string; state:string; ordinal:number; total_units:number;
@@ -61,3 +66,22 @@ export const listInventoryLotLabels=(lotId:string,baseUrl:string)=>
   callInventory<{units:InventoryUnitLabel[];box_qr_svg?:string}>({action:'labels_for_lot',lotId,baseUrl})
 export const lookupInventoryUnit=(token:string)=>
   callInventory<{units:InventoryUnitLabel[]}>({action:'lookup_unit',token})
+
+
+export type MultiPurchaseLineInput = {
+  offerId:string;packs:number;shipping?:number;fees?:number
+}
+export type AllocationMethod = 'per_kit'|'by_cost'|'manual'
+export const createMultiInventoryPurchase=(details:{
+  vendorId:string;lines:MultiPurchaseLineInput[];shipping:number;fees:number;
+  allocationMethod:AllocationMethod;requestId:string
+})=>callInventory<{purchase:{id:string;po_number:string;line_count:number;expected_units:number}}>({
+  action:'create_multi_purchase',...details,
+})
+export const receiveMultiInventoryLine=(details:{
+  lineId:string;accepted:number;damaged:number;
+  supplierLot:string;expiryDate:string;requestId:string
+})=>callInventory<{receipt:{lot_id:string;internal_lot:string;accepted_units:number;
+  damaged_units:number;landed_unit_cost:number|null;cost_finalized:boolean}}>({
+  action:'receive_multi_line',...details,
+})
