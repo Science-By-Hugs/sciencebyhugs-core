@@ -1,6 +1,6 @@
 import type { InventorySnapshot } from './services/inventory'
 
-type Status = 'available'|'reserved'|'damaged'|'quarantined'|'returned'|'shipped'|'missing'
+type Status = 'available'|'reserved'|'damaged'|'quarantined'|'returned'|'shipped'|'missing'|'allocated'
 type SupplyMode = 'physical'|'vendor'|'unreviewed'
 export type StockProductRow = {
   id:string
@@ -9,6 +9,7 @@ export type StockProductRow = {
   mode:SupplyMode
   available:number
   reserved:number
+  allocated:number
   damaged:number
   quarantined:number
   returned:number
@@ -29,6 +30,7 @@ export type StockDashboardModel = {
   rows:StockProductRow[]
   available:number
   reserved:number
+  allocated:number
   damaged:number
   quarantined:number
   openPurchases:number
@@ -102,12 +104,13 @@ export function buildStockDashboardModel(data:InventorySnapshot):StockDashboardM
     const reorderPoint=Number(setting?.reorder_point||0)
     const available=value.available||0
     const reserved=value.reserved||0
+    const allocated=value.allocated||0
     const damaged=value.damaged||0
     const quarantined=value.quarantined||0
     const returned=value.returned||0
     const shipped=value.shipped||0
     const missing=value.missing||0
-    const hasPhysical=available+reserved+damaged+quarantined+returned+missing>0
+    const hasPhysical=available+reserved+allocated+damaged+quarantined+returned+missing>0
     const lowStock=mode==='physical' && reorderPoint>0 &&
       available<=reorderPoint && data.counts_complete===true
     const needsClassification=mode==='unreviewed' && hasPhysical ||
@@ -116,7 +119,7 @@ export function buildStockDashboardModel(data:InventorySnapshot):StockDashboardM
     const quote=offers.get(product.id)
     return {
       id:product.id,name:product.name,code:product.product_code||'—',
-      mode,available,reserved,damaged,quarantined,returned,shipped,missing,
+      mode,available,reserved,allocated,damaged,quarantined,returned,shipped,missing,
       reorderPoint,reorderConfigured:reorderPoint>0,lowStock,
       needsClassification,pendingUnits:pendingByProduct.get(product.id)||0,
       latestLandedCost:lot?.lastCost??null,finalCostPending:lot?.pending||false,
@@ -128,7 +131,7 @@ export function buildStockDashboardModel(data:InventorySnapshot):StockDashboardM
   rows.sort((a,b)=>{
     const priority=(r:StockProductRow)=>(
       (r.lowStock?1000:0)+(r.needsClassification?500:0)+
-      ((r.available+r.reserved+r.damaged+r.quarantined)>0?100:0)+
+      ((r.available+r.reserved+r.allocated+r.damaged+r.quarantined)>0?100:0)+
       (r.pendingUnits>0?50:0)+(r.supplierQuote!==null?10:0)
     )
     return priority(b)-priority(a)||a.name.localeCompare(b.name)
@@ -137,6 +140,7 @@ export function buildStockDashboardModel(data:InventorySnapshot):StockDashboardM
     rows,
     available:rows.reduce((s,r)=>s+r.available,0),
     reserved:rows.reduce((s,r)=>s+r.reserved,0),
+    allocated:rows.reduce((s,r)=>s+r.allocated,0),
     damaged:rows.reduce((s,r)=>s+r.damaged,0),
     quarantined:rows.reduce((s,r)=>s+r.quarantined,0),
     openPurchases:data.orders.filter(o=>o.status==='ordered'||o.status==='partially_received').length,
@@ -192,7 +196,8 @@ export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,
   const metrics=node('div','inv-stock-metrics')
   metrics.append(
     stat('Available',model.available,'Physically available units'),
-    stat('Reserved',model.reserved,'Committed, not available'),
+    stat('Reserved',model.reserved,'Held during checkout'),
+    stat('Allocated',model.allocated,'Paid, waiting for fulfillment'),
     stat('Damaged',model.damaged,'Not available for fulfillment'),
     stat('Low stock',model.lowStockProducts,'Products at or below threshold'),
     stat('Open purchases',model.openPurchases,'Ordered or partially received'),
@@ -250,7 +255,7 @@ export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,
     const term=search.value.trim().toLowerCase()
     const mode=filter.value
     const rows=model.rows.filter(row=>{
-      const hasTracked=row.available+row.reserved+row.damaged+
+      const hasTracked=row.available+row.reserved+row.allocated+row.damaged+
         row.quarantined+row.returned+row.missing+row.pendingUnits>0 ||
         row.supplierQuote!==null || row.mode!=='unreviewed'
       if(mode==='tracked'&&!hasTracked)return false
@@ -272,7 +277,7 @@ export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,
       product.append(node('strong','',row.name),node('small','',row.code))
       const available=node('td','inv-stock-number',String(row.available))
       const other=node('td')
-      other.append(node('small','',row.reserved+' reserved · '+row.damaged+' damaged'))
+      other.append(node('small','',row.reserved+' reserved · '+row.allocated+' allocated · '+row.damaged+' damaged'))
       if(row.missing)other.append(node('small','',''+row.missing+' missing / reconciled'))
       if(row.quarantined||row.returned)
         other.append(node('small','',row.quarantined+' quarantined · '+row.returned+' returned'))
