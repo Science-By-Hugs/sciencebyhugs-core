@@ -44,20 +44,27 @@ function classify(order: CoreOrder): State {
   const paid = String(order.payment_status || '').toLowerCase() === 'paid'
   const submitted = !paid && order.payment?.status === 'submitted'
   const cancelled = status === 'cancelled'
-  const unpaidCheckout = !paid && !submitted && status === 'checkout_pending'
+  // 'checkout_pending' and 'pending' remain valid legacy checkout records.
+  const unpaidCheckout = !paid && !submitted &&
+    ['submitted', 'checkout_pending', 'pending'].includes(status)
   const toShip = paid && (status === 'processing' || status === 'ordered')
   const delayed = status === 'delayed'
+  const onHold = status === 'on_hold'
   let label: string, tone: State['tone']
-  if (submitted) { label = 'Payment to review'; tone = 'warn' }
-  else if (unpaidCheckout) { label = 'Unpaid checkout'; tone = 'muted' }
-  else if (cancelled) { label = 'Cancelled'; tone = 'muted' }
+  if (cancelled) { label = 'Cancelled'; tone = 'muted' }
+  else if (submitted) { label = 'Submitted · payment to review'; tone = 'warn' }
+  else if (unpaidCheckout) { label = 'Submitted · awaiting payment'; tone = 'warn' }
   else if (!paid) { label = 'Awaiting payment'; tone = 'warn' }
+  else if (onHold) { label = 'On Hold'; tone = 'warn' }
   else if (delayed) { label = 'Delayed'; tone = 'error' }
-  else if (status === 'ordered') { label = 'Ordered · to ship'; tone = 'go' }
+  else if (status === 'processing') { label = 'Processing'; tone = 'go' }
+  else if (status === 'ordered') { label = 'Ordered'; tone = 'go' }
   else if (status === 'shipped') { label = 'Shipped'; tone = 'go' }
+  else if (status === 'out_for_delivery') { label = 'Out for Delivery'; tone = 'go' }
   else if (status === 'delivered') { label = 'Delivered'; tone = 'muted' }
-  else { label = 'Paid · to order'; tone = 'go' }
-  const needsAction = submitted || toShip || delayed || (!paid && !unpaidCheckout && !cancelled)
+  else { label = 'Submitted'; tone = 'warn' }
+  const needsAction = submitted || toShip || delayed || onHold ||
+    (!paid && !unpaidCheckout && !cancelled)
   return { paid, submitted, unpaidCheckout, toShip, label, tone, needsAction }
 }
 
@@ -65,7 +72,7 @@ function matches(order: CoreOrder, s: State, filter: OrdersFilter) {
   const status = String(order.status || '').toLowerCase()
   if (filter === 'action') return s.needsAction
   if (filter === 'ship') return s.toShip
-  if (filter === 'shipped') return s.paid && status === 'shipped'
+  if (filter === 'shipped') return s.paid && ['shipped', 'out_for_delivery'].includes(status)
   if (filter === 'delivered') return status === 'delivered'
   if (filter === 'unpaid') return s.unpaidCheckout
   return true
@@ -109,10 +116,12 @@ function paymentSection(order: CoreOrder, s: State, h: Helpers) {
 }
 
 const NEXT: Record<string, Array<[string, string]>> = {
-  processing: [['ordered', 'Mark ordered'], ['delayed', 'Mark delayed'], ['cancelled', 'Cancel order']],
-  ordered: [['shipped', 'Mark shipped'], ['delayed', 'Mark delayed'], ['cancelled', 'Cancel order']],
-  shipped: [['delivered', 'Mark delivered'], ['delayed', 'Mark delayed']],
-  delayed: [['processing', 'Back to processing'], ['ordered', 'Back to ordered'], ['shipped', 'Back to shipped'], ['cancelled', 'Cancel order']],
+  processing: [['ordered', 'Mark ordered'], ['on_hold', 'Put on hold'], ['delayed', 'Mark delayed'], ['cancelled', 'Cancel order']],
+  ordered: [['shipped', 'Mark shipped'], ['on_hold', 'Put on hold'], ['delayed', 'Mark delayed'], ['cancelled', 'Cancel order']],
+  shipped: [['out_for_delivery', 'Mark out for delivery'], ['on_hold', 'Put on hold'], ['delayed', 'Mark delayed'], ['cancelled', 'Cancel order']],
+  out_for_delivery: [['delivered', 'Mark delivered'], ['on_hold', 'Put on hold'], ['delayed', 'Mark delayed'], ['cancelled', 'Cancel order']],
+  on_hold: [['processing', 'Resume processing'], ['ordered', 'Back to ordered'], ['shipped', 'Back to shipped'], ['out_for_delivery', 'Resume delivery'], ['delayed', 'Mark delayed'], ['cancelled', 'Cancel order']],
+  delayed: [['processing', 'Resume processing'], ['ordered', 'Back to ordered'], ['shipped', 'Back to shipped'], ['out_for_delivery', 'Resume delivery'], ['on_hold', 'Put on hold'], ['cancelled', 'Cancel order']],
 }
 
 function fulfillmentSection(order: CoreOrder, s: State, h: Helpers) {
@@ -120,7 +129,7 @@ function fulfillmentSection(order: CoreOrder, s: State, h: Helpers) {
   const status = String(order.status || 'processing').toLowerCase()
   const options = NEXT[status] || []
   const terminal = status === 'delivered' || status === 'cancelled'
-  if (terminal) return ''
+  if (terminal || options.length === 0) return ''
   const primary = options[0]
   return '<section class="od-section od-next"><h3>Fulfillment</h3>' +
     '<div class="od-fulfill">' +
@@ -284,7 +293,7 @@ export async function bindOrdersHub(h: Helpers): Promise<void> {
       !window.confirm(status === 'cancelled' ? 'Cancel this order?' : 'Mark this order delivered?')) return
     busy(button, 'Updating…')
     try {
-      await updateFulfillment(button.dataset.orderId!, status as 'ordered' | 'shipped' | 'delivered' | 'delayed' | 'cancelled' | 'processing', note)
+      await updateFulfillment(button.dataset.orderId!, status as 'ordered' | 'shipped' | 'out_for_delivery' | 'delivered' | 'on_hold' | 'delayed' | 'cancelled' | 'processing', note)
       await reload()
     } catch (e) { fail(button, e, 'Could not update the order.') }
   }))

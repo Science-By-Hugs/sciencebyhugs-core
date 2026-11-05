@@ -116,7 +116,7 @@ export async function verifyPayment(orderId: string) {
 
 export async function updateFulfillment(
   orderId: string,
-  status: 'ordered' | 'shipped' | 'delivered' | 'delayed' | 'cancelled' | 'processing',
+  status: 'ordered' | 'shipped' | 'out_for_delivery' | 'delivered' | 'on_hold' | 'delayed' | 'cancelled' | 'processing',
   note = '',
 ) {
   const { data, error } = await supabase.functions.invoke('core-fulfillment-control', {

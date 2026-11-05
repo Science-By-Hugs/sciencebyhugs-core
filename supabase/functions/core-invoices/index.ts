@@ -126,7 +126,7 @@ Deno.serve(async (req: Request) => {
   const { data: operationalOrders, error: operationalOrderError } = await admin
     .from("orders")
     .select("id,order_number,customer_id,status,payment_status,payment_method,paid_at,ordered_at,shipped_at,delivered_at,estimated_delivery_date,delayed_at,cancelled_at,completed_at,updated_at,created_at,subtotal,shipping_total,discount_total,tax_total,total,contact_method")
-    .or("payment_status.eq.paid,payment_status.eq.submitted,and(payment_method.eq.Zelle,status.eq.checkout_pending)")
+    .or("payment_status.eq.paid,payment_status.eq.submitted,and(payment_method.eq.Zelle,status.in.(checkout_pending,submitted))")
     .order("created_at", { ascending: false })
     .limit(150);
 

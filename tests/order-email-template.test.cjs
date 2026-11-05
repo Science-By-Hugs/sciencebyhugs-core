@@ -11,22 +11,52 @@ const compiled = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleK
 const out = {}
 vm.runInNewContext(compiled, { exports: out, Intl, Date, Number, String })
 
-test('order received has transactional subject and existing app link', () => {
+test('new submitted order is explicitly not a payment confirmation', () => {
   const message = out.composeOrderEmail({ event_type: 'received', order_number: 'SBH-1042', order_status: 'ordered', delivery_date: null }, 'Jamie')
-  assert.match(message.subject, /SBH-1042 received/i)
-  assert.match(message.htmlContent, /We received your order/)
+  assert.match(message.subject, /SBH-1042 submitted/i)
+  assert.match(message.htmlContent, /Processing begins after payment is confirmed/)
   assert.match(message.htmlContent, /nexus\.sciencebyhugs\.com/)
   assert.match(message.htmlContent, /Account → Notifications/)
   assert.doesNotMatch(message.htmlContent, /discount|special offer|promotion code/i)
 })
 
-test('local delivery status avoids parcel-shipping promises', () => {
-  assert.equal(out.orderStatusText('shipped'), 'out for local delivery')
-  assert.equal(out.orderStatusText('delivered'), 'delivered')
-  assert.equal(out.orderStatusText('processing'), 'being prepared')
-  const message = out.composeOrderEmail({ event_type: 'status_changed', order_number: 'B52', order_status: 'shipped', delivery_date: null }, 'Customer')
-  assert.match(message.subject, /out for local delivery/)
-  assert.doesNotMatch(message.htmlContent, /tracking number|shipped to your address/i)
+test('each Core status has its own email wording', () => {
+  const examples = {
+    submitted: 'submitted',
+    processing: 'processing',
+    ordered: 'ordered',
+    shipped: 'shipped',
+    out_for_delivery: 'out for delivery',
+    delivered: 'delivered',
+    on_hold: 'on hold',
+    delayed: 'delayed',
+    cancelled: 'cancelled',
+  }
+  for (const [status, label] of Object.entries(examples)) {
+    assert.equal(out.orderStatusText(status), label)
+    const email = out.composeOrderEmail({
+      event_type: 'status_changed', order_number: 'B52',
+      order_status: status, delivery_date: null,
+    }, 'Customer')
+    assert.match(email.subject, /B52/)
+    assert.match(email.subject, new RegExp(label, 'i'))
+  }
+  assert.equal(out.orderStatusText('checkout_pending'), 'submitted')
+  assert.equal(out.orderStatusText('pending'), 'submitted')
+})
+
+test('shipped never claims the order is already out for delivery', () => {
+  const shipped = out.composeOrderEmail({ event_type: 'status_changed', order_number: 'B52', order_status: 'shipped', delivery_date: null }, 'Customer')
+  const outForDelivery = out.composeOrderEmail({ event_type: 'status_changed', order_number: 'B52', order_status: 'out_for_delivery', delivery_date: null }, 'Customer')
+  assert.match(shipped.subject, /B52: shipped/)
+  assert.match(shipped.htmlContent, /not yet out for delivery/)
+  assert.doesNotMatch(shipped.htmlContent, /tracking number|shipped to your address/i)
+  assert.match(outForDelivery.subject, /out for delivery/)
+})
+
+test('processing explicitly confirms payment', () => {
+  const email = out.composeOrderEmail({ event_type: 'status_changed', order_number: 'B52', order_status: 'processing', delivery_date: null }, 'Customer')
+  assert.match(email.htmlContent, /Payment has been confirmed/)
 })
 
 test('customer and order HTML is escaped, preventing injected markup', () => {
