@@ -154,6 +154,9 @@ async function printLot(lotId:string,h:Helpers) {
   if (units.length===100) alert('Only the first 100 labels are available in one batch')
   const target=id('inventory-print-sheet')
   if (!target) throw new Error('Label print area not available')
+  // Move the label sheet out of the app shell so print styles can hide all
+  // navigation without hiding the labels on Safari / thermal printer drivers.
+  if (target.parentElement !== document.body) document.body.appendChild(target)
   target.innerHTML=printLabelHtml(units,h)
   const imgs=Array.from(target.querySelectorAll<HTMLImageElement>('img'))
   await Promise.all(imgs.map(img=>img.decode().catch(()=>undefined)))
