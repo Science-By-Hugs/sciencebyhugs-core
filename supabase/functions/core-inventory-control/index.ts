@@ -185,6 +185,15 @@ Deno.serve(async req => {
         }
         result.push(entry);
       }
+      if (action === "labels_for_lot" && base) {
+        // A lot-level QR for the outer box. This does not identify a single vial.
+        const target = new URL(base.toString());
+        target.hash = "inventory?lot=" + encodeURIComponent(lotId);
+        const boxQrSvg = await QRCode.toString(target.toString(),{
+          type:"svg",errorCorrectionLevel:"M",margin:2,width:220,
+        });
+        return json({success:true,units:result,box_qr_svg:boxQrSvg});
+      }
       return json({success:true,units:result});
     }
     return json({error:"Unsupported inventory action"},400);
