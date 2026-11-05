@@ -3,7 +3,7 @@ import {
   lookupInventoryUnit,receiveInventoryPurchase,saveVendorOffer,
   type InventoryLot,type InventoryPurchase,type InventorySnapshot,type InventoryUnitLabel,
 } from './services/inventory'
-import { inventoryPngFilename, inventoryUnitPng } from './inventory-png'
+import { inventoryBoxPng, inventoryPngFilename, inventoryUnitPng, inventoryVialPng, lotBoxFilename, suggestedVialFields, vialPngFilename } from './inventory-png'
 import './inventory.css'
 
 type Helpers = {
@@ -120,7 +120,7 @@ function receivingForm(data:InventorySnapshot,h:Helpers) {
 
 function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
   return card('<div class="inv-panel-head"><h2>5. Lots & QR labels</h2>'+
-    '<p>Download individual 1.90 × 0.90 inch horizontal 300 DPI PNGs, with one unique QR per vial. No Apple printer connection needed.</p></div>'+
+    '<p>Download one lot QR PNG for the outer box and a 1.2 × 0.8-inch horizontal vial-label PNG. Both work with external thermal printer software.</p></div>'+
     '<div class="inv-list">'+(lots.length?lots.map(l=>{
       const p=data.products.find(p=>p.id===l.product_id)
       const v=data.vendors.find(v=>v.id===l.vendor_id)
@@ -131,7 +131,7 @@ function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
         (l.expiry_date?' · Expires '+h.escapeHtml(l.expiry_date):'')+'</small></div>'+
         '<div class="inv-right"><strong>'+h.escapeHtml(l.landed_unit_cost===null?'—':h.money(l.landed_unit_cost))+
         ' / unit</strong><button class="secondary inv-download-lot" data-lot="'+h.escapeHtml(l.id)+
-        '" type="button">Prepare PNG downloads</button></div></div>'
+        '" type="button">Prepare box + vial PNGs</button></div></div>'
     }).join(''):'<p class="inv-empty">Receiving lots will appear here.</p>')+'</div>')
 }
 
@@ -155,66 +155,159 @@ function classificationForm(data:InventorySnapshot,h:Helpers) {
 }
 
 const activePngUrls:string[]=[]
+function clearPngLinks() {
+  activePngUrls.forEach(url=>URL.revokeObjectURL(url))
+  activePngUrls.length=0
+}
+function createPngDownload(blob:Blob,filename:string,label:string) {
+  const url=URL.createObjectURL(blob)
+  activePngUrls.push(url)
+  const link=document.createElement('a')
+  link.className='secondary inv-png-link'
+  link.textContent=label
+  link.href=url
+  link.download=filename
+  return {url,link}
+}
+function labelInput(form:HTMLFormElement,title:string,name:string,value:string,placeholder:string,maxLength:number) {
+  const label=document.createElement('label')
+  label.className='inv-field'
+  const text=document.createElement('span')
+  text.textContent=title
+  const input=document.createElement('input')
+  input.type='text'
+  input.name=name
+  input.value=value
+  input.placeholder=placeholder
+  input.maxLength=maxLength
+  input.required=true
+  label.append(text,input)
+  form.appendChild(label)
+  return input
+}
 
 async function prepareLotPngDownloads(lotId:string) {
   const panel=id('inv-png-downloads')
   if (!panel) throw new Error('PNG download panel unavailable')
   panel.hidden=false
-  panel.textContent='Preparing individual PNG labels…'
+  panel.textContent='Preparing box and vial labels…'
   const base=location.origin+location.pathname
   try {
-    const {units}=await listInventoryLotLabels(lotId,base)
+    const {units,box_qr_svg}=await listInventoryLotLabels(lotId,base)
     if (!units.length) throw new Error('No inventory units found for this lot')
-    // Build PNGs in the operator's browser. Existing unit QR tokens are reused.
-    const files:{unit:InventoryUnitLabel;url:string}[]=[]
-    try {
-      for (const unit of units) {
-        const png=await inventoryUnitPng(unit)
-        files.push({unit,url:URL.createObjectURL(png)})
-      }
-    } catch(err) {
-      files.forEach(file=>URL.revokeObjectURL(file.url))
-      throw err
-    }
-    for (const oldUrl of activePngUrls) URL.revokeObjectURL(oldUrl)
-    activePngUrls.splice(0,activePngUrls.length,...files.map(file=>file.url))
-
+    if (!box_qr_svg) throw new Error('Lot QR service update is required before generating a box label')
+    clearPngLinks()
+    const first=units[0]
+    const boxPng=await inventoryBoxPng(first,box_qr_svg)
+    const boxFile=createPngDownload(boxPng,lotBoxFilename(first),'Download box QR PNG')
     panel.replaceChildren()
     const title=document.createElement('h2')
-    title.textContent='Download PNG labels'
+    title.textContent='Box and vial labels — '+first.internal_lot
     panel.appendChild(title)
     const info=document.createElement('p')
     info.className='inv-helper'
-    info.textContent='1.90 × 0.90 inches, horizontal, 570 × 270 pixels at 300 DPI. Each unit has its own QR. Download the PNG files, then open them in your thermal-printer software.'
+    info.textContent='One lot QR on the outer box. Small vial labels have no QR. Nothing is sent to the printer from Core.'
     panel.appendChild(info)
-    const preview=document.createElement('img')
-    preview.className='inv-png-preview'
-    preview.alt='Preview of first unit label'
-    preview.src=files[0].url
-    panel.appendChild(preview)
 
+    const boxTitle=document.createElement('h3')
+    boxTitle.textContent='1. Box / lot QR · 1.90 × 0.90 in'
+    panel.appendChild(boxTitle)
+    const boxPreview=document.createElement('img')
+    boxPreview.className='inv-png-preview'
+    boxPreview.alt='Lot QR PNG for outer box'
+    boxPreview.src=boxFile.url
+    panel.append(boxPreview,boxFile.link)
+
+    const vialTitle=document.createElement('h3')
+    vialTitle.textContent='2. Vial label · 1.20 × 0.80 in'
+    panel.appendChild(vialTitle)
+    const help=document.createElement('p')
+    help.className='inv-helper'
+    help.textContent='Verify the name, strength and actual formulation as printed on the supplied product. The formulation is intentionally blank until you confirm it. The sample design does not automatically prove product identity or compliance.'
+    panel.appendChild(help)
+    const fields=suggestedVialFields(first.product_name)
+    const form=document.createElement('form')
+    form.className='inv-form'
+    const nameInput=labelInput(form,'Product name','product',fields.name,'Product name',90)
+    const strengthInput=labelInput(form,'Strength / quantity','strength',fields.strength,'e.g. 20 mg',25)
+    const formInput=labelInput(form,'Verified formulation','form','',
+      'e.g. Lyophilized Peptide (only if verified)',45)
+    const action=document.createElement('div')
+    action.className='inv-form-action'
+    const generate=document.createElement('button')
+    generate.type='submit'
+    generate.className='primary'
+    generate.textContent='Generate vial label PNG'
+    action.appendChild(generate)
+    form.appendChild(action)
+    panel.appendChild(form)
+    const vialResults=document.createElement('div')
+    vialResults.className='inv-vial-results'
+    panel.appendChild(vialResults)
+    let vialUrl:string|null=null
+    form.addEventListener('submit',async event=>{
+      event.preventDefault()
+      generate.disabled=true
+      try {
+        const png=await inventoryVialPng({
+          name:nameInput.value,strength:strengthInput.value,form:formInput.value,
+        })
+        if(vialUrl) {
+          URL.revokeObjectURL(vialUrl)
+          const idx=activePngUrls.indexOf(vialUrl)
+          if(idx>=0) activePngUrls.splice(idx,1)
+        }
+        const vial=createPngDownload(png,vialPngFilename(first),'Download vial label PNG')
+        vialUrl=vial.url
+        const preview=document.createElement('img')
+        preview.className='inv-vial-preview'
+        preview.alt='Black-and-white vial label matching your reference'
+        preview.src=vial.url
+        const note=document.createElement('p')
+        note.className='inv-helper'
+        note.textContent='Use the same PNG for the physically verified '+units.filter(u=>u.state==='available').length+
+          ' available vials, adjusting the actual copy count in your Core Innovations printer software. Keep the printed vials together with their lot-tracked box.'
+        vialResults.replaceChildren(preview,vial.link,note)
+      }catch(err){alert(err instanceof Error?err.message:'Could not create vial label')}
+      finally{generate.disabled=false}
+    })
+
+    // Preserve the older per-unit QR option for operators who need it;
+    // keep it collapsed so the new box + vial workflow stays uncluttered.
+    const optional=document.createElement('details')
+    optional.className='inv-advanced-qr'
+    const heading=document.createElement('summary')
+    heading.textContent='Optional: individual unit QR labels'
+    optional.appendChild(heading)
+    const optionalHint=document.createElement('p')
+    optionalHint.className='inv-helper'
+    optionalHint.textContent='These are separate unit identifiers, not the single box QR.'
+    optional.appendChild(optionalHint)
+    const optionalButton=document.createElement('button')
+    optionalButton.type='button'
+    optionalButton.className='secondary'
+    optionalButton.textContent='Prepare individual QR PNGs'
+    optional.appendChild(optionalButton)
     const list=document.createElement('div')
     list.className='inv-list'
-    files.forEach(({unit,url})=>{
-      const row=document.createElement('div')
-      row.className='inv-line'
-      const label=document.createElement('strong')
-      label.textContent='Unit '+String(unit.ordinal).padStart(2,'0')+' of '+unit.total_units
-      const link=document.createElement('a')
-      link.className='secondary inv-png-link'
-      link.textContent='Download PNG'
-      link.href=url
-      link.download=inventoryPngFilename(unit)
-      row.append(label,link)
-      list.appendChild(row)
+    optional.appendChild(list)
+    optionalButton.addEventListener('click',async()=>{
+      optionalButton.disabled=true
+      try {
+        for(const unit of units) {
+          const png=await inventoryUnitPng(unit)
+          const file=createPngDownload(png,inventoryPngFilename(unit),
+            'Download unit '+String(unit.ordinal).padStart(2,'0'))
+          const row=document.createElement('div')
+          row.className='inv-line'
+          row.append(file.link)
+          list.appendChild(row)
+        }
+        optionalButton.remove()
+      }catch(err){alert(err instanceof Error?err.message:'Could not prepare individual QR labels')}
+      finally{optionalButton.disabled=false}
     })
-    panel.appendChild(list)
-    if (units.length===100) {
-      const note=document.createElement('p')
-      note.className='inv-helper'
-      note.textContent='Only the first 100 units are available per download batch.'
-      panel.appendChild(note)
-    }
+    panel.appendChild(optional)
     panel.scrollIntoView({block:'start',behavior:'smooth'})
   } catch(err) {
     panel.textContent=err instanceof Error?err.message:'PNG label generation failed'
@@ -306,7 +399,28 @@ export async function bindInventoryPage(h:Helpers) {
       })
     )
     const query=location.hash.split('?')[1]||''
-    const unitToken=new URLSearchParams(query).get('unit')
+    const params=new URLSearchParams(query)
+    const lotToken=params.get('lot')
+    if (lotToken) {
+      const panel=id('inventory-lookup')
+      if(panel) {
+        panel.hidden=false
+        const lot=data.lots.find(l=>l.id===lotToken)
+        if (!lot) panel.textContent='Lot not found in the current inventory view'
+        else {
+          const product=data.products.find(p=>p.id===lot.product_id)
+          const heading=document.createElement('h2')
+          heading.textContent='Scanned inventory lot'
+          const details=document.createElement('p')
+          details.textContent=(product?.name||'Product')+' · '+lot.internal_lot+
+            ' · '+lot.accepted_units+' accepted / '+lot.damaged_units+' damaged'+
+            ' · Supplier lot: '+lot.supplier_lot
+          panel.replaceChildren(heading,details)
+        }
+        panel.scrollIntoView({block:'start'})
+      }
+    }
+    const unitToken=params.get('unit')
     if (unitToken) {
       const panel=id('inventory-lookup')
       if(panel) {
