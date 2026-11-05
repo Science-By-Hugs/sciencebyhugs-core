@@ -22,8 +22,7 @@ export function inventoryPageMarkup(email:string,escapeHtml:Helpers['escapeHtml'
     '<span class="eyebrow">STOCK & PROCUREMENT</span><h1 class="dashboard-title">Inventory</h1>' +
     '<p class="copy">Track vendor costs, receive kits as individual units, and print traceable QR labels.</p>' +
     '</div><div class="operator">Signed in as <strong>'+escapeHtml(email)+'</strong></div></section>' +
-    '<section id="inventory-app"><div class="loading">Loading inventory…</div></section>' +
-    '<section id="inventory-print-sheet" aria-hidden="true"></section>'
+    '<section id="inventory-app"><div class="loading">Loading inventory…</div></section>'
 }
 
 function option(value:string,label:string,escapeHtml:Helpers['escapeHtml']) {
@@ -152,11 +151,15 @@ async function printLot(lotId:string,h:Helpers) {
   const {units}=await listInventoryLotLabels(lotId,base)
   if (!units.length) throw new Error('No printable units were found')
   if (units.length===100) alert('Only the first 100 labels are available in one batch')
-  const target=id('inventory-print-sheet')
-  if (!target) throw new Error('Label print area not available')
-  // Move the label sheet out of the app shell so print styles can hide all
-  // navigation without hiding the labels on Safari / thermal printer drivers.
-  if (target.parentElement !== document.body) document.body.appendChild(target)
+  // Print sheet lives at body level, outside the replaceable Core app shell.
+  // Reuse it for reprints to avoid duplicate hidden label pages.
+  let target=document.body.querySelector<HTMLElement>('#inventory-print-sheet')
+  if (!target) {
+    target=document.createElement('section')
+    target.id='inventory-print-sheet'
+    target.setAttribute('aria-hidden','true')
+    document.body.appendChild(target)
+  }
   target.innerHTML=printLabelHtml(units,h)
   const imgs=Array.from(target.querySelectorAll<HTMLImageElement>('img'))
   await Promise.all(imgs.map(img=>img.decode().catch(()=>undefined)))
