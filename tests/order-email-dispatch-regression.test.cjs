@@ -108,10 +108,10 @@ function harness(options = {}) {
   })
   assert.equal(typeof handler, 'function')
 
-  async function dispatch(token = TOKEN) {
+  async function dispatch(token = TOKEN, preflight = false) {
     const response = await handler(new Request('https://private.invalid/order-email-dispatch', {
       method: 'POST',
-      headers: { 'x-order-email-token': token },
+      headers: { 'x-order-email-token': token, ...(preflight ? { 'x-order-email-preflight': 'true' } : {}) },
     }))
     return { status: response.status, body: await response.json() }
   }
@@ -255,4 +255,26 @@ test('stale processing messages are held for provider reconciliation, never auto
   assert.equal(h.state.providerCalls.length, 0)
   assert.ok(worker.includes("where state in ('queued','retry') and available_at <= now()"))
   assert.ok(!worker.includes("or (state = 'processing' and locked_at < now()"))
+})
+
+test('authenticated preflight proves token match without database or provider effects', async () => {
+  for (const sendEnabled of [true, false]) {
+    const h = harness({ queueEnabled: true, sendEnabled, testMode: true })
+    const result = await h.dispatch(TOKEN, true)
+    assert.equal(result.status, 200)
+    assert.equal(result.body.preflight, true)
+    assert.equal(result.body.authenticated, true)
+    assert.equal(result.body.sent, 0)
+    assert.equal(result.body.processed, 0)
+    assert.equal(h.state.dbCalls.length, 0)
+    assert.equal(h.state.providerCalls.length, 0)
+  }
+})
+
+test('preflight with invalid token returns 401 without querying or sending', async () => {
+  const h = harness({ queueEnabled: true, sendEnabled: true })
+  const result = await h.dispatch('wrong-token', true)
+  assert.equal(result.status, 401)
+  assert.equal(h.state.dbCalls.length, 0)
+  assert.equal(h.state.providerCalls.length, 0)
 })
