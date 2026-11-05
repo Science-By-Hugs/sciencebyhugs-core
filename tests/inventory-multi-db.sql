@@ -359,7 +359,8 @@ create table public.orders (
  customer_id uuid,
  total numeric not null default 0,
  admin_notes text,
- created_at timestamptz not null default now()
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now()
 );
 create table public.order_items(
  id uuid primary key default gen_random_uuid(),
@@ -375,7 +376,8 @@ create table public.payments (
  amount numeric not null,
  provider text,
  customer_id uuid,
- provider_capture_id text
+ provider_capture_id text,
+ provider_order_id text
 );
 create table public.internal_runtime_config(
  key text primary key,value jsonb not null
@@ -521,5 +523,139 @@ begin
   'a0000000-0000-4000-8000-000000000005')->>'enabled')::boolean then
   raise exception 'Feature flag did not disable new reservations'; end if;
 end $phase5$;
+
+
+-- Phase 5B recovery safety acceptance. Synthetic rows only, entire CI DB
+-- transaction rolls back. No production paid order or stock is mutated.
+\i supabase/migrations/20261106023000_core_checkout_abandoned_recovery.sql
+
+do $recovery$
+begin
+ if (public.core_checkout_recover_abandoned()->>'enabled')::boolean then
+   raise exception 'Recovery must stay disabled in production by default'; end if;
+ if (select coalesce((value->>'recovery_enabled')::boolean,false)
+     from public.internal_runtime_config where key='inventory_checkout') then
+   raise exception 'Migration unexpectedly activated recovery'; end if;
+ if has_function_privilege('anon',
+     'public.core_checkout_recover_abandoned(integer,integer)','EXECUTE') OR
+    has_function_privilege('authenticated',
+     'public.core_checkout_recovery_health()','EXECUTE') then
+   raise exception 'Customer roles can operate or inspect recovery'; end if;
+end $recovery$;
+
+insert into public.orders(id,status,payment_status,payment_method,total,admin_notes,created_at)
+values
+ ('a0000000-0000-4000-8000-000000000006','submitted','pending','Apple Pay',20,'Nexus Pay Now checkout',now()-interval '4 hours'),
+ ('a0000000-0000-4000-8000-000000000007','submitted','pending','PayPal',10,'Nexus Pay Now checkout',now()-interval '4 hours'),
+ ('a0000000-0000-4000-8000-000000000008','submitted','pending','Zelle',10,'Nexus Pay Now checkout',now());
+insert into public.order_items(order_id,product_id,quantity) values
+ ('a0000000-0000-4000-8000-000000000006','22222222-2222-4222-8222-222222222221',2),
+ ('a0000000-0000-4000-8000-000000000007','22222222-2222-4222-8222-222222222221',1),
+ ('a0000000-0000-4000-8000-000000000008','22222222-2222-4222-8222-222222222221',1);
+
+update public.internal_runtime_config set value=jsonb_build_object(
+ 'reservation_enabled',true,'deduction_enabled',true,'recovery_enabled',false,
+ 'activated_at',(now()-interval '6 hours')::text)
+where key='inventory_checkout';
+select public.core_checkout_reserve_inventory('a0000000-0000-4000-8000-000000000006');
+select public.core_checkout_reserve_inventory('a0000000-0000-4000-8000-000000000007');
+select public.core_checkout_reserve_inventory('a0000000-0000-4000-8000-000000000008');
+-- Simulate time passing for only the two older checkouts, without waiting.
+update public.inventory_order_allocations
+set reserved_at=now()-interval '2 hours'
+where order_id in ('a0000000-0000-4000-8000-000000000006',
+                   'a0000000-0000-4000-8000-000000000007');
+-- This separate payment session might still complete: NEVER auto-release it.
+insert into public.payments(order_id,status,provider,amount,provider_order_id)
+values('a0000000-0000-4000-8000-000000000007','paypal_created',
+       'PayPal',10,'SYNTH-PAYPAL-AUTH');
+
+do $recovery$
+declare r jsonb;
+begin
+ r:=public.core_checkout_recover_abandoned(25,90);
+ if (r->>'enabled')::boolean then
+   raise exception 'Recovery ran despite separate recovery flag OFF'; end if;
+ if (select count(*) from public.inventory_order_allocations
+      where status='held' and order_id='a0000000-0000-4000-8000-000000000006')<>2 then
+   raise exception 'Disabled recovery released a hold'; end if;
+end $recovery$;
+
+update public.internal_runtime_config
+set value=jsonb_set(value,'{recovery_enabled}','true'::jsonb)
+where key='inventory_checkout';
+
+do $recovery$
+declare r jsonb; h jsonb;
+begin
+ h:=public.core_checkout_recovery_health();
+ if (h->>'stale_without_payment')::integer<>1
+    or (h->>'requires_provider_review')::integer<>1 then
+   raise exception 'Recovery health did not distinguish unpaid/provider session holds: %',h; end if;
+ r:=public.core_checkout_recover_abandoned(25,90);
+ if (r->>'expired_orders')::integer<>1
+    or (r->>'released_units')::integer<>2 then
+   raise exception 'Only no-session order should expire: %',r; end if;
+ if (select status from public.orders
+      where id='a0000000-0000-4000-8000-000000000006')<>'checkout_expired' then
+   raise exception 'Expired order not marked terminal'; end if;
+ if (select status from public.orders
+      where id='a0000000-0000-4000-8000-000000000007')<>'submitted' then
+   raise exception 'Payment session incorrectly expired'; end if;
+ if (select count(*) from public.inventory_order_allocations
+      where order_id='a0000000-0000-4000-8000-000000000006'
+        and status='released')<>2 then
+   raise exception 'Unpaid units were not released'; end if;
+ if (select count(*) from public.inventory_order_allocations
+      where order_id='a0000000-0000-4000-8000-000000000007'
+        and status='held')<>1 then
+   raise exception 'Provider session stock incorrectly released'; end if;
+ if (select count(*) from public.inventory_order_allocations
+      where order_id='a0000000-0000-4000-8000-000000000008'
+        and status='held')<>1 then
+   raise exception 'Fresh hold incorrectly expired'; end if;
+ if (public.core_checkout_recover_abandoned(25,90)->>'expired_orders')::integer<>0 then
+   raise exception 'Recovery retry must be idempotent'; end if;
+end $recovery$;
+
+-- No late provider session may be recorded after an order was expired,
+-- even if PayPal made a delayed external order.
+do $recovery$
+declare rejected boolean:=false;
+begin
+ begin
+   insert into public.payments(order_id,status,provider,amount,provider_order_id)
+   values('a0000000-0000-4000-8000-000000000006',
+          'paypal_created','PayPal',20,'SHOULD-BE-REJECTED');
+ exception when others then rejected:=true; end;
+ if NOT rejected then raise exception 'Expired order accepted late payment session'; end if;
+end $recovery$;
+
+-- Provider-session order can still complete verified payment: never release
+-- before receipt verification. Test capture ID / same amount and repeated commit.
+update public.orders set payment_status='paid',status='processing'
+ where id='a0000000-0000-4000-8000-000000000007';
+update public.payments set status='verified',paid_at=now(),
+ provider_capture_id='SYNTH-CAPTURE'
+ where order_id='a0000000-0000-4000-8000-000000000007';
+select public.core_checkout_commit_inventory('a0000000-0000-4000-8000-000000000007');
+select public.core_checkout_commit_inventory('a0000000-0000-4000-8000-000000000007');
+do $recovery$
+begin
+ if (select count(*) from public.inventory_order_allocations
+      where order_id='a0000000-0000-4000-8000-000000000007'
+        and status='committed')<>1 then
+   raise exception 'Verified provider stock did not commit exactly once'; end if;
+ if (select count(*) from public.inventory_movements where reason='allocated')<>4 then
+   raise exception 'Unexpected duplicate or missed allocation movement'; end if;
+ if (select count(*) from public.inventory_units WHERE state='reserved')<>1 then
+   raise exception 'Fresh checkout reservation was changed'; end if;
+ if (select count(*) from public.inventory_movements)<>36 then
+   raise exception 'Recovery unexpectedly changed immutable inventory events'; end if;
+end $recovery$;
+
+update public.internal_runtime_config set
+ value='{"reservation_enabled":false,"deduction_enabled":false,"recovery_enabled":false,"activated_at":null}'::jsonb
+where key='inventory_checkout';
 
 rollback;
