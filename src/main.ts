@@ -114,6 +114,8 @@ function resolveCoreView(): CoreView {
 }
 
 function keepCoreViewInUrl(view: CoreView) {
+  // QR codes use a hash deep-link; do not strip their unit token during render.
+  if (view === 'inventory' && location.hash.startsWith('#inventory?unit=')) return
   if (location.hash === '#' + view) return
   history.replaceState(null, '', '#' + view)
 }
