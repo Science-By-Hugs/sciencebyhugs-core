@@ -14,21 +14,21 @@ export function escapeEmailHtml(value: unknown): string {
 
 export function orderStatusText(status: string | null) {
   switch ((status || '').trim().toLowerCase().replace(/[\s-]+/g, '_')) {
-    case 'ordered': case 'placed': case 'submitted': case 'received':
-      return 'received'
-    case 'confirmed': case 'accepted':
-      return 'confirmed'
+    case 'submitted': case 'checkout_pending': case 'pending': case 'placed':
+      return 'submitted'
     case 'processing': case 'preparing': case 'in_progress':
-      return 'being prepared'
-    case 'ready': case 'ready_for_delivery': case 'ready_for_dropoff':
-      return 'ready for local delivery'
+      return 'processing'
+    case 'ordered':
+      return 'ordered'
     case 'shipped':
-      return 'shipping'
+      return 'shipped'
     case 'out_for_delivery':
-      return 'out for local delivery'
+      return 'out for delivery'
     case 'delivered': case 'completed':
       return 'delivered'
-    case 'delayed': case 'on_hold':
+    case 'on_hold': case 'hold':
+      return 'on hold'
+    case 'delayed':
       return 'delayed'
     case 'cancelled': case 'canceled':
       return 'cancelled'
@@ -52,15 +52,19 @@ export function composeOrderEmail(event: OrderEmailEvent, displayName: string) {
   let summary = 'There is an update on your order. Sign in to Nexus to review the details.'
 
   if (event.event_type === 'received') {
-    title = referenceText + ' received'
-    summary = 'We received your order. You can follow its progress in Nexus.'
+    title = referenceText + ' submitted'
+    summary = 'Your order has been submitted. Processing begins after payment is confirmed. You can follow its progress in Nexus.'
   } else if (event.event_type === 'status_changed') {
     title = referenceText + ': ' + statusText
     summary = statusText === 'updated'
       ? 'The status of your order has changed. Sign in to Nexus for details.'
-      : statusText === 'shipping'
-        ? 'Your order is in the shipping stage. It is not yet out for local delivery. Sign in to Nexus to review the details.'
-        : 'Your order is now ' + statusText + '. Sign in to Nexus to review the details.'
+      : statusText === 'shipped'
+        ? 'Your order is marked as shipped. It is not yet out for delivery. Sign in to Nexus to review the details.'
+        : statusText === 'processing'
+          ? 'Payment has been confirmed. Your order is now processing. Sign in to Nexus to review the details.'
+          : statusText === 'submitted'
+            ? 'Your order has been submitted and is awaiting payment confirmation. Sign in to Nexus to review the details.'
+            : 'Your order is now ' + statusText + '. Sign in to Nexus to review the details.'
   } else if (event.event_type === 'delivery_date_changed') {
     title = referenceText + ': delivery estimate updated'
     const date = deliveryDateText(event.delivery_date)
