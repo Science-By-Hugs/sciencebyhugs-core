@@ -118,3 +118,16 @@ test('stock endpoint aggregates scoped states, paginates and does not return tok
   assert.doesNotMatch(fragment,/select\(".*scan_token/)
   assert.match(css,/\.inv-stock-dashboard/)
 })
+
+
+test('Phase 5B displays paid allocated stock separately from unpaid holds',()=>{
+  const data=fixtures()
+  data.unit_counts.push({product_id:'ret',state:'allocated',count:4})
+  const m=buildStockDashboardModel(data)
+  assert.equal(m.available,8)
+  assert.equal(m.reserved,3)
+  assert.equal(m.allocated,4)
+  assert.equal(row(m,'ret').allocated,4)
+  assert.equal(row(m,'ret').available,6)
+  assert.match(dash,/Paid, waiting for fulfillment/)
+});
