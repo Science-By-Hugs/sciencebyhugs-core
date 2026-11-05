@@ -58,6 +58,6 @@ export const receiveInventoryPurchase=(details:{
   action:'receive_purchase',...details,
 })
 export const listInventoryLotLabels=(lotId:string,baseUrl:string)=>
-  callInventory<{units:InventoryUnitLabel[]}>({action:'labels_for_lot',lotId,baseUrl})
+  callInventory<{units:InventoryUnitLabel[];box_qr_svg?:string}>({action:'labels_for_lot',lotId,baseUrl})
 export const lookupInventoryUnit=(token:string)=>
   callInventory<{units:InventoryUnitLabel[]}>({action:'lookup_unit',token})
