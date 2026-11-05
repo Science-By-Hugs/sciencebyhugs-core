@@ -17,9 +17,12 @@ export function splitCents(total:number,weights:number[]) {
   if (!weights.length || weights.some(w=>!Number.isFinite(w)||w<0)||weightSum<=0)
     throw new Error('Allocation weights must be positive')
   let left=amount
+  let remainingWeight=weightSum
   return weights.map((w,index)=>{
-    const part=index===weights.length-1?left:Math.round(amount*w/weightSum)
+    const part=index===weights.length-1?left:
+      Math.round(left*w/remainingWeight)
     left-=part
+    remainingWeight-=w
     return part/100
   })
 }
