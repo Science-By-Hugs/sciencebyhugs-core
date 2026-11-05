@@ -211,6 +211,59 @@ Deno.serve(async req => {
       if (error) return json({error:"Could not receive purchase line: "+error.message},409);
       return json({success:true,receipt:data});
     }
+    if (action === "audit_lot") {
+      const lotId=text(body.lotId,36);
+      const {data:lot,error:lotError}=await db.from("inventory_lots")
+        .select("id,internal_lot,product_id,supplier_lot,accepted_units,damaged_units")
+        .eq("id",lotId).maybeSingle();
+      if (lotError) return json({error:"Could not read inventory lot"},500);
+      if (!lot) return json({error:"Lot not found"},404);
+      const [units,counts]=await Promise.all([
+        db.from("inventory_units").select("id,ordinal,state")
+          .eq("lot_id",lotId).order("ordinal").limit(101),
+        db.from("inventory_stock_counts")
+          .select("id,status,expected_available,expected_damaged,counted_available,counted_damaged,notes,created_at,resolved_at,resolved_unit_ids")
+          .eq("lot_id",lotId).order("created_at",{ascending:false}).limit(20),
+      ]);
+      if (units.error||counts.error) return json({error:"Could not read physical count history"},500);
+      if ((units.data?.length||0)>100)
+        return json({error:"Audit currently supports at most 100 tracked units per lot"},409);
+      const current={
+        available:(units.data||[]).filter(x=>x.state==="available").length,
+        damaged:(units.data||[]).filter(x=>x.state==="damaged").length,
+        missing:(units.data||[]).filter(x=>x.state==="missing").length,
+        reserved:(units.data||[]).filter(x=>x.state==="reserved").length,
+        quarantined:(units.data||[]).filter(x=>x.state==="quarantined").length,
+      };
+      return json({success:true,lot,units:units.data,counts:current,history:counts.data});
+    }
+    if (action === "submit_lot_count") {
+      const available=Number(body.countedAvailable),damaged=Number(body.countedDamaged);
+      if (!Number.isInteger(available)||!Number.isInteger(damaged)||
+        available<0||damaged<0||available>100||damaged>100)
+        return json({error:"Enter a valid 0–100 count for each category"},400);
+      const {data,error}=await db.rpc("core_inventory_count_lot",{
+        p_lot_id:text(body.lotId,36),
+        p_counted_available:available,p_counted_damaged:damaged,
+        p_notes:text(body.notes,500),
+        p_request_id:text(body.requestId,36),p_actor_id:user.id,
+      });
+      if (error) return json({error:"Could not save physical count: "+error.message},409);
+      return json({success:true,audit:data});
+    }
+    if (action === "resolve_lot_count") {
+      if(!Array.isArray(body.missingUnitIds)||body.missingUnitIds.length>100 ||
+        !body.missingUnitIds.every(x=>typeof x==="string"&&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x)))
+        return json({error:"Provide the tracked identifiers of missing units"},400);
+      const {data,error}=await db.rpc("core_inventory_resolve_lot_count",{
+        p_count_id:text(body.countId,36),
+        p_missing_unit_ids:body.missingUnitIds,
+        p_actor_id:user.id,
+      });
+      if(error) return json({error:"Could not reconcile physical count: "+error.message},409);
+      return json({success:true,reconciliation:data});
+    }
     if (action === "lookup_unit" || action === "labels_for_lot") {
       const lotId = text(body.lotId,36);
       const token = text(body.token,36);

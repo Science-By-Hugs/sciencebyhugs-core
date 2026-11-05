@@ -205,4 +205,147 @@ begin
    raise exception 'Service role cannot execute inventory purchasing function'; end if;
 end $$;
 
+
+-- Phase 4 stock count verification runs against the SAME temporary DB
+-- and rolls back, never touching production.
+\i supabase/migrations/20261105233000_core_inventory_lot_reconciliation.sql
+
+do $audit$
+begin
+ if (select count(*) from public.inventory_stock_counts)<>0 then
+   raise exception 'Migration should not invent counts for historical lots'; end if;
+ if (select count(*) from public.inventory_units where state='available')<>29 then
+   raise exception 'Existing stock counts were modified by migration'; end if;
+ if (select count(*) from public.inventory_movements)<>30 then
+   raise exception 'Existing movement history was modified by migration'; end if;
+end $audit$;
+
+-- Matching count: audit only, no stock mutation.
+select public.core_inventory_count_lot(
+ (select id from public.inventory_lots where supplier_lot='RT-20'),
+ 10,0,'Verified all ten vials',
+ 'e1111111-1111-4111-8111-111111111111',
+ '99999999-9999-4999-8999-999999999999'
+);
+do $audit$
+begin
+ if (select status from public.inventory_stock_counts
+   where request_id='e1111111-1111-4111-8111-111111111111')<>'matched' then
+   raise exception 'Matching count was not recorded as matched'; end if;
+ if (select count(*) from public.inventory_movements)<>30 then
+   raise exception 'Matching count must not create stock movements'; end if;
+end $audit$;
+
+-- Shortage count: still records evidence, does not automatically mark units.
+select public.core_inventory_count_lot(
+ (select id from public.inventory_lots where supplier_lot='RT-20'),
+ 8,0,'Two exact units unavailable, pending investigation',
+ 'e2222222-2222-4222-8222-222222222222',
+ '99999999-9999-4999-8999-999999999999'
+);
+-- Retry with the exact same request key must not create duplicate records.
+select public.core_inventory_count_lot(
+ (select id from public.inventory_lots where supplier_lot='RT-20'),
+ 8,0,'Two exact units unavailable, pending investigation',
+ 'e2222222-2222-4222-8222-222222222222',
+ '99999999-9999-4999-8999-999999999999'
+);
+do $audit$
+declare rejected boolean:=false;
+begin
+ if (select count(*) from public.inventory_stock_counts
+   where request_id='e2222222-2222-4222-8222-222222222222')<>1 then
+   raise exception 'Count retry duplicated record'; end if;
+ if (select count(*) from public.inventory_units where state='available')<>29 then
+   raise exception 'Saving a discrepancy must not change inventory'; end if;
+ begin
+   perform public.core_inventory_resolve_lot_count(
+     (select id from public.inventory_stock_counts
+       where request_id='e2222222-2222-4222-8222-222222222222'),
+     (select array_agg(id) from public.inventory_units
+       where lot_id=(select id from public.inventory_lots where supplier_lot='RT-20')
+        and ordinal=10),
+     '99999999-9999-4999-8999-999999999999'
+   );
+ exception when others then rejected:=true; end;
+ if not rejected then raise exception 'Insufficient exact missing units were allowed'; end if;
+end $audit$;
+
+-- Explicitly approve original tracked units 09 and 10 as missing.
+select public.core_inventory_resolve_lot_count(
+ (select id from public.inventory_stock_counts
+  where request_id='e2222222-2222-4222-8222-222222222222'),
+ (select array_agg(id order by ordinal)
+  from public.inventory_units
+  where lot_id=(select id from public.inventory_lots where supplier_lot='RT-20')
+    and ordinal in (9,10)),
+ '99999999-9999-4999-8999-999999999999'
+);
+do $audit$
+begin
+ if (select count(*) from public.inventory_units where state='available')<>27 then
+   raise exception 'Shortage reconciliation did not subtract exactly two available units'; end if;
+ if (select count(*) from public.inventory_units where state='missing')<>2 then
+   raise exception 'Shortage did not mark exactly the selected units missing'; end if;
+ if (select count(*) from public.inventory_movements)<>32 then
+   raise exception 'Each adjusted unit requires exactly one immutable ledger event'; end if;
+ if (select status from public.inventory_stock_counts
+   where request_id='e2222222-2222-4222-8222-222222222222')<>'resolved' then
+   raise exception 'Audit did not finalize'; end if;
+ if (select landed_unit_cost from public.inventory_lots where supplier_lot='RT-20')<>19.6000 then
+   raise exception 'Reconciliation modified original landed costs'; end if;
+ if (select accepted_units from public.inventory_lots where supplier_lot='RT-20')<>10 then
+   raise exception 'Reconciliation modified original receipt quantities'; end if;
+end $audit$;
+
+-- Retry should not create another ledger event.
+select public.core_inventory_resolve_lot_count(
+ (select id from public.inventory_stock_counts
+  where request_id='e2222222-2222-4222-8222-222222222222'),
+ (select array_agg(id order by ordinal)
+  from public.inventory_units
+  where lot_id=(select id from public.inventory_lots where supplier_lot='RT-20')
+    and ordinal in (9,10)),
+ '99999999-9999-4999-8999-999999999999'
+);
+do $audit$
+begin
+ if (select count(*) from public.inventory_movements)<>32 then
+   raise exception 'Retry created duplicate movement'; end if;
+end $audit$;
+
+-- A surplus stays pending, cannot mint fictional unit IDs.
+select public.core_inventory_count_lot(
+ (select id from public.inventory_lots where supplier_lot='BATCH-C'),
+ 11,0,'Counted one unverified extra unit',
+ 'e3333333-3333-4333-8333-333333333333',
+ '99999999-9999-4999-8999-999999999999'
+);
+do $audit$
+declare rejected boolean:=false;
+begin
+ begin
+   perform public.core_inventory_resolve_lot_count(
+     (select id from public.inventory_stock_counts
+       where request_id='e3333333-3333-4333-8333-333333333333'),
+     '{}'::uuid[],'99999999-9999-4999-8999-999999999999');
+ exception when others then rejected:=true; end;
+ if not rejected then raise exception 'Unverified surplus was allowed to create inventory'; end if;
+ if (select count(*) from public.inventory_units)<>30 then
+   raise exception 'Surplus audit changed tracked unit count'; end if;
+end $audit$;
+
+do $audit$
+begin
+ if has_function_privilege('anon',
+  'public.core_inventory_count_lot(uuid,integer,integer,text,uuid,uuid)','EXECUTE') then
+   raise exception 'Anonymous role may not submit inventory counts'; end if;
+ if has_function_privilege('authenticated',
+  'public.core_inventory_resolve_lot_count(uuid,uuid[],uuid)','EXECUTE') then
+   raise exception 'Customer identity may not reconcile inventory'; end if;
+ if not has_function_privilege('service_role',
+  'public.core_inventory_resolve_lot_count(uuid,uuid[],uuid)','EXECUTE') then
+   raise exception 'Service role cannot reconcile inventory'; end if;
+end $audit$;
+
 rollback;
