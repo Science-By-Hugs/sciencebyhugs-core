@@ -79,6 +79,7 @@ begin
     or p_shipping < 0 or p_fees < 0
     or p_shipping > 1000000 or p_fees > 1000000
     or round(p_shipping,2) <> p_shipping or round(p_fees,2) <> p_fees
+    or p_allocation_method is null
     or p_allocation_method not in ('per_kit','by_cost','manual') then
     raise exception 'Invalid multi-product order details';
   end if;
@@ -152,16 +153,20 @@ begin
   for v_item in select value from jsonb_array_elements(v_saved) loop
     v_index:=v_index+1;
     v_packs:=(v_item->>'packs')::integer;
-    v_weight:=case when p_allocation_method='by_cost'
+    v_weight:=case when p_allocation_method='by_cost' and v_total_cost>0
       then (v_item->>'pack_price')::numeric * v_packs else v_packs end;
-    v_weight_total:=case when p_allocation_method='by_cost'
+    v_weight_total:=case when p_allocation_method='by_cost' and v_total_cost>0
       then v_total_cost else v_total_kits end;
     if p_allocation_method='manual' then
       if coalesce(v_item->>'manual_shipping','')='' or coalesce(v_item->>'manual_fees','')='' then
         raise exception 'Manual allocation requires shipping and fees for every line'; end if;
+      if (v_item->>'manual_shipping')::numeric<0 or (v_item->>'manual_fees')::numeric<0
+        or round((v_item->>'manual_shipping')::numeric,2)<>(v_item->>'manual_shipping')::numeric
+        or round((v_item->>'manual_fees')::numeric,2)<>(v_item->>'manual_fees')::numeric then
+        raise exception 'Manual allocations must be nonnegative cents'; end if;
       v_ship:=(v_item->>'manual_shipping')::numeric;
       v_fee:=(v_item->>'manual_fees')::numeric;
-      if v_ship<0 or v_fee<0 or round(v_ship,2)<>v_ship or round(v_fee,2)<>v_fee then
+      if v_ship<0 or v_fee<0 then
         raise exception 'Manual allocations must be nonnegative cents'; end if;
       v_manual_ship:=v_manual_ship+v_ship;
       v_manual_fee:=v_manual_fee+v_fee;
