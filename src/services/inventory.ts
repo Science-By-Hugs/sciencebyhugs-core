@@ -44,6 +44,10 @@ export const saveVendorOffer=(offer:{
   vendorId:string; productId:string; unitsPerPack:number; pricePerPack:number;
   estimatedInboundShipping:number; vendorSku:string; leadTimeDays:number|string;
 })=>callInventory<{offer:VendorOffer}>({action:'save_offer',...offer})
+export const classifyInventoryProduct=(productId:string,supplyMode:'unreviewed'|'physical'|'vendor',reorderPoint:number)=>
+  callInventory<{settings:InventorySettings}>({
+    action:'classify_product',productId,supplyMode,reorderPoint,
+  })
 export const createInventoryPurchase=(offerId:string,packs:number,shipping:number,fees:number,requestId:string)=>
   callInventory<{purchase:{id:string;po_number:string;expected_units:number}}>({
     action:'create_purchase',offerId,packs,shipping,fees,requestId,
