@@ -67,5 +67,10 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h 127.0.0.1 -U postgres -d inventory_test -v ON_ERROR_STOP=1 -f tests/inventory-multi-db.sql
 
+      - name: Two-session checkout contention test (temporary database only)
+        env:
+          PGPASSWORD: postgres
+        run: bash tests/inventory-checkout-race.sh
+
       - name: Verify built PWA
         run: node scripts/verify-production.mjs --dist
