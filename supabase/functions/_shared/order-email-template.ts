@@ -22,7 +22,9 @@ export function orderStatusText(status: string | null) {
       return 'being prepared'
     case 'ready': case 'ready_for_delivery': case 'ready_for_dropoff':
       return 'ready for local delivery'
-    case 'shipped': case 'out_for_delivery':
+    case 'shipped':
+      return 'shipping'
+    case 'out_for_delivery':
       return 'out for local delivery'
     case 'delivered': case 'completed':
       return 'delivered'
@@ -56,7 +58,9 @@ export function composeOrderEmail(event: OrderEmailEvent, displayName: string) {
     title = referenceText + ': ' + statusText
     summary = statusText === 'updated'
       ? 'The status of your order has changed. Sign in to Nexus for details.'
-      : 'Your order is now ' + statusText + '. Sign in to Nexus to review the details.'
+      : statusText === 'shipping'
+        ? 'Your order is in the shipping stage. It is not yet out for local delivery. Sign in to Nexus to review the details.'
+        : 'Your order is now ' + statusText + '. Sign in to Nexus to review the details.'
   } else if (event.event_type === 'delivery_date_changed') {
     title = referenceText + ': delivery estimate updated'
     const date = deliveryDateText(event.delivery_date)
