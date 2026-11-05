@@ -301,7 +301,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Could not verify payment" }, 500);
   }
 
-  await admin
+  const { data: updatedOrder, error: orderUpdateError } = await admin
     .from("orders")
     .update({
       payment_status: "paid",
@@ -309,7 +309,15 @@ Deno.serve(async (req: Request) => {
       status: "processing",
       updated_at: verifiedAt,
     })
-    .eq("id", order.id);
+    .eq("id", order.id)
+    .select("id,status,payment_status")
+    .single();
+
+  if (orderUpdateError || updatedOrder?.status !== "processing" || updatedOrder.payment_status !== "paid") {
+    // Payment has been verified but the order status needs reconciliation.
+    // Do not falsely report successful fulfillment advancement.
+    return json({ error: "Payment verified, but order processing sync needs review" }, 500);
+  }
 
   await qualifyReferral(admin, order.customer_id, orderNumber);
 
