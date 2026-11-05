@@ -20,6 +20,9 @@ function harness(options = {}) {
     queueEnabled: options.queueEnabled ?? true,
     sendEnabled: options.sendEnabled ?? true,
     recipientAllowed: options.recipientAllowed ?? true,
+    testMode: options.testMode ?? false,
+    testUserId: options.testUserId === null ? '' : (options.testUserId ?? USER_ID),
+    testOutboxId: options.testOutboxId === null ? '' : (options.testOutboxId ?? EVENT_ID),
     providerStatus: options.providerStatus ?? 201,
     providerThrows: options.providerThrows ?? false,
     providerMessageId: options.providerMessageId ?? '<fake-id@provider.invalid>',
@@ -30,7 +33,7 @@ function harness(options = {}) {
     dbClosed: 0,
   }
   const event = {
-    id: EVENT_ID, order_id: ORDER_ID, user_id: USER_ID,
+    id: options.eventId ?? EVENT_ID, order_id: ORDER_ID, user_id: options.eventUserId ?? USER_ID,
     event_type: 'status_changed', order_number: 'SAMPLE-1',
     order_status: 'delivered', delivery_date: null,
   }
@@ -42,6 +45,8 @@ function harness(options = {}) {
     }
     if (q.includes("set state = 'processing'") && q.includes('returning id')) {
       if (state.outboxState !== 'queued' && state.outboxState !== 'retry') return []
+      if (!state.queueEnabled && state.testMode &&
+        (event.id !== state.testOutboxId || event.user_id !== state.testUserId)) return []
       state.outboxState = 'processing'
       state.attempts++
       return [{ ...event, attempts: state.attempts }]
@@ -68,6 +73,9 @@ function harness(options = {}) {
         const fakeSecrets = {
           ORDER_EMAIL_DISPATCH_TOKEN: TOKEN,
           ORDER_EMAIL_SEND_ENABLED: state.sendEnabled ? 'true' : 'false',
+          ORDER_EMAIL_TEST_MODE: state.testMode ? 'true' : 'false',
+          ORDER_EMAIL_TEST_USER_ID: state.testUserId,
+          ORDER_EMAIL_TEST_OUTBOX_ID: state.testOutboxId,
           BREVO_API_KEY: 'fake-test-value',
           BREVO_ORDER_SENDER_EMAIL: 'verified-test@example.invalid',
           SUPABASE_DB_URL: 'postgresql://fake.invalid/isolated',
@@ -183,4 +191,47 @@ test('successful HTTP status without a provider message ID is not marked as sent
   assert.equal(result.body.sent, 0)
   assert.equal(result.body.failed, 1)
   assert.equal(h.state.outboxState, 'failed')
+})
+
+test('single-message smoke test works while global queue remains disabled and is clearly labeled', async () => {
+  const h = harness({ queueEnabled: false, testMode: true })
+  const first = await h.dispatch()
+  const second = await h.dispatch()
+  assert.equal(first.status, 200)
+  assert.equal(first.body.sent, 1)
+  assert.equal(second.body.processed, 0)
+  assert.equal(h.state.providerCalls.length, 1)
+  assert.ok(h.state.providerCalls[0].body.subject.startsWith('[TEST] '))
+  assert.ok(h.state.providerCalls[0].body.tags.includes('nexus-controlled-test'))
+  assert.equal(h.state.providerCalls[0].body.to[0].email, 'safe-test@example.invalid')
+  assert.ok(worker.includes('and e.id = ${testOutboxId'))
+  assert.ok(worker.includes('and e.user_id = ${testUserId'))
+  assert.ok(worker.includes('limit ${testMode ? 1 : 10}'))
+})
+
+test('scoped test cannot send another user or another outbox row', async () => {
+  for (const options of [{ eventUserId: '00000000-0000-4000-8000-000000000199' }, { eventId: '00000000-0000-4000-8000-000000000199' }]) {
+    const h = harness({ queueEnabled: false, testMode: true, ...options })
+    const result = await h.dispatch()
+    assert.equal(result.status, 200)
+    assert.equal(result.body.processed, 0)
+    assert.equal(result.body.sent, 0)
+    assert.equal(h.state.providerCalls.length, 0)
+  }
+})
+
+test('scoped test rejects missing IDs before querying database or provider', async () => {
+  const h = harness({ queueEnabled: false, testMode: true, testUserId: null })
+  const result = await h.dispatch()
+  assert.equal(result.status, 503)
+  assert.equal(h.state.dbCalls.length, 0)
+  assert.equal(h.state.providerCalls.length, 0)
+})
+
+test('scoped test fails closed if global queue is enabled', async () => {
+  const h = harness({ queueEnabled: true, testMode: true })
+  const result = await h.dispatch()
+  assert.equal(result.status, 409)
+  assert.equal(h.state.outboxState, 'queued')
+  assert.equal(h.state.providerCalls.length, 0)
 })

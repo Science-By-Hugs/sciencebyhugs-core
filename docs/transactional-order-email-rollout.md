@@ -27,6 +27,21 @@ Send **non-promotional** order-status and local-delivery updates to customers wh
 - Do **not** infer the live `ORDER_EMAIL_SEND_ENABLED` secret value from the presence of an Edge Function or from source code. The database queue being disabled is independently confirmed; do not expose any secret while checking configuration.
 - **Status:** Infrastructure and mocked regression tests ready; end-to-end automated customer delivery not activated, and no additional live messages authorized.
 
+## Safe one-recipient test dispatch (requires explicit owner approval)
+
+The Edge dispatcher supports a **disabled-by-default** scoped test mode. It never turns on order-event queueing and sends only an explicitly selected outbox ID belonging to one verified, opted-in Nexus user. These settings must be configured as **protected Edge Function secrets**, not committed to Git, placed in a browser, or pasted into chat.
+
+- `ORDER_EMAIL_TEST_MODE=true` enables the scoped code path only when `private.order_email_settings.queue_enabled=false`.
+- `ORDER_EMAIL_TEST_USER_ID` must be the precise auth user UUID resolved server-side for the approved recipient.
+- `ORDER_EMAIL_TEST_OUTBOX_ID` must be the UUID of one separately prepared `queued` outbox row, owned by that user. Do not reuse a previously sent row.
+- `ORDER_EMAIL_SEND_ENABLED` remains `false` until the exact live test is approved. Enabling it while scope mode is configured cannot send any other outbox row; if the global queue is on, the scoped dispatcher returns HTTP 409.
+- The dispatcher requires its existing private `x-order-email-token` authorization, and still verifies current customer opt-in, active profile, verified email, and order ownership.
+- In test mode the email subject is prefixed `[TEST]` and tagged `nexus-controlled-test`.
+
+**Sequence:** First validate the scoped regression tests and deploy the reviewed dispatcher. Confirm the global queue is false and no email cron is installed. With explicit owner approval, privately resolve the exact recipient and a valid owned order; insert precisely one intentionally scoped queued outbox event with a clearly marked test order number. Configure the three scope secrets and enable the global **send flag only** for the controlled invocation. Dispatch once from a secured operator environment using the private token (never a public browser). Inspect the provider response, unique message ID and outbox state. Immediately reset `ORDER_EMAIL_SEND_ENABLED=false` and `ORDER_EMAIL_TEST_MODE=false`, remove the scope values, and reconfirm queue false, zero additional pending rows, and no email cron. If any check fails, stop without sending.
+
+This one-recipient procedure is **not** authorization to activate automated customer email delivery; a later separate release approval is required.
+
 ## Controlled test acceptance criteria
 
 1. Record the exact approved account and recipient; confirm its verified email address, current opt-in and order ownership.
