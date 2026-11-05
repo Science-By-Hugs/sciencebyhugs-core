@@ -348,4 +348,178 @@ begin
    raise exception 'Service role cannot reconcile inventory'; end if;
 end $audit$;
 
+
+-- Phase 5B runs against synthetic future orders in the same rolled-back
+-- ephemeral Postgres database. All production flags start disabled.
+create table public.orders (
+ id uuid primary key,
+ status text not null,
+ payment_status text not null,
+ payment_method text,
+ customer_id uuid,
+ total numeric not null default 0,
+ admin_notes text,
+ created_at timestamptz not null default now()
+);
+create table public.order_items(
+ id uuid primary key default gen_random_uuid(),
+ order_id uuid not null references public.orders(id),
+ product_id uuid references public.products(id),
+ quantity integer not null
+);
+create table public.payments (
+ id uuid primary key default gen_random_uuid(),
+ order_id uuid references public.orders(id),
+ status text not null,
+ paid_at timestamptz,
+ amount numeric not null,
+ provider text,
+ customer_id uuid,
+ provider_capture_id text
+);
+create table public.internal_runtime_config(
+ key text primary key,value jsonb not null
+);
+
+insert into public.inventory_product_settings(product_id,supply_mode)
+values('22222222-2222-4222-8222-222222222221','physical'),
+      ('22222222-2222-4222-8222-222222222222','vendor');
+insert into public.orders(id,status,payment_status,payment_method,total,admin_notes,created_at)
+values
+ ('a0000000-0000-4000-8000-000000000001','submitted','pending','Apple Pay',10,'Nexus Pay Now checkout',now()),
+ ('a0000000-0000-4000-8000-000000000002','submitted','pending','PayPal',20,'Nexus Pay Now checkout',now()),
+ ('a0000000-0000-4000-8000-000000000003','submitted','pending','Zelle',15,'Nexus Pay Now checkout',now()),
+ ('a0000000-0000-4000-8000-000000000004','submitted','pending','PayPal',20,'Nexus Pay Now checkout',now()-interval '1 day'),
+ ('a0000000-0000-4000-8000-000000000005','submitted','pending','Apple Pay',20,'Nexus Pay Now checkout',now());
+insert into public.order_items(id,order_id,product_id,quantity)
+values
+ ('b0000000-0000-4000-8000-000000000001','a0000000-0000-4000-8000-000000000001','22222222-2222-4222-8222-222222222221',3),
+ ('b0000000-0000-4000-8000-000000000002','a0000000-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222221',2),
+ ('b0000000-0000-4000-8000-000000000003','a0000000-0000-4000-8000-000000000003','22222222-2222-4222-8222-222222222222',3),
+ ('b0000000-0000-4000-8000-000000000004','a0000000-0000-4000-8000-000000000004','22222222-2222-4222-8222-222222222221',1),
+ ('b0000000-0000-4000-8000-000000000005','a0000000-0000-4000-8000-000000000005','22222222-2222-4222-8222-222222222221',99);
+
+\i supabase/migrations/20261106014500_core_nexus_inventory_reservations.sql
+
+do $phase5$
+begin
+ if (select count(*) from public.inventory_units where state='available')<>27
+  or (select count(*) from public.inventory_order_allocations)<>0
+  or (select count(*) from public.inventory_movements)<>32 then
+   raise exception 'Disabled migration modified historical inventory';
+ end if;
+ if (public.core_checkout_reserve_inventory(
+  'a0000000-0000-4000-8000-000000000001')->>'enabled')::boolean then
+   raise exception 'Disabled reservation function changed state'; end if;
+ if (select count(*) from public.inventory_units where state='reserved')<>0 then
+   raise exception 'Disabled reservation created a hold'; end if;
+ if has_function_privilege('anon','public.core_checkout_reserve_inventory(uuid)','EXECUTE') OR
+    has_function_privilege('authenticated','public.core_checkout_commit_inventory(uuid)','EXECUTE') OR
+    has_table_privilege('authenticated','public.inventory_order_allocations','SELECT') THEN
+   raise exception 'Browser roles can access inventory allocation internals'; end if;
+end $phase5$;
+
+-- SIMULATED activation in a transaction that is fully rolled back.
+-- Production remains disabled; this is ephemeral CI-only test data.
+update public.internal_runtime_config
+set value=jsonb_build_object('reservation_enabled',true,
+ 'deduction_enabled',true,'activated_at',(now()-interval '1 minute')::text)
+where key='inventory_checkout';
+
+-- Historical order and supplier-sourced products never consume physical units.
+select public.core_checkout_reserve_inventory('a0000000-0000-4000-8000-000000000004');
+select public.core_checkout_reserve_inventory('a0000000-0000-4000-8000-000000000003');
+do $phase5$
+begin
+ if (select count(*) from public.inventory_order_allocations)<>0 then
+  raise exception 'Historical or vendor order allocated physical inventory'; end if;
+end $phase5$;
+
+select public.core_checkout_reserve_inventory('a0000000-0000-4000-8000-000000000001');
+select public.core_checkout_reserve_inventory('a0000000-0000-4000-8000-000000000001');
+select public.core_checkout_reserve_inventory('a0000000-0000-4000-8000-000000000002');
+do $phase5$
+begin
+ if (select count(*) from public.inventory_order_allocations where status='held')<>5 then
+  raise exception 'Unit holds were duplicated, skipped or miscounted'; end if;
+ if (select count(*) from public.inventory_units where state='reserved')<>5
+  or (select count(*) from public.inventory_units where state='available')<>22 then
+   raise exception 'Physical availability did not decrease by exact reserved units'; end if;
+ if (select count(*) from public.inventory_movements)<>32 then
+  raise exception 'Pending payment must not create a sale ledger movement'; end if;
+end $phase5$;
+
+-- Insufficient order is atomic. One failed reservation cannot leak holds.
+do $phase5$
+declare rejected boolean:=false;
+begin
+ begin
+  perform public.core_checkout_reserve_inventory(
+   'a0000000-0000-4000-8000-000000000005');
+ exception when others then rejected:=true; end;
+ if not rejected then raise exception 'Oversell was permitted'; end if;
+ if (select count(*) from public.inventory_order_allocations)<>5 then
+  raise exception 'A failed cart left partial reservations'; end if;
+end $phase5$;
+
+-- Paid status without a matching provider capture must NOT deduct stock.
+update public.orders set payment_status='paid'
+ where id='a0000000-0000-4000-8000-000000000001';
+do $phase5$
+declare rejected boolean:=false;
+begin
+ begin
+   perform public.core_checkout_commit_inventory('a0000000-0000-4000-8000-000000000001');
+ exception when others then rejected:=true; end;
+ if not rejected then raise exception 'Unverified payment caused stock deduction'; end if;
+end $phase5$;
+insert into public.payments(order_id,status,paid_at,amount,provider,provider_capture_id)
+ values('a0000000-0000-4000-8000-000000000001','verified',now(),10,'Apple Pay','TEST-CAPTURE');
+select public.core_checkout_commit_inventory('a0000000-0000-4000-8000-000000000001');
+select public.core_checkout_commit_inventory('a0000000-0000-4000-8000-000000000001');
+do $phase5$
+begin
+ if (select count(*) from public.inventory_order_allocations where status='committed')<>3
+ or (select count(*) from public.inventory_units where state='allocated')<>3
+ or (select count(*) from public.inventory_movements where reason='allocated')<>3
+ or (select sum(quantity_delta) from public.inventory_movements where reason='allocated')<>-3 then
+  raise exception 'Verified payment did not deduct exactly once'; end if;
+end $phase5$;
+
+-- Cancellation of an unpaid order invokes a safe automatic release trigger.
+update public.orders set status='cancelled'
+ where id='a0000000-0000-4000-8000-000000000002';
+do $phase5$
+begin
+ if (select count(*) from public.inventory_order_allocations where status='released')<>2
+ or (select count(*) from public.inventory_units where state='reserved')<>0
+ or (select count(*) from public.inventory_units where state='available')<>24 then
+  raise exception 'Cancellation did not restore exactly the two unpaid held units'; end if;
+end $phase5$;
+
+-- Paid orders must never auto-restock on cancellation, return or refund.
+update public.orders set status='cancelled'
+ where id='a0000000-0000-4000-8000-000000000001';
+do $phase5$
+declare rejected boolean:=false;
+begin
+ begin
+  perform public.core_checkout_release_inventory('a0000000-0000-4000-8000-000000000001');
+ exception when others then rejected:=true; end;
+ if not rejected then raise exception 'A paid order was incorrectly restocked'; end if;
+ if (select count(*) from public.inventory_units where state='allocated')<>3 then
+  raise exception 'Committed stock changed after order cancellation'; end if;
+end $phase5$;
+
+-- Disabling both flags prevents any future checkout attempt using the feature.
+update public.internal_runtime_config
+set value='{"reservation_enabled":false,"deduction_enabled":false,"activated_at":null}'::jsonb
+where key='inventory_checkout';
+do $phase5$
+begin
+ if (public.core_checkout_reserve_inventory(
+  'a0000000-0000-4000-8000-000000000005')->>'enabled')::boolean then
+  raise exception 'Feature flag did not disable new reservations'; end if;
+end $phase5$;
+
 rollback;
