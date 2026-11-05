@@ -658,4 +658,70 @@ update public.internal_runtime_config set
  value='{"reservation_enabled":false,"deduction_enabled":false,"recovery_enabled":false,"activated_at":null}'::jsonb
 where key='inventory_checkout';
 
+
+-- Phase 5C: monitoring-only SQL in a rolled-back synthetic Postgres database.
+\i supabase/migrations/20261106031000_core_inventory_monitor_snapshot.sql
+
+do $monitor$
+declare snapshot jsonb;
+begin
+ snapshot:=public.core_inventory_monitor_snapshot();
+ if (snapshot->'totals'->>'total')::integer<>0 THEN
+   raise exception 'Monitor must exclude historical orders without activation cutoff';
+ end if;
+ if (snapshot->'flags'->>'reservation_enabled')::boolean OR
+    (snapshot->'flags'->>'deduction_enabled')::boolean OR
+    (snapshot->'flags'->>'recovery_enabled')::boolean THEN
+   raise exception 'Monitoring must not activate inventory flags';
+ end if;
+ if has_function_privilege('anon','public.core_inventory_monitor_snapshot()','EXECUTE') OR
+    has_function_privilege('authenticated','public.core_inventory_monitor_snapshot()','EXECUTE') THEN
+   raise exception 'Monitoring endpoint is exposed to customer roles';
+ end if;
+ if NOT has_function_privilege('service_role',
+   'public.core_inventory_monitor_snapshot()','EXECUTE') THEN
+   raise exception 'Monitoring missing private service access';
+ end if;
+end $monitor$;
+
+insert into public.orders(id,status,payment_status,payment_method,total,paid_at,admin_notes,created_at,updated_at)
+values(
+ 'a0000000-0000-4000-8000-000000000041','processing','paid','PayPal',10,
+ now()-interval '5 minutes','Nexus Pay Now checkout',
+ now()-interval '10 minutes',now()-interval '5 minutes'
+);
+insert into public.order_items(order_id,product_id,quantity)
+values('a0000000-0000-4000-8000-000000000041',
+ '22222222-2222-4222-8222-222222222221',2);
+update public.internal_runtime_config set
+ value=jsonb_build_object('reservation_enabled',false,'deduction_enabled',false,
+ 'recovery_enabled',false,'activated_at',(now()-interval '30 minutes')::text)
+where key='inventory_checkout';
+
+do $monitor$
+declare snapshot jsonb;
+begin
+ snapshot:=public.core_inventory_monitor_snapshot();
+ if (snapshot->'totals'->>'critical')::integer<2 THEN
+   raise exception 'Monitoring failed to detect paid stock gap and unverified capture: %',snapshot;
+ end if;
+ if NOT EXISTS(
+   select 1 from jsonb_array_elements(snapshot->'alerts') x
+   where x->>'code'='paid_stock_gap' AND x->>'order_id'=
+     'a0000000-0000-4000-8000-000000000041'
+ ) OR NOT EXISTS(
+   select 1 from jsonb_array_elements(snapshot->'alerts') x
+   where x->>'code'='paid_payment_mismatch' AND x->>'order_id'=
+     'a0000000-0000-4000-8000-000000000041'
+ ) THEN
+   raise exception 'Missing actionable paid-order alerts: %',snapshot;
+ END IF;
+ if (select count(*) from public.inventory_order_allocations where status='held')<>1 THEN
+   raise exception 'Monitoring changed synthetic held units';
+ END IF;
+ if (select count(*) from public.inventory_movements where reason='allocated')<>4 THEN
+   raise exception 'Monitoring mutated allocation history';
+ END IF;
+end $monitor$;
+
 rollback;
