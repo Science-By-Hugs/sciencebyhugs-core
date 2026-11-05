@@ -175,7 +175,7 @@ function labelButton(title:string,action:string,productId:string) {
   return button
 }
 
-export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot) {
+export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,onRefresh:()=>Promise<void>) {
   const model=buildStockDashboardModel(data)
   const section=node('section','inv-panel inv-stock-dashboard')
   section.id='inventory-stock-overview'
@@ -300,21 +300,18 @@ export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot)
   }
   search.addEventListener('input',render)
   filter.addEventListener('change',render)
-  section.addEventListener('click',event=>{
+  section.addEventListener('click',async event=>{
     const target=event.target
     if(!(target instanceof HTMLElement))return
     const button=target.closest<HTMLButtonElement>('button[data-action]')
     if(!button)return
     const action=button.dataset.action
     if(action==='refresh') {
-      const original=button.textContent
       button.disabled=true
       button.textContent='Refreshing…'
-      // A new hash navigation triggers the existing Core inventory reload.
-      // Do not mutate inventory or dispatch purchases.
-      location.hash='#dashboard'
-      location.hash='#inventory'
-      button.textContent=original
+      try { await onRefresh() }
+      catch(err) { button.textContent=err instanceof Error?err.message:'Refresh failed' }
+      finally { button.disabled=false }
       return
     }
     if(action==='classify') {
