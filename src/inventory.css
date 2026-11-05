@@ -1,0 +1,45 @@
+/* Core inventory workspace: flat, accessible slate style, responsive and printer-safe. */
+#inventory-app{display:block;padding-bottom:20px}
+.inv-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.inv-metric{border:1px solid var(--sl-line,#35393b);background:var(--sl-surface,#232629);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.inv-metric strong{font-size:1.55rem;color:var(--sl-text,#fff);font-variant-numeric:tabular-nums}
+.inv-metric small,.inv-helper,.inv-panel-head p,.inv-empty{font-size:.82rem;color:var(--sl-muted,#abb0b3)}
+.inv-helper{margin:10px 0 22px;line-height:1.5}
+.inv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.inv-panel{min-width:0;border:1px solid var(--sl-line,#35393b);background:var(--sl-surface,#232629);border-radius:14px;padding:18px;margin-bottom:0}
+.inv-panel h2{font-size:1.08rem;line-height:1.3;margin:0}
+.inv-panel-head{margin-bottom:16px}
+.inv-panel-head p{margin:6px 0 0;line-height:1.5}
+.inv-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px;row-gap:13px}
+.inv-field{min-width:0;display:flex;flex-direction:column;gap:6px;font-size:.78rem;font-weight:650;color:var(--sl-muted,#abb0b3)}
+.inv-field input,.inv-field select{width:100%;min-height:39px;padding:8px;border:1px solid var(--sl-line,#35393b);border-radius:8px;background:var(--sl-raised,#303639);color:var(--sl-text,#fff);font:inherit;font-size:.9rem}
+.inv-field input:focus-visible,.inv-field select:focus-visible{outline:2px solid var(--sl-text,#fff);outline-offset:2px}
+.inv-form-action{grid-column:1/-1;display:flex;justify-content:flex-start;margin-top:5px}
+.inv-form-action button{min-height:40px;font-weight:650;border-radius:8px}
+.inv-list{display:flex;flex-direction:column;gap:0;margin-top:16px}
+.inv-line{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--sl-line,#35393b)}
+.inv-line strong{font-size:.9rem;word-break:break-word}
+.inv-line small{display:block;margin-top:4px;color:var(--sl-muted,#abb0b3);line-height:1.45;font-size:.76rem;overflow-wrap:anywhere}
+.inv-right{text-align:right;flex-shrink:0}
+.inv-right button{display:block;margin:7px 0 0 auto;font-size:.8rem;border-radius:8px;padding:7px 10px}
+.inv-empty{margin:0;padding:5px 0}
+.inv-error{font-size:.8rem;color:var(--sl-warning,#e3b866);word-break:break-word}
+#inventory-lookup{margin-top:16px;scroll-margin-top:15px}
+#inventory-lookup p{margin:10px 0}
+#inventory-print-sheet{display:none}
+@media(max-width:850px){.inv-grid{grid-template-columns:minmax(0,1fr)}.inv-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.inv-panel{padding:14px}.inv-form{grid-template-columns:minmax(0,1fr)}.inv-field{grid-column:1}.inv-metric{padding:12px}.inv-line{align-items:flex-start;flex-wrap:wrap}.inv-right{width:100%;text-align:left}.inv-right button{margin-left:0}}
+@media print {
+  @page{size:2in 1in;margin:0}
+  html,body{background:white!important;color:black!important;margin:0!important;padding:0!important;width:2in!important;min-width:0!important}
+  body>*:not(#inventory-print-sheet){display:none!important}
+  #inventory-print-sheet{display:block!important;position:static!important;margin:0!important;padding:0!important;width:2in!important}
+  .inv-thermal-label{box-sizing:border-box!important;display:flex!important;align-items:center!important;gap:.04in!important;width:2in!important;height:1in!important;margin:0!important;padding:.04in!important;overflow:hidden!important;color:#000!important;background:#fff!important;page-break-after:always!important;break-after:page!important;break-inside:avoid!important;font-family:Arial,Helvetica,sans-serif!important}
+  .inv-thermal-label:last-child{page-break-after:auto!important;break-after:auto!important}
+  .inv-qr{display:block!important;width:.86in!important;height:.86in!important;max-width:.86in!important;max-height:.86in!important;flex:none!important;object-fit:contain!important;image-rendering:crisp-edges!important}
+  .inv-label-copy{flex:1!important;min-width:0!important;display:flex!important;flex-direction:column!important;gap:.018in!important;justify-content:center!important;line-height:1.1!important}
+  .inv-label-copy strong{font:bold 7pt Arial,sans-serif!important;letter-spacing:0!important;white-space:nowrap!important}
+  .inv-label-copy span{font:7pt Arial,sans-serif!important;overflow-wrap:anywhere!important}
+  .inv-label-copy b{font:bold 7.5pt Arial,sans-serif!important;overflow-wrap:anywhere!important}
+  .inv-label-copy small{font:7pt Arial,sans-serif!important}
+}
