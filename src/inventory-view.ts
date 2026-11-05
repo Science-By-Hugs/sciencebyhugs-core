@@ -1,9 +1,10 @@
 import {
-  addInventoryVendor,classifyInventoryProduct,createInventoryPurchase,listInventory,listInventoryLotLabels,
+  addInventoryVendor,classifyInventoryProduct,listInventory,listInventoryLotLabels,
   lookupInventoryUnit,receiveInventoryPurchase,saveVendorOffer,
   type InventoryLot,type InventoryPurchase,type InventorySnapshot,type InventoryUnitLabel,
 } from './services/inventory'
 import { inventoryBoxPng, inventoryPngFilename, inventoryUnitPng, inventoryVialPng, lotBoxFilename, suggestedVialFields, vialPngFilename } from './inventory-png'
+import { mountMultiInventory } from './inventory-multi'
 import './inventory.css'
 
 type Helpers = {
@@ -81,24 +82,8 @@ function offersForm(data:InventorySnapshot,h:Helpers) {
     }).join(''):'<p class="inv-empty">No supplier offerings yet.</p>')+'</div>')
 }
 
-function purchaseForm(data:InventorySnapshot,h:Helpers) {
-  const offerOpts=data.offers.filter(o=>o.active).map(o=>{
-    const p=data.products.find(p=>p.id===o.product_id),v=data.vendors.find(v=>v.id===o.vendor_id)
-    return option(o.id,(v?.code||'—')+' · '+(p?.product_code||p?.name||'—')+
-      ' · '+o.units_per_pack+' units @ '+h.money(o.price_per_pack),h.escapeHtml)
-  }).join('')
-  return card('<div class="inv-panel-head"><h2>3. Purchase kits</h2>'+
-    '<p>Actual inbound freight is entered once per purchase. Supplier pricing is snapshotted.</p></div>'+
-    '<form id="inv-create-po" class="inv-form">'+
-    field('Vendor offering','<select name="offerId" required>'+offerOpts+'</select>')+
-    field('Packs purchased',input('packs','number','required min="1" max="1000" value="1" step="1"'))+
-    field('Actual inbound shipping ($)',input('shipping','number','min="0" step="0.01" value="0" required'))+
-    field('Other inbound fees ($)',input('fees','number','min="0" step="0.01" value="0" required'))+
-    '<div class="inv-form-action"><button class="primary" type="submit">Create purchase order</button></div></form>')
-}
-
 function receivingForm(data:InventorySnapshot,h:Helpers) {
-  const pending=data.orders.filter(o=>o.status==='ordered')
+  const pending=data.orders.filter(o=>o.status==='ordered' && !o.multi_line)
   const select=pending.map(o=>{
     const line=data.lines.find(l=>l.purchase_order_id===o.id)
     const prod=data.products.find(p=>p.id===line?.product_id)
@@ -129,7 +114,7 @@ function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
         ' · '+h.escapeHtml(l.accepted_units)+' accepted, '+h.escapeHtml(l.damaged_units)+' damaged</small>'+
         '<small>Original lot: '+h.escapeHtml(l.supplier_lot)+
         (l.expiry_date?' · Expires '+h.escapeHtml(l.expiry_date):'')+'</small></div>'+
-        '<div class="inv-right"><strong>'+h.escapeHtml(l.landed_unit_cost===null?'—':h.money(l.landed_unit_cost))+
+        '<div class="inv-right"><strong>'+h.escapeHtml(l.cost_finalized === false ? 'Pending final cost' : (l.landed_unit_cost===null?'—':h.money(l.landed_unit_cost)))+
         ' / unit</strong><button class="secondary inv-download-lot" data-lot="'+h.escapeHtml(l.id)+
         '" type="button">Prepare box + vial PNGs</button></div></div>'
     }).join(''):'<p class="inv-empty">Receiving lots will appear here.</p>')+'</div>')
@@ -324,11 +309,13 @@ export async function bindInventoryPage(h:Helpers) {
     root.innerHTML=summary(data,h)+'<div class="inv-grid">'+
       vendorForm(h)+
       (vendorOptions?offersForm(data,h):card('<h2>2. Vendor price book</h2><p>Add a vendor first.</p>'))+
-      (data.offers.length?purchaseForm(data,h):card('<h2>3. Purchase kits</h2><p>Add an offering first.</p>'))+
-      receivingForm(data,h)+
+      '<div id="inv-multi-anchor" class="inv-multi-anchor"></div>'+ 
+      (data.orders.some(o=>o.status==='ordered'&&!o.multi_line)?receivingForm(data,h):'')+
       lotRows(data.lots,data,h)+classificationForm(data,h)+'</div>'+ 
       '<section id="inv-png-downloads" class="inv-panel" hidden></section>'+ 
       '<section id="inventory-lookup" class="inv-panel" hidden></section>'
+
+    mountMultiInventory(root,data,async()=>bindInventoryPage(h))
 
     const form=(name:string,fn:(f:HTMLFormElement)=>Promise<void>)=>{
       const el=id(name) as HTMLFormElement|null
@@ -365,11 +352,6 @@ export async function bindInventoryPage(h:Helpers) {
     form('inv-classify-product',async f=>{
       await classifyInventoryProduct(val(f,'productId'),
         val(f,'supplyMode') as 'unreviewed'|'physical'|'vendor',num(f,'reorderPoint'))
-    })
-    const purchaseId=uuid()
-    form('inv-create-po',async f=>{
-      await createInventoryPurchase(val(f,'offerId'),num(f,'packs'),
-        num(f,'shipping'),num(f,'fees'),purchaseId)
     })
     const receiveId=uuid()
     const receiveForm=id('inv-receive-po') as HTMLFormElement|null
