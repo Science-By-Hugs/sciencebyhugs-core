@@ -258,7 +258,7 @@ export function mountMultiInventory(
   const receiving=element('section','inv-panel inv-multi-workspace')
   const receivingTitle=element('div','inv-panel-head')
   receivingTitle.append(text('h2','4. Receive multi-product orders'),
-    text('Record each product and supplier lot separately. Receive partial deliveries now and the remaining units later; shipping is not charged again.'))
+    text('p','Record each product and supplier lot separately. Receive partial deliveries now and the remaining units later; shipping is not charged again.'))
   receiving.appendChild(receivingTitle)
   const pending=data.orders.filter(po=>po.multi_line &&
     (po.status==='ordered'||po.status==='partially_received'))
