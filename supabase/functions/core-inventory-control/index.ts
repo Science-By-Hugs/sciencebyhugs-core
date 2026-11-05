@@ -108,6 +108,21 @@ Deno.serve(async req => {
       if (error) return json({error:"Could not save offering: "+error.message},409);
       return json({success:true,offer:data});
     }
+    if (action === "classify_product") {
+      const productId = text(body.productId,36);
+      const mode = text(body.supplyMode,30);
+      const reorder = Number(body.reorderPoint ?? 0);
+      if (!["unreviewed","physical","vendor"].includes(mode))
+        return json({error:"Choose Physical, Vendor-Supplied, or Unreviewed"},400);
+      if (!Number.isInteger(reorder) || reorder < 0 || reorder > 100000)
+        return json({error:"Reorder point must be a nonnegative whole number"},400);
+      const {data,error} = await db.from("inventory_product_settings")
+        .upsert({product_id:productId,supply_mode:mode,reorder_point:reorder,
+          updated_at:new Date().toISOString()},{onConflict:"product_id"})
+        .select("product_id,supply_mode,reorder_point").single();
+      if (error) return json({error:"Could not classify product: "+error.message},409);
+      return json({success:true,settings:data});
+    }
     if (action === "create_purchase") {
       const packs = quantity(body.packs);
       const shipping = cents(body.shipping ?? 0),fees = cents(body.fees ?? 0);
