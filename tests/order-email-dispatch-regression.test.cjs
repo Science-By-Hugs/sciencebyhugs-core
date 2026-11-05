@@ -278,3 +278,20 @@ test('preflight with invalid token returns 401 without querying or sending', asy
   assert.equal(h.state.dbCalls.length, 0)
   assert.equal(h.state.providerCalls.length, 0)
 })
+
+test('authenticated readiness reports no secret values and cannot send a message', async () => {
+  const h = harness({ queueEnabled: false, sendEnabled: false, testMode: false })
+  const result = await h.dispatch(TOKEN, true)
+  assert.equal(result.status, 200)
+  assert.deepEqual(JSON.parse(JSON.stringify(result.body.readiness)), {
+    send_enabled: false,
+    test_mode: false,
+    brevo_key_configured: true,
+    sender_email_configured: true,
+    database_url_configured: true,
+  })
+  assert.equal(result.body.sent, 0)
+  assert.equal(h.state.dbCalls.length, 0)
+  assert.equal(h.state.providerCalls.length, 0)
+  assert.doesNotMatch(JSON.stringify(result.body), /isolated-unit-test-token|postgresql:|fake-test-value/)
+})

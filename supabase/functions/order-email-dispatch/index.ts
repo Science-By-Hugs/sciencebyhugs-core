@@ -23,7 +23,18 @@ Deno.serve(async (req: Request) => {
   // Authenticated, side-effect-free probe for private cron/Vault setup.
   // Must be handled before any send flags, database access or Brevo API requests.
   if (req.headers.get('x-order-email-preflight') === 'true') {
-    return json({ preflight: true, authenticated: true, processed: 0, sent: 0 })
+    // Report only readiness booleans to the authenticated operator. Never
+    // return the dispatch token, Brevo key, database URL or secret values.
+    return json({
+      preflight: true, authenticated: true, processed: 0, sent: 0,
+      readiness: {
+        send_enabled: Deno.env.get('ORDER_EMAIL_SEND_ENABLED') === 'true',
+        test_mode: Deno.env.get('ORDER_EMAIL_TEST_MODE') === 'true',
+        brevo_key_configured: Boolean(Deno.env.get('BREVO_API_KEY')),
+        sender_email_configured: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(Deno.env.get('BREVO_ORDER_SENDER_EMAIL') || ''),
+        database_url_configured: Boolean(Deno.env.get('SUPABASE_DB_URL')),
+      },
+    })
   }
   // Fail closed: configuring a key or deploying this function alone cannot send email.
   if (Deno.env.get('ORDER_EMAIL_SEND_ENABLED') !== 'true') {
