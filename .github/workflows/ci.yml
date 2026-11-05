@@ -13,6 +13,19 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: inventory_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d inventory_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,7 +40,7 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Install SVG rasterizer
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends librsvg2-bin
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends librsvg2-bin postgresql-client
 
       - name: Generate production PWA icons
         run: |
@@ -46,8 +59,13 @@ jobs:
           VITE_BASE_PATH: /
         run: npm run build
 
-      - name: Account and push notification tests
+      - name: Account, inventory and push notification tests
         run: node --test tests/*.test.cjs
+
+      - name: Inventory PostgreSQL migration and receiving integration tests
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d inventory_test -v ON_ERROR_STOP=1 -f tests/inventory-multi-db.sql
 
       - name: Verify built PWA
         run: node scripts/verify-production.mjs --dist
