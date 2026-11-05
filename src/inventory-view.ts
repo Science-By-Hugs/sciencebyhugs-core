@@ -294,7 +294,9 @@ export async function bindInventoryPage(h:Helpers) {
   try {
     const data=await listInventory()
     const vendorOptions=data.vendors.length
-    root.innerHTML='<div id="inv-overview" class="inv-overview"></div>'+'<div class="inv-grid">'+
+    root.innerHTML='<div id="inv-overview" class="inv-overview"></div>'+ 
+      '<p class="inv-helper">Live Nexus stock limits remain disabled until physical counts are reconciled.</p>'+ 
+      '<div class="inv-grid">'+
       vendorForm(h)+
       (vendorOptions?offersForm(data,h):card('<h2>2. Vendor price book</h2><p>Add a vendor first.</p>'))+
       '<div id="inv-multi-anchor" class="inv-multi-anchor"></div>'+ 
