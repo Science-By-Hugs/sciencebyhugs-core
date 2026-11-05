@@ -62,9 +62,7 @@ export function mountInventoryMonitor(root:HTMLElement,load:Loader){
     content.appendChild(heading)
 
     const stats=el('div','inv-monitor-metrics')
-    const tiles:[
-      [string,number,string]
-    ]=[
+    const tiles:Array<[string,number,string]>=[
       ['Critical',state.critical,'Payment/stock discrepancies'],
       ['Review',state.warning,'Stale holds or provider checks'],
       ['Held',count(snapshot.metrics.held_units),'Unpaid physical units'],
