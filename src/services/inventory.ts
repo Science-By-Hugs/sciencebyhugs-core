@@ -119,3 +119,38 @@ export const resolveLotCount=(countId:string,missingUnitIds:string[])=>
   callInventory<{reconciliation:{
     count_id:string;status:'resolved';changed_units:number;already_resolved:boolean
   }}>({action:'resolve_lot_count',countId,missingUnitIds})
+
+
+// Phase 5C. All values are computed by a private database function,
+// surfaced only after the existing Core inventory API verifies owner JWT role.
+// No inventory writes, refunds, reservations or recoveries occur on this call.
+export type InventoryMonitoringAlert = {
+  code:string
+  severity:'critical'|'warning'
+  order_id:string|null
+  order_number:string|null
+  first_seen:string
+  title:string
+  next_action:string
+  expected_units:number
+  actual_units:number
+}
+export type InventoryMonitoringSnapshot = {
+  checked_at:string
+  flags:{
+    reservation_enabled:boolean;deduction_enabled:boolean
+    recovery_enabled:boolean;activated_at:string|null
+  }
+  totals:{total:number;critical:number;warning:number}
+  metrics:{
+    held_units:number
+    committed_units:number
+    open_physical_lots_without_verified_count:number
+    pending_reconciliation:number
+  }
+  alerts:InventoryMonitoringAlert[]
+}
+export const loadInventoryMonitoring=async()=>{
+  const response=await callInventory<{monitor:InventoryMonitoringSnapshot}>({action:'monitor'})
+  return response.monitor
+}

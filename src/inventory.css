@@ -133,3 +133,22 @@
 .inv-audit-selection{font-size:.75rem;color:var(--sl-muted,#abb0b3)}
 .inv-audit-reconcile>button{border-radius:8px;padding:10px 12px}
 @media(max-width:450px){.inv-audit-unit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Phase 5C owner monitoring: compact, keyboard-friendly and mobile-ready. */
+.inv-monitor-slot{margin:12px 0 18px}
+.inv-monitor{padding:20px}
+.inv-monitor-body{display:flex;flex-direction:column;gap:12px}
+.inv-monitor-summary{font-size:.92rem;font-weight:700;margin:0;line-height:1.4}
+.inv-monitor-summary[data-level="critical"]{color:var(--sl-warning,#e3b866)}
+.inv-monitor-summary[data-level="warning"]{color:var(--sl-warning,#e3b866)}
+.inv-monitor-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.inv-monitor-body h3{font-size:.94rem;margin:7px 0 0}
+.inv-monitor-alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:10px}
+.inv-monitor-alert{border:1px solid var(--sl-line,#35393b);border-radius:10px;padding:13px;min-width:0}
+.inv-monitor-alert[data-severity="critical"]{border-left:3px solid var(--sl-warning,#e3b866)}
+.inv-monitor-alert strong,.inv-monitor-alert small{display:block}
+.inv-monitor-alert strong{font-size:.85rem;line-height:1.4}
+.inv-monitor-alert small{margin:5px 0;color:var(--sl-muted,#abb0b3);font-size:.72rem}
+.inv-monitor-alert p{margin:0;font-size:.78rem;line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:750px){.inv-monitor-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:450px){.inv-monitor{padding:13px}.inv-monitor-metrics{gap:7px}}
