@@ -726,4 +726,136 @@ begin
  END IF;
 end $monitor$;
 
+
+-- Phase 5D acceptance: all statements below execute only inside the CI
+-- PostgreSQL 16 transaction, rolled back at end. No production data.
+-- Payment provider verification: reject mismatched totals, wrong providers,
+-- and missing capture IDs even when an order is already marked paid.
+insert into public.orders(id,status,payment_status,payment_method,total,admin_notes,created_at)
+values
+('a0000000-0000-4000-8000-000000000052','submitted','pending','PayPal',20,'Nexus Pay Now checkout',now()),
+('a0000000-0000-4000-8000-000000000053','submitted','pending','PayPal',20,'Nexus Pay Now checkout',now());
+insert into public.order_items(order_id,product_id,quantity)
+values
+('a0000000-0000-4000-8000-000000000052','22222222-2222-4222-8222-222222222221',1),
+('a0000000-0000-4000-8000-000000000053',null,1);
+
+do $phase5d$
+begin
+  if (public.core_checkout_reserve_inventory(
+      'a0000000-0000-4000-8000-000000000052')->>'enabled')::boolean then
+     raise exception 'OFF production flag should prevent new reservations';
+  end if;
+  if (select count(*) from public.inventory_order_allocations
+       where order_id='a0000000-0000-4000-8000-000000000052')<>0 then
+     raise exception 'Disabled reservation created an allocation';
+  end if;
+end $phase5d$;
+
+update public.internal_runtime_config
+set value=jsonb_build_object('reservation_enabled',true,'deduction_enabled',true,
+  'recovery_enabled',false,'activated_at',(now()-interval '30 minutes')::text)
+where key='inventory_checkout';
+
+-- One exact tracked physical vial becomes held, never deducted on reservation.
+select public.core_checkout_reserve_inventory('a0000000-0000-4000-8000-000000000052');
+do $phase5d$
+declare rejected boolean:=false;
+begin
+  if (select count(*) from public.inventory_order_allocations
+        where order_id='a0000000-0000-4000-8000-000000000052'
+        and status='held')<>1 then
+    raise exception 'New checkout did not hold exactly one unit';
+  end if;
+  begin
+    perform public.core_checkout_reserve_inventory(
+       'a0000000-0000-4000-8000-000000000053');
+  exception when others then rejected:=true; end;
+  if not rejected then
+    raise exception 'Unmapped future product line should fail closed';
+  end if;
+  if (select count(*) from public.inventory_order_allocations
+        where order_id='a0000000-0000-4000-8000-000000000053')<>0 then
+    raise exception 'Invalid product line left an unintended unit hold';
+  end if;
+end $phase5d$;
+
+update public.orders
+set payment_status='paid',status='processing',paid_at=now()-interval '5 minutes'
+where id='a0000000-0000-4000-8000-000000000052';
+insert into public.payments(order_id,status,paid_at,provider,amount,provider_capture_id)
+values('a0000000-0000-4000-8000-000000000052',
+ 'verified',now(),'PayPal',19,'SYNTH-VALID-CAPTURE');
+
+do $phase5d$
+declare rejected boolean:=false;
+begin
+  begin
+    perform public.core_checkout_commit_inventory(
+       'a0000000-0000-4000-8000-000000000052');
+  exception when others then rejected:=true; end;
+  if not rejected then raise exception 'Mismatched payment total was accepted'; end if;
+end $phase5d$;
+
+update public.payments set amount=20,provider='Venmo'
+where order_id='a0000000-0000-4000-8000-000000000052';
+do $phase5d$
+declare rejected boolean:=false;
+begin
+  begin
+    perform public.core_checkout_commit_inventory(
+       'a0000000-0000-4000-8000-000000000052');
+  exception when others then rejected:=true; end;
+  if not rejected then raise exception 'Wrong payment provider was accepted'; end if;
+end $phase5d$;
+
+update public.payments set provider='PayPal',provider_capture_id=null
+where order_id='a0000000-0000-4000-8000-000000000052';
+do $phase5d$
+declare rejected boolean:=false;
+begin
+  begin
+    perform public.core_checkout_commit_inventory(
+       'a0000000-0000-4000-8000-000000000052');
+  exception when others then rejected:=true; end;
+  if not rejected then raise exception 'Wallet missing capture ID was accepted'; end if;
+  if (select count(*) from public.inventory_order_allocations
+       where order_id='a0000000-0000-4000-8000-000000000052'
+       and status='held')<>1 then
+    raise exception 'Rejected payment modified reserved unit';
+  end if;
+end $phase5d$;
+
+update public.payments set provider_capture_id='SYNTH-VALID-CAPTURE'
+where order_id='a0000000-0000-4000-8000-000000000052';
+select public.core_checkout_commit_inventory('a0000000-0000-4000-8000-000000000052');
+select public.core_checkout_commit_inventory('a0000000-0000-4000-8000-000000000052');
+
+do $phase5d$
+declare moves integer;
+begin
+  if (select count(*) from public.inventory_order_allocations
+        where order_id='a0000000-0000-4000-8000-000000000052'
+          and status='committed')<>1 then
+    raise exception 'Valid captured payment did not allocate exactly one unit';
+  end if;
+  select count(*) into moves from public.inventory_movements
+    where event_key like
+      'paid_order:a0000000-0000-4000-8000-000000000052:unit:%';
+  if moves<>1 then raise exception 'Duplicate paid-order movement: %',moves; end if;
+  if exists(
+    select 1 from public.inventory_order_allocations a
+    join public.inventory_units u on u.id=a.unit_id
+    where a.order_id='a0000000-0000-4000-8000-000000000052'
+      and (a.status<>'committed' or u.state<>'allocated')
+  ) then raise exception 'Allocation / unit state mismatch'; end if;
+  if (public.core_checkout_recover_abandoned()->>'enabled')::boolean then
+    raise exception 'Recovery must remain separately OFF during acceptance'; end if;
+end $phase5d$;
+
+-- Reset flags only in temporary DB; final ROLLBACK below destroys all changes.
+update public.internal_runtime_config
+set value='{"reservation_enabled":false,"deduction_enabled":false,"recovery_enabled":false,"activated_at":null}'::jsonb
+where key='inventory_checkout';
+
 rollback;
