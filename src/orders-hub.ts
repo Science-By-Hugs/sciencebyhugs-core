@@ -108,7 +108,7 @@ function paymentSection(order: CoreOrder, s: State, h: Helpers) {
   return '<section class="od-section"><h3>Waiting for payment</h3>' +
     '<p class="od-hint">Record a payment when you have a confirmation to reference. This does not move money.</p>' +
     '<div class="od-form">' +
-      '<label>Method<select class="od-provider"><option value="">Choose method</option><option value="Zelle">Zelle</option><option value="PayPal">PayPal</option><option value="Venmo">Venmo</option></select></label>' +
+      '<label>Method<select class="od-provider"><option value="">Choose method</option><option value="Zelle">Zelle</option><option value="PayPal">PayPal</option></select></label>' +
       '<label>Reference<input class="od-reference" type="text" maxlength="120" placeholder="Optional confirmation ID"></label>' +
       '<label class="od-span">Note<input class="od-pay-note" type="text" maxlength="300" placeholder="Optional internal note"></label>' +
     '</div>' +
