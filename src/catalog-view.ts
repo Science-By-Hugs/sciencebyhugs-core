@@ -71,6 +71,14 @@ const isArchived = (product: CoreCatalogProduct) =>
 const isSelling = (product: CoreCatalogProduct) =>
   product.active && String(product.storefront_status || '').toLowerCase() === 'available'
 
+type CatalogEditorSection = 'basics' | 'pricing' | 'storefront' | 'advanced'
+const CATALOG_EDITOR_SECTIONS: Array<[CatalogEditorSection, string]> = [
+  ['basics', 'Basics'],
+  ['pricing', 'Pricing'],
+  ['storefront', 'Storefront'],
+  ['advanced', 'Advanced'],
+]
+
 function productForm(
   product: CoreCatalogProduct | null,
   categories: CoreCatalogCategory[],
@@ -94,30 +102,107 @@ function productForm(
       v(category.name) + '</option>'))
   const checked = (value: boolean | undefined) => (value ? ' checked' : '')
   const available = product ? isSelling(product) : true
+  // The original form fields stay in a single DOM subtree. Switching views
+  // only changes visibility, so every unsaved value stays intact.
+  const prefix = product
+    ? 'catalog-' + product.id.replace(/[^a-zA-Z0-9_-]/g, '')
+    : 'catalog-new'
+  const tabs = '<div class="catalog-editor-tabs" role="tablist" aria-label="Product editor sections">' +
+    CATALOG_EDITOR_SECTIONS.map(([section, label]) =>
+      '<button type="button" role="tab" data-catalog-editor-tab="' + section +
+      '" id="' + prefix + '-tab-' + section +
+      '" aria-controls="' + prefix + '-panel-' + section +
+      '" aria-selected="' + (section === 'basics' ? 'true' : 'false') +
+      '" tabindex="' + (section === 'basics' ? '0' : '-1') + '">' + label + '</button>'
+    ).join('') + '</div>'
+  const panel = (section: CatalogEditorSection, description: string, fields: string) =>
+    '<section class="catalog-editor-panel" data-catalog-editor-panel="' + section +
+      '" role="tabpanel" id="' + prefix + '-panel-' + section +
+      '" aria-labelledby="' + prefix + '-tab-' + section + '"' +
+      (section === 'basics' ? '' : ' hidden') + '>' +
+      '<p class="catalog-editor-section-note">' + description + '</p>' +
+      '<div class="catalog-editor-grid">' + fields + '</div>' +
+    '</section>'
 
-  return '<div class="catalog-editor-grid catalog-product-form">' +
+  const basics =
     '<label class="catalog-span-2"><span>Product name *</span><input name="name" maxlength="200" required value="' + v(product?.name) + '"></label>' +
-    '<label><span>Customer price (USD) *</span><input name="price" inputmode="decimal" placeholder="49.99" value="' + v(product ? Number(product.price).toFixed(2) : '') + '"></label>' +
-    '<label><span>Vendor cost (USD) · Core only</span><input name="vendorCost" inputmode="decimal" placeholder="e.g. 20.00" value="' + v(product && costOf(product.id) !== null ? Number(costOf(product.id)).toFixed(2) : '') + '"></label>' +
-    '<p class="catalog-span-2 catalog-profit-live" aria-live="polite"></p>' +
     '<label><span>Category</span><select name="categoryId">' + categoryOptions.join('') + '</select></label>' +
     '<label><span>Product type</span><input name="productType" maxlength="120" placeholder="e.g. Peptide" value="' + v(product?.product_type) + '"></label>' +
-    '<label><span>Ships from</span><select name="shippingFrom">' + shipOptions.join('') + '</select></label>' +
-    '<label class="catalog-span-2"><span>Description</span><textarea name="description" maxlength="5000" rows="3">' + v(product?.description) + '</textarea></label>' +
+    '<label class="catalog-span-2"><span>Description</span><textarea name="description" maxlength="5000" rows="3">' + v(product?.description) + '</textarea></label>'
+
+  const pricing =
+    '<label><span>Customer price (USD) *</span><input name="price" inputmode="decimal" placeholder="49.99" value="' + v(product ? Number(product.price).toFixed(2) : '') + '"></label>' +
+    '<label><span>Vendor cost (USD) · Core only</span><input name="vendorCost" inputmode="decimal" placeholder="e.g. 20.00" value="' + v(product && costOf(product.id) !== null ? Number(costOf(product.id)).toFixed(2) : '') + '"></label>' +
+    '<p class="catalog-span-2 catalog-profit-live" aria-live="polite"></p>'
+
+  const storefront =
     '<label class="catalog-span-2"><span>Image URL</span><input name="imageUrl" type="url" maxlength="1000" placeholder="https://…" value="' + v(product?.image_url) + '"></label>' +
+    '<label><span>Ships from</span><select name="shippingFrom">' + shipOptions.join('') + '</select></label>' +
     '<div class="catalog-span-2 catalog-checks">' +
       '<label><input type="checkbox" name="available"' + checked(available) + '> Selling on Nexus</label>' +
       '<label><input type="checkbox" name="featured"' + checked(product?.featured) + '> Featured</label>' +
       '<label><input type="checkbox" name="coreHidden"' + checked(product?.core_hidden) + '> Hide from Resident/New tiers</label>' +
-    '</div>' +
+    '</div>'
+
+  const advanced =
     '<label><span>Product code</span><input name="productCode" maxlength="120" value="' + v(product?.product_code) + '"></label>' +
     '<label><span>SKU</span><input name="sku" maxlength="120" value="' + v(product?.sku) + '"></label>' +
     '<label><span>Research name</span><input name="researchName" maxlength="200" value="' + v(product?.research_name) + '"></label>' +
     '<label><span>Purity</span><input name="purity" maxlength="120" value="' + v(product?.purity) + '"></label>' +
     '<label><span>Quantity</span><input name="quantity" maxlength="120" value="' + v(product?.quantity) + '"></label>' +
     '<label><span>Lot number</span><input name="lotNumber" maxlength="120" value="' + v(product?.lot_number) + '"></label>' +
-    '<label class="catalog-span-2"><span>COA URL</span><input name="coaUrl" type="url" maxlength="1000" placeholder="https://…" value="' + v(product?.coa_url) + '"></label>' +
+    '<label class="catalog-span-2"><span>COA URL</span><input name="coaUrl" type="url" maxlength="1000" placeholder="https://…" value="' + v(product?.coa_url) + '"></label>'
+
+  return '<div class="catalog-product-form catalog-editor-workspace">' +
+    tabs +
+    panel('basics', 'Product name, category, and description.', basics) +
+    panel('pricing', 'Customer-facing pricing and private supplier costs.', pricing) +
+    panel('storefront', 'Product image, shipping, and visibility on Nexus.', storefront) +
+    panel('advanced', 'Product identifiers, research details, and documentation.', advanced) +
   '</div>'
+}
+
+function activateCatalogEditorSection(
+  form: HTMLElement,
+  section: CatalogEditorSection,
+  focusTab = false,
+) {
+  const tabs = Array.from(form.querySelectorAll<HTMLButtonElement>('[data-catalog-editor-tab]'))
+  if (!tabs.some(tab => tab.dataset.catalogEditorTab === section)) return
+  tabs.forEach(tab => {
+    const active = tab.dataset.catalogEditorTab === section
+    tab.setAttribute('aria-selected', String(active))
+    tab.tabIndex = active ? 0 : -1
+    if (active && focusTab) tab.focus({ preventScroll: true })
+  })
+  form.querySelectorAll<HTMLElement>('[data-catalog-editor-panel]').forEach(panel => {
+    panel.hidden = panel.dataset.catalogEditorPanel !== section
+  })
+}
+
+function bindCatalogEditorSections(form: HTMLElement) {
+  const tabs = Array.from(form.querySelectorAll<HTMLButtonElement>('[data-catalog-editor-tab]'))
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => {
+      activateCatalogEditorSection(form, tab.dataset.catalogEditorTab as CatalogEditorSection)
+    })
+    tab.addEventListener('keydown', event => {
+      let next = index
+      if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
+      else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length
+      else if (event.key === 'Home') next = 0
+      else if (event.key === 'End') next = tabs.length - 1
+      else return
+      event.preventDefault()
+      activateCatalogEditorSection(form, tabs[next].dataset.catalogEditorTab as CatalogEditorSection, true)
+    })
+  })
+}
+
+function revealCatalogValidationSection(form: HTMLElement, problem: string) {
+  const section: CatalogEditorSection =
+    problem.startsWith('Price') || problem.startsWith('Vendor cost') ? 'pricing' : 'basics'
+  activateCatalogEditorSection(form, section)
 }
 
 function bindProfitLive(form: HTMLElement, helpers: Helpers) {
@@ -349,7 +434,11 @@ export async function bindCatalogPage(helpers: Helpers) {
         if (!form) return
         const input = readProductForm(form)
         const problem = validateProductInput(input)
-        if (problem) { if (createMessage) createMessage.textContent = problem; return }
+        if (problem) {
+          revealCatalogValidationSection(form, problem)
+          if (createMessage) createMessage.textContent = problem
+          return
+        }
         createButton.disabled = true
         createButton.textContent = 'Creating…'
         if (createMessage) createMessage.textContent = 'Saving to the live catalog…'
@@ -498,7 +587,10 @@ export async function bindCatalogPage(helpers: Helpers) {
     list.innerHTML = products.length
       ? products.map(product => productCard(product, categories, rates, helpers)).join('')
       : '<div class="empty-state"><h2>No products yet.</h2><p>Use “+ New product” to add one.</p></div>'
-    document.querySelectorAll<HTMLElement>('.catalog-product-form').forEach(form => bindProfitLive(form, helpers))
+    document.querySelectorAll<HTMLElement>('.catalog-product-form').forEach(form => {
+      bindProfitLive(form, helpers)
+      bindCatalogEditorSections(form)
+    })
 
     const categorySelect = document.querySelector<HTMLSelectElement>('#catalog-category')
     if (categorySelect) {
@@ -654,7 +746,11 @@ export async function bindCatalogPage(helpers: Helpers) {
         if (!product || !form) return
         const input = readProductForm(form)
         const problem = validateProductInput(input)
-        if (problem) { if (message) message.textContent = problem; return }
+        if (problem) {
+          revealCatalogValidationSection(form, problem)
+          if (message) message.textContent = problem
+          return
+        }
         button.disabled = true
         button.textContent = 'Saving…'
         if (message) message.textContent = 'Saving to the live catalog…'
