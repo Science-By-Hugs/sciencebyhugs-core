@@ -229,3 +229,131 @@ input::placeholder,textarea::placeholder{color:#A89A86!important}
   .catalog-filter-menu>summary{padding:0 9px;font-size:12px;gap:6px}
   .catalog-toolbar .catalog-select-toggle{padding-inline:12px!important}
 }
+
+/* Champagne product editor — one intact form, four focused sections. */
+.catalog-editor-workspace{
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  margin-top:14px;
+}
+.catalog-editor-tabs{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  align-items:stretch;
+  gap:4px;
+  min-width:0;
+  width:100%;
+  padding:4px;
+  border:1px solid var(--core-border,#494035);
+  border-radius:11px;
+  background:#201C18;
+}
+.catalog-editor-tabs [role="tab"]{
+  border:0!important;
+  border-radius:8px!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  color:var(--core-muted,#C7B9A6)!important;
+  font-size:12px;
+  line-height:1.2;
+  font-weight:650;
+  padding:10px 5px!important;
+  min-height:42px;
+  min-width:0;
+  white-space:normal;
+  text-align:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.catalog-editor-tabs [role="tab"][aria-selected="true"]{
+  background:#443727!important;
+  color:var(--core-champagne,#D4B47A)!important;
+}
+.catalog-editor-tabs [role="tab"]:focus-visible{
+  outline:2px solid var(--core-champagne,#D4B47A)!important;
+  outline-offset:1px;
+}
+.catalog-editor-panel{min-width:0;max-width:100%;padding:6px 0 0}
+.catalog-editor-panel[hidden]{display:none!important}
+.catalog-editor-panel .catalog-editor-grid{margin-top:12px;min-width:0}
+.catalog-editor-section-note{
+  font-size:12px;line-height:1.5;
+  margin:11px 0 0;color:var(--core-muted,#C7B9A6);
+}
+.catalog-editor-panel .catalog-editor-grid label{min-width:0}
+.catalog-editor-panel .catalog-editor-grid label>span{
+  color:var(--core-muted,#C7B9A6);
+  letter-spacing:.02em;font-size:11px;
+}
+.catalog-editor-panel .catalog-editor-grid input,
+.catalog-editor-panel .catalog-editor-grid select,
+.catalog-editor-panel .catalog-editor-grid textarea{
+  box-sizing:border-box;
+  min-height:44px;
+  width:100%;
+  min-width:0;
+  padding:10px 12px;
+  background:#211E1A!important;
+  border:1px solid #756754!important;
+  color:var(--core-ivory,#F6F1E7)!important;
+  border-radius:9px!important;
+  font-size:14px;
+}
+.catalog-editor-panel .catalog-editor-grid textarea{
+  min-height:98px;resize:vertical;line-height:1.5;
+}
+.catalog-editor-panel .catalog-checks{
+  display:grid;
+  gap:11px;
+  padding:7px 0;
+}
+.catalog-editor-panel .catalog-checks label{
+  display:flex;align-items:center;gap:10px;
+  color:var(--core-ivory,#F6F1E7)!important;
+  font-size:13px;
+}
+.catalog-editor-panel .catalog-checks input[type="checkbox"]{
+  width:19px;min-width:19px;height:19px;min-height:19px;
+  accent-color:var(--core-champagne,#D4B47A);
+}
+.catalog-editor-panel .catalog-profit-live{
+  color:var(--core-muted,#C7B9A6);
+  line-height:1.45;
+  padding:10px 12px;
+  margin:0;
+  border:1px solid var(--core-border,#494035);
+  border-radius:9px;
+  background:var(--core-raised,#352F27);
+}
+.catalog-editor-panel .catalog-profit-live.loss{color:#E0A29C}
+.catalog-editor .catalog-editor-actions,
+.catalog-create-panel .catalog-editor-actions{
+  position:sticky;
+  bottom:0;
+  z-index:4;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-end;
+  min-width:0;
+  padding:12px 0;
+  border-top:1px solid var(--core-border,#494035);
+  background:var(--core-surface,#29251F);
+}
+.catalog-editor .catalog-editor-actions .primary,
+.catalog-create-panel .catalog-editor-actions .primary{
+  border-radius:9px;
+  min-height:44px;
+  flex:0 0 auto;
+}
+@media(max-width:620px){
+  .catalog-editor-tabs [role="tab"]{font-size:11px;padding:10px 2px!important}
+  .catalog-editor-panel .catalog-editor-grid{grid-template-columns:minmax(0,1fr)!important}
+  .catalog-editor .catalog-editor-actions,
+  .catalog-create-panel .catalog-editor-actions{flex-wrap:wrap}
+  .catalog-editor .catalog-editor-actions .card-message,
+  .catalog-create-panel .catalog-editor-actions .card-message{flex-basis:100%}
+  .catalog-editor .catalog-editor-actions .primary,
+  .catalog-create-panel .catalog-editor-actions .primary{width:100%;flex:1 1 100%}
+}

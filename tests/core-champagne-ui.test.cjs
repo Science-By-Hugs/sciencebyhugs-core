@@ -104,3 +104,43 @@ test('Catalog search, category and status filters collapse behind a compact hamb
   assert.match(css,/\.catalog-filter-fields\{[\s\S]*?grid-template-columns:/)
   assert.match(css,/@media\(max-width:900px\)\{[\s\S]*?\.catalog-filter-fields\{grid-template-columns:minmax\(0,1fr\)\}/)
 })
+
+test('Champagne Catalog editor divides one intact product form into four navigable sections',()=>{
+  const source=read('src/catalog-view.ts')
+  const style=read('src/champagne.css')
+  assert.match(source,/type CatalogEditorSection = 'basics' \| 'pricing' \| 'storefront' \| 'advanced'/)
+  assert.match(source,/data-catalog-editor-tab=/)
+  assert.match(source,/role="tablist"/)
+  assert.match(source,/role="tabpanel"/)
+  assert.match(source,/class="catalog-product-form catalog-editor-workspace"/)
+  for(const label of ['Basics','Pricing','Storefront','Advanced']) {
+    assert.match(source,new RegExp("\\['"+label.toLowerCase()+"', '"+label+"'\\]"))
+  }
+  assert.match(source,/panel\('basics'/)
+  assert.match(source,/panel\('pricing'/)
+  assert.match(source,/panel\('storefront'/)
+  assert.match(source,/panel\('advanced'/)
+  assert.match(source,/panel\.hidden = panel\.dataset\.catalogEditorPanel !== section/)
+  assert.match(source,/bindCatalogEditorSections\(form\)/)
+  assert.match(source,/revealCatalogValidationSection\(form, problem\)/)
+  assert.match(source,/ArrowRight/)
+  assert.match(source,/ArrowLeft/)
+  assert.match(style,/\.catalog-editor-panel\[hidden\]\{display:none!important\}/)
+  assert.match(style,/\.catalog-editor-tabs/)
+})
+test('Catalog editor retains every original editable field and existing create/update API calls',()=>{
+  const source=read('src/catalog-view.ts')
+  const form=source.split('function productForm(')[1].split('function activateCatalogEditorSection(')[0]
+  for(const name of [
+    'name','price','vendorCost','categoryId','productType','shippingFrom',
+    'description','imageUrl','available','featured','coreHidden',
+    'productCode','sku','researchName','purity','quantity','lotNumber','coaUrl'
+  ]){
+    const occurrences=form.split('name="'+name+'"').length-1
+    assert.equal(occurrences,1,'field '+name+' should appear exactly once in the grouped editor')
+  }
+  assert.match(source,/const input = readProductForm\(form\)/)
+  assert.match(source,/createCatalogProduct\(input\)/)
+  assert.match(source,/updateCatalogProduct\(product\.id, product\.updated_at, input\)/)
+  assert.match(source,/bindProfitLive\(form, helpers\)/)
+})
