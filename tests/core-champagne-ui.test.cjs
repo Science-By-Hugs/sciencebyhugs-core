@@ -76,3 +76,13 @@ test('inventory retains stock search and open disclosures after refresh or a sto
   assert.match(dash,/matched\.closest\('details'\)/)
   assert.match(dash,/disclosure\.open=true/)
 })
+
+test('supply settings retains owner inventory API and card position instead of auto-scrolling',()=>{
+  const dashboard=read('src/inventory-dashboard.ts')
+  const ui=read('src/inventory-view.ts')
+  assert.match(dashboard,/openSupplySettings\(row,button,onRefresh\)/)
+  assert.match(dashboard,/await classifyInventoryProduct\(row\.id,supplyMode,reorderPoint\)/)
+  assert.match(dashboard,/dialog\.addEventListener\('cancel'/)
+  assert.match(dashboard,/feedback\.textContent=error instanceof Error/)
+  assert.match(ui,/form\('inv-classify-product'/)
+})
