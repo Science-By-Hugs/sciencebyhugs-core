@@ -67,6 +67,11 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h 127.0.0.1 -U postgres -d inventory_test -v ON_ERROR_STOP=1 -f tests/inventory-multi-db.sql
 
+      - name: CORE push-volume PostgreSQL regression (transaction rollback)
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d inventory_test -v ON_ERROR_STOP=1 -f tests/core-push-volume-db.sql
+
       - name: Two-session checkout contention test (temporary database only)
         env:
           PGPASSWORD: postgres
