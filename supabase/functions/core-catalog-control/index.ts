@@ -165,41 +165,29 @@ Deno.serve(async (req: Request) => {
   if (action === "set_shipping_rate" || action === "delete_shipping_rate") {
     const source = clean(body.source, 120);
     if (!source) return json({ error: "Shipping source name is required" }, 400);
-
-    let config: Record<string, unknown>;
-    try { config = await loadCheckoutConfig(); } catch { return json({ error: "Checkout configuration unavailable" }, 500); }
-    const rates = { ...((config.shippingRates as Record<string, number>) || {}) };
-    const beforeRate = Object.prototype.hasOwnProperty.call(rates, source) ? rates[source] : null;
-
-    if (action === "set_shipping_rate") {
-      let rate: number;
-      try { rate = parsePrice(body.rate); } catch (e) { return json({ error: "Shipping " + (e as Error).message.toLowerCase() }, 400); }
-      rates[source] = rate;
-    } else {
-      if (beforeRate === null) return json({ error: "Shipping source not found" }, 404);
-      const { count } = await admin.from("products").select("id", { count: "exact", head: true })
-        .eq("shipping_from", source).eq("active", true);
-      if ((count || 0) > 0) {
-        return json({ error: `${count} active product(s) still ship from "${source}". Move them first.` }, 409);
-      }
-      delete rates[source];
+    const deleting = action === "delete_shipping_rate";
+    let rate: number | null = null;
+    if (!deleting) {
+      try { rate = parsePrice(body.rate); }
+      catch (error) { return json({ error: "Shipping " + (error as Error).message.toLowerCase() }, 400); }
     }
 
-    const { error: updateError } = await admin.from("internal_runtime_config")
-      .update({ value: { ...config, shippingRates: rates } }).eq("key", "checkout");
-    if (updateError) return json({ error: "Could not save shipping rates" }, 500);
-
-    const { error: auditError } = await audit(
-      action === "set_shipping_rate" ? "catalog.shipping_rate.set" : "catalog.shipping_rate.delete",
-      "shipping_rate", source,
-      { rate: beforeRate },
-      { rate: action === "set_shipping_rate" ? rates[source] : null },
-    );
-    if (auditError) {
-      await admin.from("internal_runtime_config").update({ value: config }).eq("key", "checkout");
-      return json({ error: "Shipping change was rolled back because the audit event could not be recorded" }, 500);
+    // This RPC can edit ONLY checkout.shippingRates, not payment or inventory flags.
+    // The service role deliberately has no UPDATE permission on internal_runtime_config.
+    // A single database transaction locks checkout, applies the change, and audits it.
+    const { data, error } = await admin.rpc("core_catalog_change_shipping_rate", {
+      p_source: source,
+      p_rate: rate,
+      p_delete: deleting,
+      p_actor_id: user.id,
+      p_actor_email: user.email || null,
+      p_actor_role: role,
+    });
+    if (error) {
+      const message = error.message || "Could not save shipping rates";
+      return json({ error: message }, /not found|still ship from/i.test(message) ? 409 : 500);
     }
-    return json({ success: true, shippingRates: rates });
+    return json({ success: true, shippingRates: data.shippingRates });
   }
 
   // ---------- Product field parsing shared by create/update ----------
