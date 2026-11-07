@@ -157,3 +157,12 @@ test('supply settings open a product-scoped modal instead of jumping down the pa
   assert.doesNotMatch(dash,/select\.value=button\.dataset\.product/)
   assert.match(read('src/champagne.css'),/\.inv-supply-dialog::backdrop/)
 })
+
+test('supply settings opens with heading focus rather than the Supply Mode picker',()=>{
+  assert.match(dash,/title\.tabIndex=-1/)
+  assert.match(dash,/title\.setAttribute\('autofocus',''\)/)
+  assert.match(dash,/dialog\.showModal\(\)\s+title\.focus\(\{preventScroll:true\}\)/)
+  assert.doesNotMatch(dash,/mode\.focus\(/)
+  assert.match(dash,/mode\.value=row\.mode/)
+  assert.match(dash,/trigger\.closest\('tr'\)/)
+})

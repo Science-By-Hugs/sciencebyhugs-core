@@ -196,6 +196,10 @@ function openSupplySettings(
   dialog.setAttribute('aria-describedby','inv-supply-dialog-help')
   const title=node('h2','','Supply settings')
   title.id='inv-supply-dialog-title'
+  // Focus the dialog heading when it opens, not the Supply Mode select.
+  // On iPhone, focusing a select can immediately bring up the native picker.
+  title.tabIndex=-1
+  title.setAttribute('autofocus','')
   const identity=node('p','inv-supply-identity',row.name)
   const productCode=node('p','inv-supply-code',row.code)
   const note=node('p','inv-supply-note',
@@ -303,7 +307,7 @@ function openSupplySettings(
     }
   })
   dialog.showModal()
-  mode.focus({preventScroll:true})
+  title.focus({preventScroll:true})
 }
 
 export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,onRefresh:()=>Promise<void>) {
