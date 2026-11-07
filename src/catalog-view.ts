@@ -206,11 +206,12 @@ function productCard(
       return '<div class="catalog-pricing-row' + tone + '">' +
         '<div><span>Customer price</span><strong>' + money(product.price) + '</strong></div>' +
         '<div><span>Vendor cost</span><strong>' + (cost === null ? '<em>Not set</em>' : money(cost)) + '</strong></div>' +
-        '<div><span>Profit / unit</span><strong>' + (figures.profit === null ? '—' : money(figures.profit)) + '</strong></div>' +
-        '<div><span>Margin</span><strong>' + pct(figures.marginPct) + '</strong></div>' +
-        '<div><span>Markup</span><strong>' + pct(figures.markupPct) + '</strong></div>' +
+        '<div><span>Profit / unit</span><strong>' + (figures.profit === null ? '—' : money(figures.profit)) +
+          '</strong><small class="catalog-profit-ratios">Margin ' + pct(figures.marginPct) +
+          ' · Markup ' + pct(figures.markupPct) + '</small></div>' +
       '</div>'
     })() +
+    '<details class="catalog-extra-details"><summary>Additional product information</summary>' +
     '<div class="catalog-meta-grid">' +
       '<div><span>Status</span><strong>' + statusLabel + '</strong></div>' +
       '<div><span>Ships from</span><strong>' + escapeHtml((product.shipping_from || '—') + shipRate) + '</strong></div>' +
@@ -222,7 +223,7 @@ function productCard(
       '<span>Purity <strong>' + escapeHtml(product.purity || '—') + '</strong></span>' +
       '<span>Quantity <strong>' + escapeHtml(product.quantity || '—') + '</strong></span>' +
       '<span>Lot <strong>' + escapeHtml(product.lot_number || '—') + '</strong></span>' +
-    '</div>' +
+    '</div></details>' +
     '<div class="invoice-actions">' +
       (product.coa_url
         ? '<a class="button secondary" href="' + escapeHtml(product.coa_url) + '" target="_blank" rel="noreferrer">Open COA</a>'
@@ -231,13 +232,15 @@ function productCard(
         (selling ? 'Stop selling' : archived ? 'Restore & sell' : 'Start selling') +
       '</button>' +
       (archived ? '' :
+        '<details class="catalog-advanced-actions"><summary>More listing options</summary><div class="catalog-extra-actions">' +
         '<button class="secondary toggle-catalog-visibility" type="button">' +
           (product.core_hidden ? 'Unhide from Resident/New' : 'Hide from Resident/New') +
         '</button>' +
-        '<button class="danger remove-catalog-product" type="button">Delete</button>') +
+        '<button class="danger remove-catalog-product" type="button">Delete</button>' +
+        '</div></details>') +
       '<span class="card-message catalog-visibility-message" aria-live="polite"></span>' +
     '</div>' +
-    '<details class="catalog-editor"><summary>Edit product</summary>' +
+    '<details class="catalog-editor"><summary>Edit details & pricing</summary>' +
       productForm(product, categories, rates, helpers) +
       '<div class="catalog-editor-actions"><p class="card-message catalog-editor-message" aria-live="polite"></p>' +
       '<button class="primary save-catalog-product" type="button">Save Product</button></div>' +

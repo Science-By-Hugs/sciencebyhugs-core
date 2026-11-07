@@ -70,3 +70,36 @@ input::placeholder,textarea::placeholder{color:#A89A86!important}
   .core-quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
   .core-quick-actions a{text-align:center}
 }
+
+/* Champagne UX pass 2 — surface daily actions; put secondary details on demand. */
+.today-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+.catalog-pricing-row{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.md-panel .catalog-pricing-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.catalog-profit-ratios{display:block;margin-top:6px;font-size:11px;color:var(--core-muted);line-height:1.4}
+.catalog-extra-details{margin:10px 0 14px;border-top:1px solid var(--core-border)}
+.catalog-extra-details>summary,.catalog-advanced-actions>summary,.od-history>summary{
+  cursor:pointer;list-style:none;color:var(--core-muted);font-size:13px;font-weight:650;
+  padding:14px 0;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.catalog-extra-details>summary::-webkit-details-marker,.catalog-advanced-actions>summary::-webkit-details-marker,.od-history>summary::-webkit-details-marker{display:none}
+.catalog-extra-details>summary::after,.catalog-advanced-actions>summary::after,.od-history>summary::after{
+  content:'+';font-size:17px;color:var(--core-champagne);
+}
+.catalog-extra-details[open]>summary::after,.catalog-advanced-actions[open]>summary::after,.od-history[open]>summary::after{content:'−'}
+.catalog-extra-details .catalog-meta-grid,.catalog-extra-details .catalog-detail-row{margin:8px 0 12px}
+.catalog-advanced-actions{flex:1 1 100%;border-top:1px solid var(--core-border);margin-top:8px}
+.catalog-extra-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-bottom:10px}
+.catalog-extra-actions .danger{margin-left:auto}
+.od-history{border-top:1px solid var(--core-border);margin:8px 0 12px}
+.od-history-body{display:grid;gap:2px;padding:0 0 8px}
+.od-history-body .od-section:first-child{border-top:0}
+.inv-stock-table-wrap .inv-stock-number{font-variant-numeric:tabular-nums}
+#inventory-app [data-inventory-group][hidden]{display:none!important}
+@media(max-width:600px){
+  .today-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .today-stats>.today-stat:last-child:nth-child(odd){grid-column:1/-1}
+  .catalog-pricing-row,.md-panel .catalog-pricing-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .catalog-extra-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+  .catalog-extra-actions button{width:100%}
+  .od-history-body .od-line{overflow-wrap:anywhere;min-width:0}
+}

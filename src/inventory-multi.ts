@@ -94,7 +94,7 @@ export function mountMultiInventory(
 ) {
   const purchase=element('section','inv-panel inv-multi-workspace')
   const title=element('div','inv-panel-head')
-  title.append(text('h2','3. Purchase multiple kits in one order'),
+  title.append(text('h2','Create a purchase order'),
     text('p','Select one vendor. Add different product offerings, then enter shared shipping and fees only once.'))
   purchase.appendChild(title)
 
