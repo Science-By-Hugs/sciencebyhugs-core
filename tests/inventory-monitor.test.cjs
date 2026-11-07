@@ -83,7 +83,8 @@ test('state model distinguishes blocked activation, actionable alerts and unread
 test('owner panel is not mounted for admin accounts; server authorization is unchanged',()=>{
   assert.match(main,/await renderInventory\(email, role\)/)
   assert.match(main,/isOwner: role === 'owner'/)
-  assert.match(view,/\(h\.isOwner\?'<div id="inv-monitor-slot"/)
+  assert.match(view,/\(h\.isOwner\?'<details class="core-disclosure"/)
+  assert.match(view,/id="inv-monitor-slot"/)
   assert.match(view,/if\(h\.isOwner && monitorSlot\) mountInventoryMonitor/)
   assert.match(api,/if \(role !== "owner"\) return json\(\{error:"Owner access required"\},403\)/)
 })

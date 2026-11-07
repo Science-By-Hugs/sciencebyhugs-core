@@ -332,6 +332,8 @@ export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,
       if(select){
         select.value=button.dataset.product||''
         select.dispatchEvent(new Event('change',{bubbles:true}))
+        const disclosure=form?.closest('details')
+        if(disclosure)disclosure.open=true
         form?.scrollIntoView({behavior:'smooth',block:'start'})
       }
     }

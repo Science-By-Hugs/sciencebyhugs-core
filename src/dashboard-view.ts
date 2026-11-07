@@ -98,11 +98,16 @@ export async function bindDashboardPage(helpers: Helpers) {
     const stat = (label: string, value: string, sub: string) =>
       '<div class="today-stat"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value) + '</strong><small>' + escapeHtml(sub) + '</small></div>'
     const stats = '<section class="today-stats" aria-label="Key numbers">' +
-      stat('Revenue, last 30 days', money(b.revenue_30d), plural(b.orders_30d, 'order')) +
-      stat('Average order', money(b.average_paid_order), 'All paid orders') +
+      stat('Revenue · 30 days', money(b.revenue_30d), plural(b.orders_30d, 'order')) +
+      stat('Orders · 30 days', String(b.orders_30d), 'Customer checkouts') +
       stat('Customers', String(b.customers), b.new_customers_30d + ' new in 30 days') +
-      stat('Revenue, all time', money(b.paid_revenue), plural(b.paid_orders, 'paid order')) +
     '</section>'
+    const quick = '<nav class="core-quick-actions" aria-label="Quick actions">' +
+      '<a href="#orders">Review orders</a>' +
+      '<a href="#products?section=inventory">Check stock</a>' +
+      '<a href="#products?section=purchasing">Receive inventory</a>' +
+      '<a href="#products?section=catalog">Manage products</a>' +
+    '</nav>'
 
     const recent = data.operations.recent_orders.slice(0, 6)
     const latest = '<section class="today-section" aria-labelledby="today-latest">' +
@@ -121,7 +126,7 @@ export async function bindDashboardPage(helpers: Helpers) {
         : '<p class="today-empty">No orders yet.</p>') +
     '</section>'
 
-    root.innerHTML = attention + stats + latest
+    root.innerHTML = stats + attention + quick + latest
     root.querySelectorAll<HTMLAnchorElement>('a[data-filter]').forEach(a =>
       a.addEventListener('click', () => presetOrdersFilter(a.dataset.filter as OrdersFilter)))
     root.querySelectorAll<HTMLAnchorElement>('a.today-order, #today-latest a').forEach(a =>

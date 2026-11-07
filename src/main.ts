@@ -15,7 +15,8 @@ import { bindFinancePage, financePageMarkup } from './finance-view'
 import { bindReferralsPage, referralsPageMarkup } from './referrals-view'
 import { bindAdminToolsPage, adminToolsPageMarkup } from './admin-tools-view'
 import { bindNotificationsPage, notificationsPageMarkup } from './notifications-view'
-import './slate.css' // loaded last: 2026-10-28 slate redesign
+import './slate.css' // legacy shell rules, retokenized for Champagne
+import './champagne.css' // final Core-exclusive appearance and workspace layout
 
 const appRoot = document.querySelector<HTMLDivElement>('#app')
 if (!appRoot) throw new Error('App root not found')
@@ -54,6 +55,8 @@ type CoreView =
   | 'customers'
   | 'catalog'
   | 'inventory'
+  | 'products'
+  | 'reports'
   | 'analytics'
   | 'finance'
   | 'referrals'
@@ -71,6 +74,8 @@ const CORE_VIEWS: CoreView[] = [
   'customers',
   'catalog',
   'inventory',
+  'products',
+  'reports',
   'analytics',
   'finance',
   'referrals',
@@ -116,6 +121,8 @@ function resolveCoreView(): CoreView {
 function keepCoreViewInUrl(view: CoreView) {
   // Keep authenticated unit and lot QR deep-links intact through the route render.
   if (view === 'inventory' && /^#inventory\?(?:unit|lot)=/.test(location.hash)) return
+  // Products/Reports tabs are represented by a query parameter; keep it on reload.
+  if ((view === 'products' || view === 'reports') && location.hash.startsWith('#' + view + '?')) return
   if (location.hash === '#' + view) return
   history.replaceState(null, '', '#' + view)
 }
@@ -133,32 +140,62 @@ const ICONS: Record<string, string> = {
 const svg = (name: string) =>
   '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + '</svg>'
 
-// 2026-10-28 redesign: five main destinations; everything else lives under More.
+// Champagne workspace: five owner-friendly destinations and grouped utilities.
+// Historical hashes remain valid for bookmarks, QR links and internal actions.
 const MAIN_NAV: Array<[CoreView, string, string]> = [
   ['dashboard', 'Today', 'today'],
   ['orders', 'Orders', 'orders'],
+  ['products', 'Products', 'catalog'],
   ['customers', 'Customers', 'customers'],
-  ['catalog', 'Catalog', 'catalog'],
-  ['inventory', 'Inventory', 'inventory'],
-  ['finance', 'Finance', 'finance'],
 ]
 const MORE_NAV: Array<[CoreView, string]> = [
-  ['referrals', 'Referrals'],
-  ['analytics', 'Analytics'],
-  ['notifications', 'Alerts'],
-  ['audit', 'Audit log'],
-  ['admin-tools', 'Settings'],
-  ['account', 'Account'],
+  ['reports', 'Reports'],
+  ['referrals', 'Marketing'],
+  ['notifications', 'Messages & alerts'],
+  ['admin-tools', 'Admin tools'],
+  ['audit', 'Activity log'],
 ]
-const TAB_VIEWS: CoreView[] = ['dashboard', 'orders', 'customers', 'catalog']
+const TAB_VIEWS: CoreView[] = ['dashboard', 'orders', 'products', 'catalog', 'inventory', 'customers']
 
+type ProductSection = 'catalog' | 'inventory' | 'purchasing' | 'suppliers'
+type ReportSection = 'finance' | 'analytics'
+function productSection(): ProductSection {
+  const section = new URLSearchParams(location.hash.split('?')[1] || '').get('section')
+  return section === 'inventory' || section === 'purchasing' || section === 'suppliers'
+    ? section : 'catalog'
+}
+function reportSection(): ReportSection {
+  return new URLSearchParams(location.hash.split('?')[1] || '').get('section') === 'analytics'
+    ? 'analytics' : 'finance'
+}
+function productsTabs(active: ProductSection) {
+  const tabs: Array<[ProductSection,string]> = [
+    ['catalog','Catalog'],['inventory','Inventory'],
+    ['purchasing','Purchasing'],['suppliers','Suppliers'],
+  ]
+  return '<section class="core-workspace-heading"><span class="core-kicker">Catalog and supply</span>' +
+    '<h1>Products</h1><p>Manage what you sell, stock, source, and receive.</p></section>' +
+    '<nav class="core-section-tabs" aria-label="Product sections">' +
+    tabs.map(([id,label]) => '<a href="#products?section=' + id + '" class="' +
+      (active===id?'active':'') + '"' + (active===id?' aria-current="page"':'') +
+      '>' + label + '</a>').join('') + '</nav>'
+}
+function reportsTabs(active: ReportSection) {
+  return '<section class="core-workspace-heading"><span class="core-kicker">Business intelligence</span>' +
+    '<h1>Reports</h1><p>Revenue, profitability, and business performance.</p></section>' +
+    '<nav class="core-section-tabs" aria-label="Report sections">' +
+      '<a href="#reports?section=finance" class="' + (active==='finance'?'active':'') +
+      '"' + (active==='finance'?' aria-current="page"':'') + '>Finance & profit</a>' +
+      '<a href="#reports?section=analytics" class="' + (active==='analytics'?'active':'') +
+      '"' + (active==='analytics'?' aria-current="page"':'') + '>Analytics</a>' +
+    '</nav>'
+}
 function moreScreen(email: string) {
-  // Phone "More": everything that isn't a bottom tab, plus account and sign out.
-  const links: Array<[CoreView, string]> = [['inventory', 'Inventory'], ['finance', 'Finance'], ...MORE_NAV.filter(([v]) => v !== 'account')]
   return '<section class="dashboard-head"><h1 class="dashboard-title">More</h1></section>' +
-    '<a class="more-account" href="#account">' + avatarMarkup() + '<span><strong>Account</strong><small>' + escapeHtml(email) + '</small></span></a>' +
+    '<a class="more-account" href="#account">' + avatarMarkup() +
+    '<span><strong>Account</strong><small>' + escapeHtml(email) + '</small></span></a>' +
     '<nav class="more-list" aria-label="More sections">' +
-      links.map(([view, label]) => '<a href="#' + view + '">' + escapeHtml(label) + '</a>').join('') +
+    MORE_NAV.map(([view,label]) => '<a href="#' + view + '">' + escapeHtml(label) + '</a>').join('') +
     '</nav>' +
     '<button class="more-signout" id="more-sign-out" type="button">Sign out</button>'
 }
@@ -176,9 +213,13 @@ function shell(content: string, signedIn = false) {
     return
   }
 
-  const link = (view: CoreView, label: string, icon?: string) =>
-    '<a href="#' + view + '" class="' + (activeView === view ? 'active' : '') + '"' +
-    (activeView === view ? ' aria-current="page"' : '') + '>' + (icon ? svg(icon) : '') + '<span>' + label + '</span></a>'
+  const link = (view: CoreView, label: string, icon?: string) => {
+    const selected = activeView === view ||
+      (view === 'products' && (activeView === 'catalog' || activeView === 'inventory')) ||
+      (view === 'reports' && (activeView === 'finance' || activeView === 'analytics'))
+    return '<a href="#' + view + '" class="' + (selected ? 'active' : '') + '"' +
+      (selected ? ' aria-current="page"' : '') + '>' + (icon ? svg(icon) : '') + '<span>' + label + '</span></a>'
+  }
 
   const moreActive = activeView === 'more' || !TAB_VIEWS.includes(activeView)
   const tab = (view: CoreView, label: string, icon: string, active: boolean) =>
@@ -190,6 +231,14 @@ function shell(content: string, signedIn = false) {
       <aside class="app-side" aria-label="Core navigation">
         <a class="app-wordmark" href="#dashboard" aria-label="core. home">core<span>.</span></a>
         <nav class="app-nav" aria-label="Main">${MAIN_NAV.map(([v, l, i]) => link(v, l, i)).join('')}</nav>
+        ${['products','catalog','inventory'].includes(activeView) ? '<nav class="app-subnav" aria-label="Product sections">' +
+          (['catalog','inventory','purchasing','suppliers'] as ProductSection[]).map(section =>
+            '<a href="#products?section=' + section + '" class="' +
+            ((activeView === 'catalog' && section === 'catalog') ||
+            (activeView === 'inventory' && section === 'inventory') ||
+            (activeView === 'products' && productSection() === section) ? 'active' : '') +
+            '">' + ({catalog:'Catalog',inventory:'Inventory',purchasing:'Purchasing',suppliers:'Suppliers'}[section]) +
+            '</a>').join('') + '</nav>' : ''}
         <div class="app-nav-sep"></div>
         <span class="app-nav-label">More</span>
         <nav class="app-nav app-nav-more" aria-label="More">${MORE_NAV.filter(([v]) => v !== 'account').map(([v, l]) => link(v, l)).join('')}</nav>
@@ -208,8 +257,8 @@ function shell(content: string, signedIn = false) {
       <nav class="app-tabs" aria-label="Core sections">
         ${tab('dashboard', 'Today', 'today', activeView === 'dashboard')}
         ${tab('orders', 'Orders', 'orders', activeView === 'orders')}
+        ${tab('products', 'Products', 'catalog', ['products', 'catalog', 'inventory'].includes(activeView))}
         ${tab('customers', 'Customers', 'customers', activeView === 'customers')}
-        ${tab('catalog', 'Catalog', 'catalog', activeView === 'catalog')}
         ${tab('more', 'More', 'more', moreActive)}
       </nav>
     </div>
@@ -294,13 +343,15 @@ async function renderCustomers(email: string) {
 }
 
 async function renderCatalog(email: string) {
-  shell(catalogPageMarkup(email, escapeHtml), true)
+  shell('<div class="products-workspace">' + productsTabs('catalog') +
+    catalogPageMarkup(email, escapeHtml) + '</div>', true)
   await bindCatalogPage({ escapeHtml, money, dateTime })
 }
 
-async function renderInventory(email: string, role: string) {
-  shell(inventoryPageMarkup(email, escapeHtml), true)
-  await bindInventoryPage({ escapeHtml, money, dateTime, isOwner: role === 'owner' })
+async function renderInventory(email: string, role: string, section: Exclude<ProductSection,'catalog'> = 'inventory') {
+  shell('<div class="products-workspace">' + productsTabs(section) +
+    inventoryPageMarkup(email, escapeHtml) + '</div>', true)
+  await bindInventoryPage({ escapeHtml, money, dateTime, isOwner: role === 'owner' }, section)
 }
 
 async function renderExecutiveDashboard(email: string) {
@@ -309,12 +360,14 @@ async function renderExecutiveDashboard(email: string) {
 }
 
 async function renderAnalytics(email: string) {
-  shell(analyticsPageMarkup(email, escapeHtml), true)
+  shell('<div class="reports-workspace">' + reportsTabs('analytics') +
+    analyticsPageMarkup(email, escapeHtml) + '</div>', true)
   await bindAnalyticsPage({ escapeHtml, money, dateTime })
 }
 
 async function renderFinance(email: string) {
-  shell(financePageMarkup(email, escapeHtml), true)
+  shell('<div class="reports-workspace">' + reportsTabs('finance') +
+    financePageMarkup(email, escapeHtml) + '</div>', true)
   await bindFinancePage({ escapeHtml, money, dateTime })
 }
 
@@ -395,6 +448,13 @@ async function render() {
     return
   }
 
+  if (activeView === 'products') {
+    const section = productSection()
+    if (section === 'catalog') await renderCatalog(email)
+    else await renderInventory(email, role, section)
+    return
+  }
+
   if (activeView === 'catalog') {
     await renderCatalog(email)
     return
@@ -402,6 +462,12 @@ async function render() {
 
   if (activeView === 'inventory') {
     await renderInventory(email, role)
+    return
+  }
+
+  if (activeView === 'reports') {
+    if (reportSection() === 'analytics') await renderAnalytics(email)
+    else await renderFinance(email)
     return
   }
 

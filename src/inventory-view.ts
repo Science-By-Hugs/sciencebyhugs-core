@@ -292,32 +292,57 @@ async function prepareLotPngDownloads(lotId:string) {
   }
 }
 
-export async function bindInventoryPage(h:Helpers) {
+export async function bindInventoryPage(
+  h:Helpers,
+  section:'inventory'|'purchasing'|'suppliers'='inventory',
+) {
   const root=id('inventory-app')
   if (!root) return
   try {
     const data=await listInventory()
     const vendorOptions=data.vendors.length
-    root.innerHTML=(h.isOwner?'<div id="inv-monitor-slot" class="inv-monitor-slot"></div>':'')+ '<div id="inv-overview" class="inv-overview"></div>'+ '<div id="inv-manage-stock"></div>'+ '<div id="inv-audit-slot"></div>'+  
-      '<p class="inv-helper">Live Nexus stock limits remain disabled until physical counts are reconciled.</p>'+ 
-      '<div class="inv-grid">'+
-      vendorForm(h)+
-      (vendorOptions?offersForm(data,h):card('<h2>2. Vendor price book</h2><p>Add a vendor first.</p>'))+
-      '<div id="inv-multi-anchor" class="inv-multi-anchor"></div>'+ 
+    // Group existing audited workflows without changing their backend actions.
+    // Every form remains in the DOM so QR lookups and existing event bindings work.
+    root.dataset.section=section
+    root.innerHTML=
+      '<div data-inventory-group="inventory">'+
+      (h.isOwner?'<details class="core-disclosure"><summary>Monitoring & alerts</summary><div class="core-disclosure-body"><div id="inv-monitor-slot" class="inv-monitor-slot"></div></div></details>':'')+
+      '<div id="inv-overview" class="inv-overview"></div>'+
+      '<details class="core-disclosure"><summary>Add or adjust physical stock</summary><div class="core-disclosure-body"><div id="inv-manage-stock"></div></div></details>'+
+      '<details class="core-disclosure"><summary>Count and reconcile lots</summary><div class="core-disclosure-body"><div id="inv-audit-slot"></div></div></details>'+
+      '<details class="core-disclosure"><summary>Lots & QR labels</summary><div class="core-disclosure-body">'+lotRows(data.lots,data,h)+'</div></details>'+
+      '<details class="core-disclosure"><summary>Supply settings & reorder thresholds</summary><div class="core-disclosure-body">'+classificationForm(data,h)+'</div></details>'+
+      '</div>'+
+      '<div data-inventory-group="purchasing">'+
+      '<div class="inv-grid"><div id="inv-multi-anchor" class="inv-multi-anchor"></div>'+
       (data.orders.some(o=>o.status==='ordered'&&!o.multi_line)?receivingForm(data,h):'')+
-      lotRows(data.lots,data,h)+classificationForm(data,h)+'</div>'+ 
-      '<section id="inv-png-downloads" class="inv-panel" hidden></section>'+ 
+      '</div></div>'+
+      '<div data-inventory-group="suppliers"><div class="inv-grid">'+
+      vendorForm(h)+(data.vendors.length?offersForm(data,h):
+        card('<h2>Supplier price book</h2><p>Add a supplier first.</p>'))+
+      '</div></div>'+
+      '<section id="inv-png-downloads" class="inv-panel" hidden></section>'+
       '<section id="inventory-lookup" class="inv-panel" hidden></section>'
+
+    root.querySelectorAll<HTMLElement>('[data-inventory-group]').forEach(group=>{
+      group.hidden=group.dataset.inventoryGroup!==section
+    })
+    // Unit/lot QR deep links always reveal their stock detail panel.
+    if (location.hash.startsWith('#inventory?')) {
+      root.querySelectorAll<HTMLElement>('[data-inventory-group]').forEach(group=>{
+        group.hidden=group.dataset.inventoryGroup!=='inventory'
+      })
+    }
 
     const monitorSlot=id('inv-monitor-slot')
     if(h.isOwner && monitorSlot) mountInventoryMonitor(monitorSlot,loadInventoryMonitoring)
     const overview=id('inv-overview')
-    if(overview) mountInventoryDashboard(overview,data,async()=>bindInventoryPage(h))
+    if(overview) mountInventoryDashboard(overview,data,async()=>bindInventoryPage(h,section))
     const managerSlot=id('inv-manage-stock')
-    if(managerSlot) mountStockManager(managerSlot,data,async()=>bindInventoryPage(h))
+    if(managerSlot) mountStockManager(managerSlot,data,async()=>bindInventoryPage(h,section))
     const auditSlot=id('inv-audit-slot')
-    if(auditSlot) mountInventoryAudit(auditSlot,data,async()=>bindInventoryPage(h))
-    mountMultiInventory(root,data,async()=>bindInventoryPage(h))
+    if(auditSlot) mountInventoryAudit(auditSlot,data,async()=>bindInventoryPage(h,section))
+    mountMultiInventory(root,data,async()=>bindInventoryPage(h,section))
 
     const form=(name:string,fn:(f:HTMLFormElement)=>Promise<void>)=>{
       const el=id(name) as HTMLFormElement|null
@@ -325,7 +350,7 @@ export async function bindInventoryPage(h:Helpers) {
         e.preventDefault()
         const button=el.querySelector<HTMLButtonElement>('button[type=submit]')
         if (button) button.disabled=true
-        try { await fn(el); await bindInventoryPage(h) }
+        try { await fn(el); await bindInventoryPage(h,section) }
         catch(err){alert(err instanceof Error?err.message:'Inventory action failed');if(button)button.disabled=false}
       })
     }
@@ -375,9 +400,14 @@ export async function bindInventoryPage(h:Helpers) {
       })
     })
     root.querySelectorAll<HTMLButtonElement>('.inv-audit-lot').forEach(b=>
-      b.addEventListener('click',()=>document.dispatchEvent(
-        new CustomEvent('core-inventory-audit-lot',{detail:b.dataset.lot||''})
-      ))
+      b.addEventListener('click',()=>{
+        const panel=id('inv-audit-slot')
+        const disclosure=panel?.closest('details')
+        if(disclosure)disclosure.open=true
+        document.dispatchEvent(
+          new CustomEvent('core-inventory-audit-lot',{detail:b.dataset.lot||''})
+        )
+      })
     )
     root.querySelectorAll<HTMLButtonElement>('.inv-download-lot').forEach(b=>
       b.addEventListener('click',async()=>{
@@ -437,8 +467,8 @@ export async function bindInventoryPage(h:Helpers) {
       }
     }
   } catch(err) {
-    root.innerHTML='<section class="inv-panel"><h2>Inventory foundation is not activated yet</h2>'+
-      '<p class="copy">This feature is being developed separately. Current catalog, orders and emails are unchanged.</p>'+
+    root.innerHTML='<section class="inv-panel"><h2>Inventory could not load</h2>'+
+      '<p class="copy">Please refresh and try again. Your existing stock records are unchanged.</p>'+
       '<p class="inv-error">'+h.escapeHtml(err instanceof Error?err.message:'Inventory service unavailable')+'</p></section>'
   }
 }

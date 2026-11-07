@@ -9,8 +9,8 @@ type Helpers = {
 
 export function notificationsPageMarkup(email: string, escapeHtml: Helpers['escapeHtml']) {
   return '<section class="dashboard-head dashboard-head-compact"><div>' +
-    '<span class="eyebrow">ATTENTION CENTER</span><h1 class="dashboard-title">Notifications</h1>' +
-    '<p class="copy">A read-only queue of operational signals that need review across payments, fulfillment, invoices, catalog, accounts, and referrals.</p>' +
+    '<span class="eyebrow">CUSTOMER COMMUNICATIONS</span><h1 class="dashboard-title">Messages &amp; alerts</h1>' +
+    '<p class="copy">Send Nexus notifications and review operational alerts.</p>' +
     '</div><div class="operator">Signed in as <strong>' + escapeHtml(email) + '</strong></div></section>' +
     pushPanel() +
     '<section class="notification-panel nexus-push-composer" aria-labelledby="nexus-push-title">' +

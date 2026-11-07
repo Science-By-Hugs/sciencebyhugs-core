@@ -1,0 +1,72 @@
+/* Core · Champagne. Scoped visual identity, layered after legacy shell.
+   Designed for accessible text, dark-only controls and one consistent 5-tab workflow. */
+:root{
+  color-scheme:dark;
+  --core-espresso:#1D1A16;
+  --core-surface:#29251F;
+  --core-raised:#352F27;
+  --core-border:#494035;
+  --core-champagne:#D4B47A;
+  --core-ivory:#F6F1E7;
+  --core-muted:#C7B9A6;
+}
+html,body{background:var(--core-espresso)!important;color:var(--core-ivory)!important}
+.app-side{background:#171511!important;border-color:var(--core-border)!important}
+.app-nav a.active,.app-subnav a.active{background:#393126!important;color:var(--core-champagne)!important}
+.app-nav a:hover,.app-subnav a:hover{background:var(--core-surface)!important;color:var(--core-ivory)!important}
+.app-wordmark span,.app-topbar-mark span{color:var(--core-champagne)!important}
+.app-nav-label{color:var(--core-muted)!important}
+.app-subnav{display:flex;flex-direction:column;gap:3px;padding:2px 7px 8px 34px}
+.app-subnav a{display:block;padding:8px 10px;border-radius:8px;text-decoration:none;color:var(--core-muted)!important;font-size:12px}
+.app-side-foot{border-color:var(--core-border)!important}
+.app-topbar,.app-tabs{background:#171511!important;border-color:var(--core-border)!important}
+.app-tabs a.active{color:var(--core-champagne)!important}
+.app-content{color:var(--core-ivory)}
+.dashboard-title,.core-workspace-heading h1{color:var(--core-ivory)}
+.eyebrow,.core-kicker{color:var(--core-champagne)!important}
+.login-title span{color:var(--core-champagne)}
+.primary,button.primary,.button.primary{background:var(--core-champagne)!important;color:#211B13!important;border-color:var(--core-champagne)!important}
+.secondary,button.secondary,.button.secondary{border-color:#756754!important}
+.today-dot.go,.tone.go::before{background:#B7CCAA!important}
+.today-dot.warn,.tone.warn::before{background:var(--sl-warning)!important}
+.today-dot.error,.tone.error::before{background:var(--sl-error)!important}
+.today-section,.today-stat,.inv-panel,.inv-stock-stat,.analytics-panel,.finance-panel,.referral-panel,.notification-panel,.admin-panel,.audit-card{
+  background-color:var(--core-surface)!important;border-color:var(--core-border)!important
+}
+.today-section h2,.today-row,.inv-line,.finance-row,.referral-row{border-color:var(--core-border)!important}
+body input,body select,body textarea{background-color:#211E1A!important;border-color:#756754!important;color:var(--core-ivory)!important}
+input::placeholder,textarea::placeholder{color:#A89A86!important}
+.core-workspace-heading{margin:0 0 15px}
+.core-kicker{display:block;letter-spacing:.07em;font-size:11px;font-weight:700;text-transform:uppercase}
+.core-workspace-heading h1{font-size:30px;line-height:1.2;letter-spacing:-.03em;font-weight:700;margin:7px 0 5px}
+.core-workspace-heading p{font-size:13px;color:var(--core-muted);margin:0}
+.core-section-tabs{display:flex;gap:3px;max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;border-bottom:1px solid var(--core-border);margin:16px 0 20px;scrollbar-width:none}
+.core-section-tabs a{flex:0 0 auto;min-height:43px;padding:12px 15px;border-bottom:2px solid transparent;color:var(--core-muted)!important;text-decoration:none;font-size:13px;font-weight:650;white-space:nowrap}
+.core-section-tabs a.active{border-bottom-color:var(--core-champagne);color:var(--core-champagne)!important}
+.products-workspace,.reports-workspace{min-width:0;width:100%;max-width:100%}
+.products-workspace>.dashboard-head,.reports-workspace>.dashboard-head{display:none!important}
+.core-disclosure{border:1px solid var(--core-border);border-radius:12px;background:var(--core-surface);margin:12px 0;min-width:0}
+.core-disclosure>summary{padding:16px;cursor:pointer;list-style:none;font-weight:650;color:var(--core-ivory)}
+.core-disclosure>summary::-webkit-details-marker{display:none}
+.core-disclosure>summary::after{content:'＋';float:right;color:var(--core-champagne)}
+.core-disclosure[open]>summary::after{content:'−'}
+.core-disclosure>.core-disclosure-body{padding:0 14px 16px;min-width:0}
+.core-disclosure-body>.inv-panel{background:transparent!important;border:0!important;padding:0!important}
+.core-disclosure .inv-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.core-quick-actions{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 20px}
+.core-quick-actions a{border:1px solid #756754;border-radius:9px;background:var(--core-surface);padding:11px 13px;text-decoration:none;color:var(--core-ivory)!important;font-size:12px;font-weight:600}
+.core-quick-actions a:hover{background:var(--core-raised)}
+.more-list,.more-account,.catalog-health{border-color:var(--core-border)!important;background:var(--core-surface)!important}
+.more-list a{border-color:var(--core-border)!important}
+@media(max-width:900px){
+  .app-topbar{background:#171511!important}
+  .app-tabs{background:#171511!important}
+  .app-content{padding-left:16px;padding-right:16px}
+  .core-section-tabs a{padding:12px 13px}
+  .core-disclosure .inv-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:480px){
+  .core-workspace-heading h1{font-size:26px}
+  .core-quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .core-quick-actions a{text-align:center}
+}

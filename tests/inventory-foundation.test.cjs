@@ -82,7 +82,9 @@ test('physical and vendor-supplied classification remains separate from Nexus li
 
 test('new inventory screen is reachable by navigation and secure QR deep-link',()=>{
   assert.match(nav,/\| 'inventory'/)
-  assert.match(nav,/\['inventory', 'Inventory', 'inventory'\]/)
+  assert.match(nav,/\['products', 'Products', 'catalog'\]/)
+  assert.match(nav,/#products\?section=/)
+  assert.match(nav,/\| 'inventory'/)
   assert.match(nav,/\.split\('\?'\)\[0\]/)
   assert.match(nav,/await renderInventory\(email, role\)/)
   assert.match(ui,/lookupInventoryUnit\(unitToken\)/)
@@ -92,7 +94,11 @@ test('current order emails and checkout are not altered in this inventory milest
   assert.doesNotMatch(sql,/order_email_outbox|queue_enabled|order_email_dispatch|status_changed/i)
   assert.doesNotMatch(sql,/alter table public\.orders/i)
   assert.doesNotMatch(sql,/alter table public\.products/i)
-  assert.match(ui,/Live Nexus stock limits remain disabled/)
+  // The 2026-11-06 activation is live; a stale disabled-stock message is misleading.
+  assert.doesNotMatch(ui,/Live Nexus stock limits remain disabled/)
+  assert.match(ui,/data-inventory-group="inventory"/)
+  assert.match(ui,/data-inventory-group="purchasing"/)
+  assert.match(ui,/data-inventory-group="suppliers"/)
 })
 
 
