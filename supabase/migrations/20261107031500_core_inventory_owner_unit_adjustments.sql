@@ -29,12 +29,12 @@ DECLARE
   v_delta integer;
 BEGIN
   IF p_lot_id IS NULL OR p_request_id IS NULL OR p_actor_id IS NULL
-     OR p_action NOT IN ('damage','quarantine','restore_damaged','restore_quarantined')
+     OR p_action IS NULL OR p_action NOT IN ('damage','quarantine','restore_damaged','restore_quarantined')
      OR length(btrim(coalesce(p_reason,''))) NOT BETWEEN 8 AND 500
      OR p_unit_ids IS NULL OR cardinality(p_unit_ids) NOT BETWEEN 1 AND 100
-     OR EXISTS(SELECT 1 FROM unnest(p_unit_ids) AS id WHERE id IS NULL)
+     OR EXISTS(SELECT 1 FROM unnest(p_unit_ids) AS item(unit_id) WHERE item.unit_id IS NULL)
   THEN RAISE EXCEPTION 'Invalid tracked stock adjustment'; END IF;
-  v_ids:=ARRAY(SELECT DISTINCT id FROM unnest(p_unit_ids) AS id ORDER BY id);
+  v_ids:=ARRAY(SELECT DISTINCT item.unit_id FROM unnest(p_unit_ids) AS item(unit_id) ORDER BY item.unit_id);
   IF cardinality(v_ids)<>cardinality(p_unit_ids) THEN
     RAISE EXCEPTION 'Duplicate unit IDs are not allowed';
   END IF;
