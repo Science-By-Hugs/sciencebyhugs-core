@@ -382,7 +382,8 @@ create table public.payments (
  provider_order_id text
 );
 create table public.internal_runtime_config(
- key text primary key,value jsonb not null
+ key text primary key,value jsonb not null,
+ updated_at timestamptz not null default now()
 );
 
 insert into public.inventory_product_settings(product_id,supply_mode)
@@ -852,6 +853,116 @@ begin
   if (public.core_checkout_recover_abandoned()->>'enabled')::boolean then
     raise exception 'Recovery must remain separately OFF during acceptance'; end if;
 end $phase5d$;
+
+
+-- 2026-11-07 safe owner stock-edit tests (disposable PostgreSQL only).
+\i supabase/migrations/20261107031500_core_inventory_owner_unit_adjustments.sql
+do $stock_review$
+declare
+  v_unit uuid;
+  v_lot uuid;
+  v_actor uuid:='99999999-9999-4999-8999-999999999999';
+  v_req uuid:='e1111111-1111-4111-8111-111111111111';
+  v_result jsonb;
+  v_rejected boolean:=false;
+begin
+  select id,lot_id into v_unit,v_lot from public.inventory_units
+    where state='available' order by id limit 1;
+  if v_unit is null then raise exception 'No eligible unit for isolated stock test'; end if;
+  v_result:=public.core_inventory_change_unit_states(
+    v_lot,array[v_unit],'damage','Verified vial cracked during handling',v_req,v_actor);
+  if v_result->>'changed_units'<>'1' or
+    (select state from public.inventory_units where id=v_unit)<>'damaged' then
+    raise exception 'Damaged adjustment did not move tracked unit'; end if;
+  v_result:=public.core_inventory_change_unit_states(
+    v_lot,array[v_unit],'damage','Verified vial cracked during handling',v_req,v_actor);
+  if v_result->>'already_saved'<>'true' or
+     (select count(*) from public.inventory_movements
+        where event_key like 'owner_adjust:'||v_req::text||':%')<>1 then
+    raise exception 'Adjustment retry duplicated movement'; end if;
+  begin
+    perform public.core_inventory_change_unit_states(
+      v_lot,array[v_unit],'quarantine','Different action must not reuse key',v_req,v_actor);
+  exception when others then v_rejected:=true; end;
+  if not v_rejected then raise exception 'Conflicting request key accepted'; end if;
+  perform public.core_inventory_change_unit_states(
+    v_lot,array[v_unit],'restore_damaged','Verified vial intact and safe for stock',
+    'e2222222-2222-4222-8222-222222222222',v_actor);
+  if (select state from public.inventory_units where id=v_unit)<>'available' then
+    raise exception 'Verified restoration failed'; end if;
+end $stock_review$;
+
+
+-- Exact opening-stock counts are not constrained to vendor pack multiples.
+\i supabase/migrations/20261107033000_core_inventory_opening_stock.sql
+select public.core_inventory_register_current_stock(
+  '22222222-2222-4222-8222-222222222221',
+  '11111111-1111-4111-8111-111111111111',
+  3,1,12.50,7.00,0,'ONHAND-2026-NEW',null,
+  'e3333333-3333-4333-8333-333333333333',
+  '99999999-9999-4999-8999-999999999999'
+);
+select public.core_inventory_register_current_stock(
+  '22222222-2222-4222-8222-222222222221',
+  '11111111-1111-4111-8111-111111111111',
+  3,1,12.50,7.00,0,'ONHAND-2026-NEW',null,
+  'e3333333-3333-4333-8333-333333333333',
+  '99999999-9999-4999-8999-999999999999'
+);
+do $opening_stock$
+begin
+  if (select count(*) from public.inventory_lots where supplier_lot='ONHAND-2026-NEW')<>1 then
+    raise exception 'Manual opening stock created duplicate lot'; end if;
+  if (select count(*) from public.inventory_units u join public.inventory_lots l on u.lot_id=l.id
+      where l.supplier_lot='ONHAND-2026-NEW' and u.state='available')<>2 then
+    raise exception 'On-hand available count was not exact'; end if;
+  if (select count(*) from public.inventory_units u join public.inventory_lots l on u.lot_id=l.id
+      where l.supplier_lot='ONHAND-2026-NEW' and u.state='damaged')<>1 then
+    raise exception 'On-hand damaged count was not exact'; end if;
+  if (select count(*) from public.inventory_movements m join public.inventory_lots l on m.lot_id=l.id
+      where l.supplier_lot='ONHAND-2026-NEW')<>3 then
+    raise exception 'Opening stock movement history incomplete'; end if;
+end $opening_stock$;
+
+-- The shipping RPC requires no blanket service_role UPDATE privilege.
+-- Simplified catalog schema below is for temporary tests only.
+alter table public.products add column active boolean not null default true;
+alter table public.products add column shipping_from text;
+create table public.core_audit_events (
+  id uuid primary key default gen_random_uuid(),
+  actor_user_id uuid not null, actor_email text, actor_role text not null,
+  action text not null,entity_type text not null,entity_id text not null,
+  before_data jsonb, after_data jsonb, metadata jsonb not null,
+  created_at timestamptz not null default now()
+);
+insert into public.internal_runtime_config(key,value) values(
+  'checkout','{"shippingRates":{"Existing Source":20},"paymentMode":{"protected":true}}'::jsonb);
+\i supabase/migrations/20261107030000_core_catalog_shipping_rate_permissions.sql
+select public.core_catalog_change_shipping_rate(
+  'New Source',17.50,false,
+  '99999999-9999-4999-8999-999999999999','owner@example.test','owner');
+do $shipping_review$
+declare v_config jsonb; v_rejected boolean:=false;
+begin
+  select value into v_config from public.internal_runtime_config where key='checkout';
+  if v_config#>>'{shippingRates,New Source}'<>'17.50'::numeric::text
+     and (v_config#>>'{shippingRates,New Source}')::numeric<>17.5 then
+    raise exception 'New shipping rate not saved'; end if;
+  if v_config#>>'{paymentMode,protected}'<>'true' then
+    raise exception 'Shipping change overwrote payment configuration'; end if;
+  if has_table_privilege('service_role','public.internal_runtime_config','UPDATE') then
+    raise exception 'Broad UPDATE grant must remain disabled'; end if;
+  update public.products set shipping_from='New Source' where id='22222222-2222-4222-8222-222222222221';
+  begin
+    perform public.core_catalog_change_shipping_rate(
+      'New Source',null,true,
+      '99999999-9999-4999-8999-999999999999','owner@example.test','owner');
+  exception when others then v_rejected:=true; end;
+  if not v_rejected then raise exception 'Shipping source in use was deleted'; end if;
+  if (select count(*) from public.core_audit_events
+      where action='catalog.shipping_rate.set')<>1 then
+    raise exception 'Shipping rate mutation missing audit'; end if;
+end $shipping_review$;
 
 -- Reset flags only in temporary DB; final ROLLBACK below destroys all changes.
 update public.internal_runtime_config

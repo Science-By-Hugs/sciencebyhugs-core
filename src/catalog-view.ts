@@ -374,7 +374,10 @@ export async function bindCatalogPage(helpers: Helpers) {
       const rateMessage = shippingEl.querySelector<HTMLElement>('.catalog-rate-message')
       const say = (text: string) => { if (rateMessage) rateMessage.textContent = text }
       const keepOpen = async () => {
+        const outerWasOpen = document.querySelector<HTMLDetailsElement>('.catalog-health')?.open ?? false
         await bindCatalogPage(helpers)
+        const outerPanel = document.querySelector<HTMLDetailsElement>('.catalog-health')
+        if (outerPanel) outerPanel.open = outerWasOpen
         const panel = document.querySelector<HTMLDetailsElement>('.catalog-shipping-panel')
         if (panel) panel.open = true
       }

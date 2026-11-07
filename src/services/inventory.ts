@@ -106,6 +106,19 @@ export type InventoryAuditLot = {
   counts:{available:number;damaged:number;missing:number;reserved:number;quarantined:number};
   history:InventoryStockAudit[]
 }
+export const registerCurrentStock=(details:{
+  productId:string;vendorId:string;total:number;damaged:number;unitCost:number;
+  shipping:number;fees:number;supplierLot:string;expiryDate:string;requestId:string
+})=>callInventory<{receipt:{
+  purchase_id:string;receipt_id:string;internal_lot:string;
+  available_units:number;damaged_units:number;already_received:boolean
+}}>({action:'register_current_stock',...details})
+export type TrackedStockAction = 'damage'|'quarantine'|'restore_damaged'|'restore_quarantined'
+export const adjustInventoryUnits=(details:{
+  lotId:string;unitIds:string[];statusAction:TrackedStockAction;reason:string;requestId:string
+})=>callInventory<{adjustment:{changed_units:number;action:TrackedStockAction;already_saved:boolean}}>({
+  action:'adjust_units',...details,
+})
 export const loadLotAudit=(lotId:string)=>
   callInventory<InventoryAuditLot>({action:'audit_lot',lotId})
 export const submitLotCount=(details:{
