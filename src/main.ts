@@ -232,10 +232,13 @@ function shell(content: string, signedIn = false) {
         <a class="app-wordmark" href="#dashboard" aria-label="core. home">core<span>.</span></a>
         <nav class="app-nav" aria-label="Main">${MAIN_NAV.map(([v, l, i]) => link(v, l, i)).join('')}</nav>
         ${['products','catalog','inventory'].includes(activeView) ? '<nav class="app-subnav" aria-label="Product sections">' +
-          '<a href="#products?section=catalog">Catalog</a>' +
-          '<a href="#products?section=inventory">Inventory</a>' +
-          '<a href="#products?section=purchasing">Purchasing</a>' +
-          '<a href="#products?section=suppliers">Suppliers</a></nav>' : ''}
+          (['catalog','inventory','purchasing','suppliers'] as ProductSection[]).map(section =>
+            '<a href="#products?section=' + section + '" class="' +
+            ((activeView === 'catalog' && section === 'catalog') ||
+            (activeView === 'inventory' && section === 'inventory') ||
+            (activeView === 'products' && productSection() === section) ? 'active' : '') +
+            '">' + ({catalog:'Catalog',inventory:'Inventory',purchasing:'Purchasing',suppliers:'Suppliers'}[section]) +
+            '</a>').join('') + '</nav>' : ''}
         <div class="app-nav-sep"></div>
         <span class="app-nav-label">More</span>
         <nav class="app-nav app-nav-more" aria-label="More">${MORE_NAV.filter(([v]) => v !== 'account').map(([v, l]) => link(v, l)).join('')}</nav>
