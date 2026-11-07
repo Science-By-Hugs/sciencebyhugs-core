@@ -1,11 +1,11 @@
-/* Core redesign, stage 1 (2026-10-28): neutral slate theme + new app shell.
+/* Core shell retained from the previous slate foundation; now retokenized for Champagne.
    Palette = Science By Hugs design system, hugs./nexus. slate (approved by Anthony).
    Loaded LAST so it overrides the older layered styles. Flat: no glows, gradients or shadows. */
 
 :root{
-  --sl-bg:#171A1C; --sl-surface:#222629; --sl-raised:#303639; --sl-line:#303639;
-  --sl-control:#A8B0B2; --sl-text:#F0F1EF; --sl-muted:#A8B0B2; --sl-accent:#F0F1EF;
-  --sl-on-accent:#171A1C; --sl-warning:#E3B866; --sl-error:#E58A80;
+  --sl-bg:#1D1A16; --sl-surface:#29251F; --sl-raised:#352F27; --sl-line:#494035;
+  --sl-control:#A69885; --sl-text:#F6F1E7; --sl-muted:#C7B9A6; --sl-accent:#D4B47A;
+  --sl-on-accent:#211B13; --sl-warning:#E9BF7E; --sl-error:#E0A29C;
   --sl-font:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",Roboto,sans-serif;
 
   /* Re-point every older palette at slate */
