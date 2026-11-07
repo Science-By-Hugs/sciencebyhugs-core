@@ -95,7 +95,7 @@ function receivingForm(data:InventorySnapshot,h:Helpers) {
     '<p class="inv-empty">No open purchase orders. Create an order above to receive stock.</p>'))
 }
 
-function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
+function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers,showCount=true) {
   return card('<div class="inv-panel-head"><h2>Lots & QR labels</h2>'+
     '<p>Download one lot QR PNG for the outer box and a 1.2 × 0.8-inch horizontal vial-label PNG. Both work with external thermal printer software.</p></div>'+
     '<div class="inv-list">'+(lots.length?lots.map(l=>{
@@ -108,7 +108,9 @@ function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
         (l.expiry_date?' · Expires '+h.escapeHtml(l.expiry_date):'')+'</small></div>'+
         '<div class="inv-right"><strong>'+h.escapeHtml(l.cost_finalized === false ? 'Pending final cost' : (l.landed_unit_cost===null?'—':h.money(l.landed_unit_cost)))+
         ' / unit</strong><button class="secondary inv-download-lot" data-lot="'+h.escapeHtml(l.id)+
-        '" type="button">Prepare box + vial PNGs</button><button class="secondary inv-audit-lot" data-lot="'+h.escapeHtml(l.id)+'" type="button">Count stock</button></div></div>'
+        '" type="button">Prepare box + vial PNGs</button>'+
+        (showCount?'<button class="secondary inv-audit-lot" data-lot="'+h.escapeHtml(l.id)+'" type="button">Count stock</button>':'')+
+        '</div></div>'
     }).join(''):'<p class="inv-empty">Receiving lots will appear here.</p>')+'</div>')
 }
 
@@ -129,6 +131,114 @@ function classificationForm(data:InventorySnapshot,h:Helpers) {
       '<option value="physical">Physical stock</option><option value="vendor">Vendor-supplied</option></select>')+
     field('Low-stock alert at',input('reorderPoint','number','required min="0" max="100000" step="1" value="0"'))+
     '<div class="inv-form-action"><button class="primary" type="submit">Save classification</button></div></form>')
+}
+
+
+type PurchaseStep = 'supplier'|'purchase'|'receive'|'labels'
+const PURCHASE_STEPS: Array<[PurchaseStep,string]> = [
+  ['supplier','Supplier'],['purchase','Purchase'],['receive','Receive'],['labels','Labels'],
+]
+
+// One guided surface. Existing vendor/offer, purchase, receipt and label forms
+// remain mounted with the original handlers and authorized server operations.
+function purchasingJourneyMarkup(data:InventorySnapshot,h:Helpers) {
+  const activeVendors=data.vendors.filter(v=>v.active)
+  const activeOffers=data.offers.filter(o=>o.active&&activeVendors.some(v=>v.id===o.vendor_id))
+  const openOrders=data.orders.filter(o=>o.status==='ordered'||o.status==='partially_received')
+  const recentLots=[...data.lots].sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,8)
+  const supplierRows=activeVendors.slice(0,6).map(v=>{
+    const count=activeOffers.filter(o=>o.vendor_id===v.id).length
+    return '<div class="inv-journey-supplier-row"><strong>'+h.escapeHtml(v.name)+
+      '</strong><span>'+count+' active offering'+(count===1?'':'s')+'</span></div>'
+  }).join('')
+  const tabs=PURCHASE_STEPS.map(([step,label],index)=>
+    '<button type="button" class="inv-journey-tab" role="tab" data-inv-journey-tab="'+step+
+    '" id="inv-journey-tab-'+step+'" aria-controls="inv-journey-panel-'+step+
+    '" aria-selected="false" tabindex="-1"><span class="inv-journey-index">'+
+    (index+1)+'</span><span>'+label+'</span></button>'
+  ).join('')
+  const panel=(step:PurchaseStep,html:string)=>
+    '<section role="tabpanel" class="inv-journey-panel" data-inv-journey-panel="'+step+
+    '" id="inv-journey-panel-'+step+'" aria-labelledby="inv-journey-tab-'+step+
+    '" hidden>'+html+'</section>'
+  return '<section class="inv-journey" aria-label="Purchasing and receiving guide">'+
+    '<header class="inv-journey-head"><span class="eyebrow">PURCHASING WORKFLOW</span>'+
+      '<h2>From supplier to labeled stock</h2>'+
+      '<p>Set up your source, order kits, receive verified units, then prepare traceable labels.</p>'+
+    '</header>'+
+    '<div class="inv-journey-nav" role="tablist" aria-label="Purchasing steps">'+tabs+'</div>'+
+    panel('supplier',
+      '<div class="inv-journey-step-head"><span>STEP 1 OF 4</span><h3>Choose your source</h3>'+
+        '<p>Supplier offerings are linked to the same Core catalog products, with separate kit and single-vial costs.</p></div>'+
+      '<div class="inv-journey-stats"><div><strong>'+activeVendors.length+'</strong><span>Active suppliers</span></div>'+
+        '<div><strong>'+activeOffers.length+'</strong><span>Active price offers</span></div></div>'+
+      (supplierRows?'<div class="inv-journey-supplier-list">'+supplierRows+'</div>':
+        '<p class="inv-journey-empty">Start by adding a supplier and a product offering.</p>')+
+      '<div class="inv-journey-actions">'+
+        '<a href="#products?section=suppliers" class="inv-journey-link">Manage suppliers & prices</a>'+
+        (activeOffers.length?'<button type="button" class="secondary" data-inv-journey-next="purchase">Next: Create purchase</button>':'')+
+      '</div>'
+    )+
+    panel('purchase',
+      '<div class="inv-journey-step-head"><span>STEP 2 OF 4</span><h3>Build your purchase order</h3>'+
+      '<p>Choose one supplier and one or more product kits. Shipping and fees are counted once, with landed costs previewed before ordering.</p></div>'+
+      '<div id="inv-multi-anchor" class="inv-multi-anchor"></div>'+
+      '<div class="inv-journey-actions"><a href="#products?section=suppliers" class="inv-journey-subtle-link">Need a new supplier price?</a>'+
+      '<button type="button" class="secondary" data-inv-journey-next="receive">Go to receiving</button></div>'
+    )+
+    panel('receive',
+      '<div class="inv-journey-step-head"><span>STEP 3 OF 4</span><h3>Receive and verify</h3>'+
+      '<p>Check usable and damaged quantities against each purchase line. Core creates traceable lots when a receipt is confirmed.</p>'+
+      '<p class="inv-journey-counter">'+openOrders.length+' open purchase order'+(openOrders.length===1?'':'s')+'</p></div>'+
+      '<div id="inv-multi-receiving-anchor" class="inv-multi-anchor"></div>'+
+      (data.orders.some(o=>o.status==='ordered'&&!o.multi_line)?receivingForm(data,h):'')+
+      '<div class="inv-journey-actions"><button type="button" class="secondary" data-inv-journey-next="labels">Go to lot labels</button></div>'
+    )+
+    panel('labels',
+      '<div class="inv-journey-step-head"><span>STEP 4 OF 4</span><h3>Prepare QR and vial labels</h3>'+
+      '<p>Use received lot records to prepare outer-box QR codes and individual vial-label PNGs. Label content is taken from the existing lot.</p></div>'+
+      lotRows(recentLots,data,h,false)+
+      '<div class="inv-journey-actions"><a href="#products?section=inventory" class="inv-journey-link">View all lots in Inventory</a>'+
+      '<button type="button" class="secondary" data-inv-journey-next="purchase">Start another purchase</button></div>'
+    )+
+  '</section>'
+}
+
+function bindPurchasingJourney(root:HTMLElement,initial:PurchaseStep) {
+  const tabs=[...root.querySelectorAll<HTMLButtonElement>('[data-inv-journey-tab]')]
+  const panels=[...root.querySelectorAll<HTMLElement>('[data-inv-journey-panel]')]
+  const activate=(step:PurchaseStep,focus=false)=>{
+    const current=tabs.find(tab=>tab.dataset.invJourneyTab===step)
+    if(!current)return
+    root.dataset.journeyStep=step
+    for(const tab of tabs) {
+      const selected=tab===current
+      tab.setAttribute('aria-selected',String(selected))
+      tab.tabIndex=selected?0:-1
+    }
+    panels.forEach(panel=>{panel.hidden=panel.dataset.invJourneyPanel!==step})
+    if(focus)current.focus({preventScroll:true})
+  }
+  tabs.forEach((tab,i)=>{
+    tab.addEventListener('click',()=>activate(tab.dataset.invJourneyTab as PurchaseStep))
+    tab.addEventListener('keydown',event=>{
+      let next=i
+      if(event.key==='ArrowRight')next=(i+1)%tabs.length
+      else if(event.key==='ArrowLeft')next=(i+tabs.length-1)%tabs.length
+      else if(event.key==='Home')next=0
+      else if(event.key==='End')next=tabs.length-1
+      else return
+      event.preventDefault()
+      activate(tabs[next].dataset.invJourneyTab as PurchaseStep,true)
+    })
+  })
+  root.querySelectorAll<HTMLButtonElement>('[data-inv-journey-next]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      activate(button.dataset.invJourneyNext as PurchaseStep,true)
+      root.querySelector('.inv-journey-nav')?.scrollIntoView({behavior:'smooth',block:'nearest'})
+    })
+  })
+  activate(initial)
 }
 
 const activePngUrls:string[]=[]
@@ -311,6 +421,13 @@ export async function bindInventoryPage(
     const priorFilter=previousSection===section
       ? root.querySelector<HTMLSelectElement>('.inv-stock-controls select')?.value || 'tracked'
       : 'tracked'
+    const previousJourneyStep=root.dataset.journeyStep as PurchaseStep|undefined
+    const hasSupplierOffers=data.offers.some(o=>o.active&&
+      data.vendors.some(v=>v.id===o.vendor_id&&v.active))
+    const initialJourneyStep:PurchaseStep=previousSection==='purchasing'&&
+      PURCHASE_STEPS.some(([step])=>step===previousJourneyStep)
+        ? previousJourneyStep!
+        : hasSupplierOffers?'purchase':'supplier'
     const vendorOptions=data.vendors.length
     // Group existing audited workflows without changing their backend actions.
     // Every form remains in the DOM so QR lookups and existing event bindings work.
@@ -324,11 +441,12 @@ export async function bindInventoryPage(
       '<details class="core-disclosure" data-core-panel="lots"><summary>Lots & QR labels</summary><div class="core-disclosure-body">'+lotRows(data.lots,data,h)+'</div></details>'+
       '<details class="core-disclosure" data-core-panel="classification"><summary>Supply settings & reorder thresholds</summary><div class="core-disclosure-body">'+classificationForm(data,h)+'</div></details>'+
       '</div>'+
-      '<div data-inventory-group="purchasing">'+
-      '<div class="inv-grid"><div id="inv-multi-anchor" class="inv-multi-anchor"></div>'+
-      (data.orders.some(o=>o.status==='ordered'&&!o.multi_line)?receivingForm(data,h):'')+
-      '</div></div>'+
-      '<div data-inventory-group="suppliers"><div class="inv-grid">'+
+      '<div data-inventory-group="purchasing">'+purchasingJourneyMarkup(data,h)+'</div>'+
+      '<div data-inventory-group="suppliers">'+
+      '<div class="inv-journey-supplier-home"><h2>Supplier setup</h2>'+
+      '<p>Add suppliers and kit or single-unit offers here. Your purchase workflow will use these prices automatically.</p>'+
+      '<a href="#products?section=purchasing" class="inv-journey-subtle-link">Return to Purchasing</a></div>'+
+      '<div class="inv-grid">'+
       vendorForm(h)+(data.vendors.length?offersForm(data,h):
         card('<h2>Supplier price book</h2><p>Add a supplier first.</p>'))+
       '</div></div>'+
@@ -368,7 +486,11 @@ export async function bindInventoryPage(
     if(managerSlot) mountStockManager(managerSlot,data,async()=>bindInventoryPage(h,section))
     const auditSlot=id('inv-audit-slot')
     if(auditSlot) mountInventoryAudit(auditSlot,data,async()=>bindInventoryPage(h,section))
-    mountMultiInventory(root,data,async()=>bindInventoryPage(h,section))
+    mountMultiInventory(root,data,async(nextStep)=>{
+      if(nextStep)root.dataset.journeyStep=nextStep
+      await bindInventoryPage(h,section)
+    })
+    if(section==='purchasing')bindPurchasingJourney(root,initialJourneyStep)
 
     const form=(name:string,fn:(f:HTMLFormElement)=>Promise<void>)=>{
       const el=id(name) as HTMLFormElement|null
@@ -376,8 +498,14 @@ export async function bindInventoryPage(
         e.preventDefault()
         const button=el.querySelector<HTMLButtonElement>('button[type=submit]')
         if (button) button.disabled=true
-        try { await fn(el); await bindInventoryPage(h,section) }
-        catch(err){alert(err instanceof Error?err.message:'Inventory action failed');if(button)button.disabled=false}
+        try {
+          await fn(el)
+          if(name==='inv-receive-po')root.dataset.journeyStep='labels'
+          await bindInventoryPage(h,section)
+        } catch(err){
+          alert(err instanceof Error?err.message:'Inventory action failed')
+          if(button)button.disabled=false
+        }
       })
     }
     form('inv-add-vendor',async f=>{
@@ -438,7 +566,10 @@ export async function bindInventoryPage(
     root.querySelectorAll<HTMLButtonElement>('.inv-download-lot').forEach(b=>
       b.addEventListener('click',async()=>{
         b.disabled=true
-        try{await prepareLotPngDownloads(b.dataset.lot||'')}
+        try{
+          await prepareLotPngDownloads(b.dataset.lot||'')
+          id('inv-png-downloads')?.scrollIntoView({behavior:'smooth',block:'start'})
+        }
         catch(err){alert(err instanceof Error?err.message:'Could not create PNG labels')}
         finally{b.disabled=false}
       })

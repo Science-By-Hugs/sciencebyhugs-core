@@ -90,7 +90,7 @@ function selectField(labelText:string,items:{value:string;label:string}[]) {
 }
 
 export function mountMultiInventory(
-  root:HTMLElement,data:InventorySnapshot,onChange:()=>Promise<void>,
+  root:HTMLElement,data:InventorySnapshot,onChange:(step?:'purchase'|'receive'|'labels')=>Promise<void>,
 ) {
   const purchase=element('section','inv-panel inv-multi-workspace')
   const title=element('div','inv-panel-head')
@@ -244,7 +244,7 @@ export function mountMultiInventory(
           requestId:purchaseRequestId,
         })
         message.textContent='Created '+result.purchase.po_number
-        await onChange()
+        await onChange('receive')
       } catch(err) {
         message.textContent=err instanceof Error?err.message:'Could not create purchase order'
       } finally {
@@ -257,7 +257,7 @@ export function mountMultiInventory(
 
   const receiving=element('section','inv-panel inv-multi-workspace')
   const receivingTitle=element('div','inv-panel-head')
-  receivingTitle.append(text('h2','4. Receive multi-product orders'),
+  receivingTitle.append(text('h2','Receive multi-product orders'),
     text('p','Record each product and supplier lot separately. Receive partial deliveries now and the remaining units later; shipping is not charged again.'))
   receiving.appendChild(receivingTitle)
   const pending=data.orders.filter(po=>po.multi_line &&
@@ -312,7 +312,7 @@ export function mountMultiInventory(
             requestId:receiptRequestId,
           })
           message.textContent='Received as lot '+result.receipt.internal_lot
-          await onChange()
+          await onChange('labels')
         }catch(err){
           message.textContent=err instanceof Error?err.message:'Could not receive batch'
         }finally{button.disabled=false}
@@ -321,5 +321,8 @@ export function mountMultiInventory(
     }
   }
   const mount=root.querySelector('#inv-multi-anchor')
-  if(mount) mount.replaceChildren(purchase,receiving)
+  const receivingMount=root.querySelector('#inv-multi-receiving-anchor')
+  if(mount)mount.replaceChildren(purchase)
+  if(receivingMount)receivingMount.replaceChildren(receiving)
+  else mount?.appendChild(receiving)
 }
