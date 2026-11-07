@@ -83,7 +83,7 @@ test('physical and vendor-supplied classification remains separate from Nexus li
 test('new inventory screen is reachable by navigation and secure QR deep-link',()=>{
   assert.match(nav,/\| 'inventory'/)
   assert.match(nav,/\['products', 'Products', 'catalog'\]/)
-  assert.match(nav,/#products\\?section=/)
+  assert.match(nav,/#products\?section=/)
   assert.match(nav,/\| 'inventory'/)
   assert.match(nav,/\.split\('\?'\)\[0\]/)
   assert.match(nav,/await renderInventory\(email, role\)/)
