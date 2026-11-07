@@ -131,3 +131,14 @@ test('Phase 5B displays paid allocated stock separately from unpaid holds',()=>{
   assert.equal(row(m,'ret').available,6)
   assert.match(dash,/Paid, waiting for fulfillment/)
 });
+
+test('inventory stays within the phone viewport and stock rows become cards',()=>{
+  const shell=read('src/slate.css')
+  assert.match(shell,/html,body,#app,\.app,\.app-main,\.app-content\s*\{[\s\S]*?overflow-x:clip/)
+  assert.match(css,/@media\(max-width:600px\)/)
+  assert.match(css,/#inventory-app \.inv-stock-table\s*\{[\s\S]*?min-width:0/)
+  assert.match(css,/#inventory-app \.inv-stock-table tbody tr\s*\{[\s\S]*?display:grid/)
+  assert.match(css,/content:attr\(data-label\)/)
+  assert.match(dash,/cell\.dataset\.label=titles\[i\]/)
+  assert.doesNotMatch(css,/min-width:790px/)
+})

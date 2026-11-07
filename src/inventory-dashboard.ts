@@ -302,6 +302,10 @@ export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,
         actionGroup.appendChild(labels)
       }
       actions.appendChild(actionGroup)
+      // Display the same field names when the desktop table becomes mobile cards.
+      ;[product,available,other,source,quote,landed,incoming,actions].forEach((cell,i)=>{
+        cell.dataset.label=titles[i] || 'Actions'
+      })
       tr.append(product,available,other,source,quote,landed,incoming,actions)
       body.appendChild(tr)
     }

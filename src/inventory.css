@@ -107,7 +107,7 @@
 .inv-stock-empty{text-align:center!important;padding:22px!important;color:var(--sl-muted,#abb0b3)}
 .inv-stock-footnote{font-size:.72rem;line-height:1.45;color:var(--sl-muted,#abb0b3);margin:11px 0 0}
 @media(max-width:920px){.inv-stock-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:550px){.inv-stock-dashboard{padding:13px}.inv-stock-heading{align-items:center}.inv-stock-heading h2{font-size:1.15rem}.inv-stock-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.inv-stock-stat{min-height:102px}.inv-stock-controls{flex-direction:column;align-items:stretch}.inv-stock-controls input,.inv-stock-controls select{width:100%;max-width:none}.inv-stock-table{min-width:790px}}
+@media(max-width:550px){.inv-stock-dashboard{padding:13px}.inv-stock-heading{align-items:center}.inv-stock-heading h2{font-size:1.15rem}.inv-stock-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.inv-stock-stat{min-height:102px}.inv-stock-controls{flex-direction:column;align-items:stretch}.inv-stock-controls input,.inv-stock-controls select{width:100%;max-width:none}}
 
 /* Phase 4 physical lot count audits: compact, touch-friendly, dark-only. */
 #inv-audit-slot{margin:16px 0}
@@ -152,3 +152,104 @@
 .inv-monitor-alert p{margin:0;font-size:.78rem;line-height:1.5;overflow-wrap:anywhere}
 @media(max-width:750px){.inv-monitor-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:450px){.inv-monitor{padding:13px}.inv-monitor-metrics{gap:7px}}
+
+/* Phone inventory: keep the viewport fixed; never let the desktop stock table
+   or lengthy supplier controls expand the entire Core app sideways. */
+#inventory-app,#inv-overview,#inv-manage-stock,#inv-audit-slot,
+#inventory-app .inv-grid,#inventory-app .inv-panel,
+#inventory-app .inv-stock-dashboard{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+}
+#inventory-app .inv-field input,
+#inventory-app .inv-field select,
+#inventory-app .inv-field textarea,
+#inventory-app .inv-audit-picker select{
+  box-sizing:border-box;
+  min-width:0;
+  max-width:100%;
+}
+#inventory-app .inv-stock-table-wrap{
+  min-width:0;
+  max-width:100%;
+  overscroll-behavior-inline:contain;
+}
+
+@media(max-width:600px){
+  /* Each stock item is a complete card. No sideways-scrolling table on phones. */
+  #inventory-app .inv-stock-table-wrap{
+    overflow:visible;
+    border:0;
+    border-radius:0;
+  }
+  #inventory-app .inv-stock-table{
+    width:100%;
+    min-width:0;
+    border-collapse:separate;
+    border-spacing:0;
+    table-layout:fixed;
+  }
+  #inventory-app .inv-stock-table thead{
+    position:absolute;
+    width:1px;
+    height:1px;
+    padding:0;
+    margin:-1px;
+    overflow:hidden;
+    clip-path:inset(50%);
+    white-space:nowrap;
+    border:0;
+  }
+  #inventory-app .inv-stock-table tbody{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:10px;
+  }
+  #inventory-app .inv-stock-table tbody tr{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px 12px;
+    min-width:0;
+    padding:13px;
+    border:1px solid var(--sl-line,#35393b);
+    border-radius:10px;
+    background:var(--sl-surface,#232629);
+  }
+  #inventory-app .inv-stock-table td{
+    display:block;
+    min-width:0;
+    padding:0;
+    border:0;
+    text-align:left!important;
+    overflow-wrap:anywhere;
+  }
+  #inventory-app .inv-stock-table td::before{
+    display:block;
+    margin-bottom:4px;
+    color:var(--sl-muted,#abb0b3);
+    content:attr(data-label);
+    font-size:.68rem;
+    line-height:1.3;
+    font-weight:600;
+  }
+  #inventory-app .inv-stock-table td:first-child,
+  #inventory-app .inv-stock-table td:nth-child(3),
+  #inventory-app .inv-stock-table td:nth-child(4),
+  #inventory-app .inv-stock-table td:last-child,
+  #inventory-app .inv-stock-table td[colspan]{
+    grid-column:1/-1;
+  }
+  #inventory-app .inv-stock-table td:first-child{
+    border-bottom:1px solid var(--sl-line,#35393b);
+    padding-bottom:9px;
+  }
+  #inventory-app .inv-stock-table td:first-child::before,
+  #inventory-app .inv-stock-table td[colspan]::before{
+    display:none;
+  }
+  #inventory-app .inv-stock-actions{min-width:0}
+  #inventory-app .inv-stock-heading{flex-wrap:wrap}
+  #inventory-app .inv-stock-heading button{flex:none}
+  #inventory-app .inv-stock-table td small{overflow-wrap:anywhere}
+}
