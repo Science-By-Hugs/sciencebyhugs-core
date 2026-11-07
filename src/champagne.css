@@ -435,3 +435,18 @@ input::placeholder,textarea::placeholder{color:#A89A86!important}
   .inv-journey-supplier-row span{text-align:left;white-space:normal}
   .inv-journey-panel .inv-multi-workspace{padding:13px}
 }
+
+/* Supplier creation and price-book editing can be done in the first guided step. */
+.inv-journey-supplier-editors{display:grid;gap:9px;min-width:0}
+.inv-journey-supplier-editor{min-width:0;border:1px solid var(--core-border);background:var(--core-surface);border-radius:11px;overflow:hidden}
+.inv-journey-supplier-editor>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;padding:12px 15px;font-size:13px;font-weight:700;color:var(--core-ivory)}
+.inv-journey-supplier-editor>summary::-webkit-details-marker{display:none}
+.inv-journey-supplier-editor>summary::after{content:'+';font-size:19px;color:var(--core-champagne)}
+.inv-journey-supplier-editor[open]>summary::after{content:'−'}
+.inv-journey-supplier-editor>.inv-panel{border:0!important;border-top:1px solid var(--core-border)!important;border-radius:0!important;background:transparent!important;margin:0!important;padding:15px!important}
+.inv-journey-supplier-editor .inv-form{min-width:0}
+@media(max-width:650px){
+  .inv-journey-supplier-editor>.inv-panel{padding:12px!important}
+  .inv-journey-supplier-editor .inv-form{grid-template-columns:minmax(0,1fr)}
+  .inv-journey-supplier-editor .inv-field{grid-column:1}
+}

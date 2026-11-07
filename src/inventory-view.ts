@@ -141,7 +141,7 @@ const PURCHASE_STEPS: Array<[PurchaseStep,string]> = [
 
 // One guided surface. Existing vendor/offer, purchase, receipt and label forms
 // remain mounted with the original handlers and authorized server operations.
-function purchasingJourneyMarkup(data:InventorySnapshot,h:Helpers) {
+function purchasingJourneyMarkup(data:InventorySnapshot,h:Helpers,embedSupplierForms=false) {
   const activeVendors=data.vendors.filter(v=>v.active)
   const activeOffers=data.offers.filter(o=>o.active&&activeVendors.some(v=>v.id===o.vendor_id))
   const openOrders=data.orders.filter(o=>o.status==='ordered'||o.status==='partially_received')
@@ -174,8 +174,14 @@ function purchasingJourneyMarkup(data:InventorySnapshot,h:Helpers) {
         '<div><strong>'+activeOffers.length+'</strong><span>Active price offers</span></div></div>'+
       (supplierRows?'<div class="inv-journey-supplier-list">'+supplierRows+'</div>':
         '<p class="inv-journey-empty">Start by adding a supplier and a product offering.</p>')+
+      (embedSupplierForms?'<div class="inv-journey-supplier-editors">'+
+        '<details class="inv-journey-supplier-editor"><summary>Add a supplier</summary>'+
+          vendorForm(h)+'</details>'+
+        '<details class="inv-journey-supplier-editor"><summary>Add or update supplier pricing</summary>'+
+          (data.vendors.length?offersForm(data,h):card('<p class="inv-empty">Add a supplier first.</p>'))+
+        '</details></div>':'')+
       '<div class="inv-journey-actions">'+
-        '<a href="#products?section=suppliers" class="inv-journey-link">Manage suppliers & prices</a>'+
+        '<a href="#products?section=suppliers" class="inv-journey-link">All supplier details</a>'+
         (activeOffers.length?'<button type="button" class="secondary" data-inv-journey-next="purchase">Next: Create purchase</button>':'')+
       '</div>'
     )+
@@ -441,15 +447,16 @@ export async function bindInventoryPage(
       '<details class="core-disclosure" data-core-panel="lots"><summary>Lots & QR labels</summary><div class="core-disclosure-body">'+lotRows(data.lots,data,h)+'</div></details>'+
       '<details class="core-disclosure" data-core-panel="classification"><summary>Supply settings & reorder thresholds</summary><div class="core-disclosure-body">'+classificationForm(data,h)+'</div></details>'+
       '</div>'+
-      '<div data-inventory-group="purchasing">'+purchasingJourneyMarkup(data,h)+'</div>'+
+      '<div data-inventory-group="purchasing">'+purchasingJourneyMarkup(data,h,section==='purchasing')+'</div>'+
       '<div data-inventory-group="suppliers">'+
       '<div class="inv-journey-supplier-home"><h2>Supplier setup</h2>'+
       '<p>Add suppliers and kit or single-unit offers here. Your purchase workflow will use these prices automatically.</p>'+
       '<a href="#products?section=purchasing" class="inv-journey-subtle-link">Return to Purchasing</a></div>'+
-      '<div class="inv-grid">'+
-      vendorForm(h)+(data.vendors.length?offersForm(data,h):
-        card('<h2>Supplier price book</h2><p>Add a supplier first.</p>'))+
-      '</div></div>'+
+      (section==='suppliers'?'<div class="inv-grid">'+
+        vendorForm(h)+(data.vendors.length?offersForm(data,h):
+          card('<h2>Supplier price book</h2><p>Add a supplier first.</p>'))+
+        '</div>':'<p class="inv-journey-empty">Supplier forms are available from Purchasing → Supplier.</p>')+
+      '</div>'+
       '<section id="inv-png-downloads" class="inv-panel" hidden></section>'+
       '<section id="inventory-lookup" class="inv-panel" hidden></section>'
 

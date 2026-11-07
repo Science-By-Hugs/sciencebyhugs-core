@@ -183,3 +183,15 @@ test('Purchasing guides users forward after authorized purchase and receipt with
   assert.match(ui,/lotRows\(data\.lots,data,h\)/)
   assert.doesNotMatch(multi,/supabase\.functions\.invoke/)
 })
+
+test('supplier forms appear in the journey without duplicate IDs on the dedicated Suppliers page',()=>{
+  const ui=read('src/inventory-view.ts')
+  assert.match(ui,/function purchasingJourneyMarkup\(data:InventorySnapshot,h:Helpers,embedSupplierForms=false\)/)
+  assert.match(ui,/embedSupplierForms\?'<div class="inv-journey-supplier-editors">/ )
+  assert.match(ui,/vendorForm\(h\)\+'<\/details>'/)
+  assert.match(ui,/offersForm\(data,h\):card\(/)
+  assert.match(ui,/purchasingJourneyMarkup\(data,h,section==='purchasing'\)/)
+  assert.match(ui,/section==='suppliers'\?'<div class="inv-grid">/)
+  assert.match(ui,/form\('inv-add-vendor'/)
+  assert.match(ui,/form\('inv-save-offer'/)
+})
