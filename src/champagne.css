@@ -103,3 +103,43 @@ input::placeholder,textarea::placeholder{color:#A89A86!important}
   .catalog-extra-actions button{width:100%}
   .od-history-body .od-line{overflow-wrap:anywhere;min-width:0}
 }
+
+/* Core Champagne: compact, accessible inline-context editor for stock supply. */
+.inv-supply-dialog{
+  box-sizing:border-box;
+  position:fixed;
+  width:min(410px,calc(100vw - 28px));
+  max-width:calc(100vw - 28px);
+  max-height:calc(100dvh - 34px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:22px;
+  border:1px solid #756754;
+  border-radius:16px;
+  background:var(--core-surface,#29251F);
+  color:var(--core-ivory,#F6F1E7);
+  font:inherit;
+  margin:auto;
+}
+.inv-supply-dialog::backdrop{background:rgba(12,10,8,.76);backdrop-filter:blur(3px)}
+.inv-supply-dialog h2{margin:0 0 12px;color:var(--core-ivory,#F6F1E7);font-size:21px;line-height:1.25}
+.inv-supply-identity{margin:0;color:var(--core-ivory,#F6F1E7);font-size:15px;font-weight:680;overflow-wrap:anywhere}
+.inv-supply-code{margin:3px 0 14px;color:var(--core-champagne,#D4B47A);font-size:12px;overflow-wrap:anywhere}
+.inv-supply-note{font-size:12px;line-height:1.5;color:var(--core-muted,#C7B9A6);margin:0 0 18px}
+.inv-supply-form{display:grid;gap:15px;min-width:0}
+.inv-supply-field{display:grid;gap:7px;min-width:0;font-weight:650;font-size:13px;color:var(--core-ivory,#F6F1E7)}
+.inv-supply-field select,.inv-supply-field input{
+  box-sizing:border-box;width:100%;min-width:0;min-height:44px;padding:9px 12px;
+  border:1px solid #756754;border-radius:9px;
+  background:#211E1A;color:var(--core-ivory,#F6F1E7);font:inherit;font-size:15px;
+}
+.inv-supply-field small{font-size:11px;line-height:1.45;font-weight:400;color:var(--core-muted,#C7B9A6)}
+.inv-supply-feedback{font-size:12px;line-height:1.45;color:#E9BF7E;margin:0}
+.inv-supply-feedback:empty{display:none}
+.inv-supply-buttons{display:flex;justify-content:flex-end;gap:9px;padding-top:3px}
+.inv-supply-buttons button{min-height:44px;padding:0 16px;border-radius:9px;font-size:13px;font-weight:700}
+.inv-supply-dialog button:disabled{opacity:.65;cursor:wait}
+@media(max-width:480px){
+  .inv-supply-dialog{padding:19px;border-radius:14px}
+  .inv-supply-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+}

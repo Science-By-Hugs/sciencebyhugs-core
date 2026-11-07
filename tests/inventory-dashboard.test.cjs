@@ -142,3 +142,18 @@ test('inventory stays within the phone viewport and stock rows become cards',()=
   assert.match(dash,/cell\.dataset\.label=titles\[i\]/)
   assert.doesNotMatch(css,/min-width:790px/)
 })
+
+test('supply settings open a product-scoped modal instead of jumping down the page',()=>{
+  assert.match(dash,/function openSupplySettings\(/)
+  assert.match(dash,/node\('dialog','inv-supply-dialog'\)/)
+  assert.match(dash,/dialog\.showModal\(\)/)
+  assert.match(dash,/mode\.value=row\.mode/)
+  assert.match(dash,/threshold\.value=String\(row\.reorderPoint\)/)
+  assert.match(dash,/classifyInventoryProduct\(row\.id,supplyMode,reorderPoint\)/)
+  assert.match(dash,/trigger\.closest\('tr'\)/)
+  assert.match(dash,/replacement\.getBoundingClientRect\(\)\.top-previousTop/)
+  assert.match(dash,/replacement\.focus\(\{preventScroll:true\}\)/)
+  assert.doesNotMatch(dash,/form\?\.scrollIntoView\(/)
+  assert.doesNotMatch(dash,/select\.value=button\.dataset\.product/)
+  assert.match(read('src/champagne.css'),/\.inv-supply-dialog::backdrop/)
+})

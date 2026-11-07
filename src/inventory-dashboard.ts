@@ -1,4 +1,4 @@
-import type { InventorySnapshot } from './services/inventory'
+import { classifyInventoryProduct, type InventorySnapshot } from './services/inventory'
 
 type Status = 'available'|'reserved'|'damaged'|'quarantined'|'returned'|'shipped'|'missing'|'allocated'
 type SupplyMode = 'physical'|'vendor'|'unreviewed'
@@ -181,6 +181,131 @@ function labelButton(title:string,action:string,productId:string) {
   return button
 }
 
+/**
+ * Edit a single product in place. The existing inventory API performs the same
+ * authorization and server-side validation as the advanced classification form.
+ * A native dialog traps focus and prevents the background page from scrolling.
+ */
+function openSupplySettings(
+  row:StockProductRow,
+  trigger:HTMLButtonElement,
+  onRefresh:()=>Promise<void>,
+) {
+  const dialog=node('dialog','inv-supply-dialog')
+  dialog.setAttribute('aria-labelledby','inv-supply-dialog-title')
+  dialog.setAttribute('aria-describedby','inv-supply-dialog-help')
+  const title=node('h2','','Supply settings')
+  title.id='inv-supply-dialog-title'
+  const identity=node('p','inv-supply-identity',row.name)
+  const productCode=node('p','inv-supply-code',row.code)
+  const note=node('p','inv-supply-note',
+    'Change how this product is supplied and when its low-stock alert appears. This does not change existing unit counts or retail prices.')
+  note.id='inv-supply-dialog-help'
+
+  const form=node('form','inv-supply-form')
+  const supplyLabel=node('label','inv-supply-field')
+  const supplyCaption=node('span','','Supply mode')
+  const mode=node('select')
+  mode.name='supplyMode'
+  mode.required=true
+  for (const [value,label] of [
+    ['physical','Physical inventory'],['vendor','Vendor-supplied'],['unreviewed','Unreviewed'],
+  ]) {
+    const opt=node('option','',label)
+    opt.value=value
+    mode.appendChild(opt)
+  }
+  mode.value=row.mode
+  supplyLabel.append(supplyCaption,mode)
+
+  const pointLabel=node('label','inv-supply-field')
+  const pointCaption=node('span','','Low-stock alert at')
+  const threshold=node('input')
+  threshold.name='reorderPoint'
+  threshold.type='number'
+  threshold.min='0'
+  threshold.max='100000'
+  threshold.step='1'
+  threshold.required=true
+  threshold.value=String(row.reorderPoint)
+  const hint=node('small','',
+    'An alert appears when available physical units reach this number. Set 0 to turn off the low-stock alert.')
+  pointLabel.append(pointCaption,threshold,hint)
+
+  const feedback=node('p','inv-supply-feedback')
+  feedback.setAttribute('role','alert')
+  feedback.setAttribute('aria-live','polite')
+  const buttons=node('div','inv-supply-buttons')
+  const cancel=node('button','secondary','Cancel')
+  cancel.type='button'
+  const save=node('button','primary','Save changes')
+  save.type='submit'
+  buttons.append(cancel,save)
+  form.append(supplyLabel,pointLabel,feedback,buttons)
+  dialog.append(title,identity,productCode,note,form)
+  document.body.appendChild(dialog)
+
+  let saving=false
+  const remove=()=>dialog.remove()
+  dialog.addEventListener('close',remove,{once:true})
+  dialog.addEventListener('cancel',event=>{
+    if(saving) event.preventDefault()
+  })
+  cancel.addEventListener('click',()=>{if(!saving)dialog.close()})
+  dialog.addEventListener('click',event=>{
+    if(event.target===dialog && !saving)dialog.close()
+  })
+  form.addEventListener('submit',async event=>{
+    event.preventDefault()
+    if(saving || !form.reportValidity())return
+    const reorderPoint=Number(threshold.value)
+    if(!Number.isInteger(reorderPoint) || reorderPoint<0 || reorderPoint>100000){
+      feedback.textContent='Enter a whole-number threshold from 0 to 100,000.'
+      return
+    }
+    const supplyMode=mode.value as SupplyMode
+    if(!['physical','vendor','unreviewed'].includes(supplyMode)){
+      feedback.textContent='Choose a valid supply mode.'
+      return
+    }
+    saving=true
+    save.disabled=true
+    cancel.disabled=true
+    save.textContent='Saving…'
+    feedback.textContent=''
+    try{
+      // Preserve this particular stock card's viewport position, even if its
+      // status changes the stock table's sort order after the server reload.
+      const card=trigger.closest('tr')
+      const previousTop=card?.getBoundingClientRect().top
+      const previousScroll=window.scrollY
+      await classifyInventoryProduct(row.id,supplyMode,reorderPoint)
+      dialog.close()
+      await onRefresh()
+      const replacement=[...document.querySelectorAll<HTMLButtonElement>(
+        '#inventory-app button[data-action="classify"]'
+      )].find(button=>button.dataset.product===row.id)
+      if(replacement && previousTop!==undefined){
+        window.scrollTo(0,Math.max(0,window.scrollY+
+          replacement.getBoundingClientRect().top-previousTop))
+        replacement.focus({preventScroll:true})
+      } else {
+        window.scrollTo(0,previousScroll)
+      }
+    }catch(error){
+      feedback.textContent=error instanceof Error?error.message:'Supply settings could not be saved.'
+      if(dialog.isConnected){
+        saving=false
+        save.disabled=false
+        cancel.disabled=false
+        save.textContent='Save changes'
+      }
+    }
+  })
+  dialog.showModal()
+  mode.focus({preventScroll:true})
+}
+
 export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,onRefresh:()=>Promise<void>) {
   const model=buildStockDashboardModel(data)
   const section=node('section','inv-panel inv-stock-dashboard')
@@ -327,15 +452,10 @@ export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,
       return
     }
     if(action==='classify') {
-      const form=document.getElementById('inv-classify-product') as HTMLFormElement|null
-      const select=form?.elements.namedItem('productId') as HTMLSelectElement|null
-      if(select){
-        select.value=button.dataset.product||''
-        select.dispatchEvent(new Event('change',{bubbles:true}))
-        const disclosure=form?.closest('details')
-        if(disclosure)disclosure.open=true
-        form?.scrollIntoView({behavior:'smooth',block:'start'})
-      }
+      // Work on the selected product in a modal; do not scroll to the long
+      // supply-settings form or disturb the stock list's current position.
+      const row=model.rows.find(item=>item.id===button.dataset.product)
+      if(row) openSupplySettings(row,button,onRefresh)
     }
     if(action==='labels') {
       const lotId=button.dataset.lot
