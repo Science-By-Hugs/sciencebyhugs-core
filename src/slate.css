@@ -96,6 +96,13 @@ a{color:var(--sl-text)}
   .app-tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--sl-muted)!important;text-decoration:none;font-size:11px;font-weight:600;min-height:44px}
   .app-tabs a.active{color:var(--sl-text)!important}
   .app-tabs svg{width:24px;height:24px}
+  /* Clip horizontal viewport displacement without changing sticky header or tabs.
+     Wide data tables must scroll internally, or render as cards on phones. */
+  html,body,#app,.app,.app-main,.app-content{
+    max-width:100%;
+    overflow-x:clip;
+  }
+  .app-main,.app-content{min-width:0}
   .dashboard-head{padding-bottom:12px!important}
 }
 
