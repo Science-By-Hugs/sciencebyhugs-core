@@ -3,6 +3,7 @@
 // they move into a hidden store, a compact row is shown per card, and the selected
 // card is moved into a side panel (desktop) or a full-screen sheet (phone).
 // Moving a DOM node keeps its event listeners, so every existing control still works.
+import { lockMasterDetailScroll, releaseMasterDetailScroll } from './md-scroll-lock'
 // Filters that set card.hidden keep working: rows mirror their card's hidden state.
 
 export type RowInfo = {
@@ -57,7 +58,9 @@ function remember(key: string, id: string | null) {
 
 export function mountMasterDetail(opts: Options): MasterDetailController | null {
   const { list } = opts
-  document.body.classList.remove('md-open')
+  // A save can replace the entire Catalog page while its sheet is open.
+  // Release any previous lock before building the replacement list.
+  releaseMasterDetailScroll()
   list.classList.remove('md-has-open', 'md-selecting')
   const cards = Array.from(list.querySelectorAll<HTMLElement>(opts.cardSelector))
   if (!cards.length) return null
@@ -88,13 +91,18 @@ export function mountMasterDetail(opts: Options): MasterDetailController | null 
   const rowById = new Map<string, HTMLButtonElement>()
 
   const close = (forget = true) => {
+    const previousId = openCard ? opts.idOf(openCard) : null
     if (openCard) store.appendChild(openCard)
     openCard = null
     panel.hidden = true
+    panel.removeAttribute('aria-modal')
+    panel.removeAttribute('role')
     list.classList.remove('md-has-open')
-    document.body.classList.remove('md-open')
+    releaseMasterDetailScroll()
     rowById.forEach(r => r.classList.remove('active'))
     if (forget) remember(opts.key, null)
+    // The list and its position remain available after dismissing the sheet.
+    if (previousId && forget) rowById.get(previousId)?.focus({ preventScroll: true })
   }
 
   const open = (id: string, focus = false) => {
@@ -105,7 +113,17 @@ export function mountMasterDetail(opts: Options): MasterDetailController | null 
     openCard = card
     panel.hidden = false
     list.classList.add('md-has-open')
-    if (isPhone()) document.body.classList.add('md-open')
+    if (isPhone()) {
+      // A fixed document position is required for reliable iOS Safari scroll locking.
+      // The product detail sheet continues to scroll independently.
+      panel.setAttribute('role', 'dialog')
+      panel.setAttribute('aria-modal', 'true')
+      lockMasterDetailScroll()
+    } else {
+      panel.removeAttribute('role')
+      panel.removeAttribute('aria-modal')
+      releaseMasterDetailScroll()
+    }
     rowById.forEach((r, rid) => {
       r.classList.toggle('active', rid === id)
       r.setAttribute('aria-expanded', String(rid === id))
