@@ -382,7 +382,8 @@ create table public.payments (
  provider_order_id text
 );
 create table public.internal_runtime_config(
- key text primary key,value jsonb not null
+ key text primary key,value jsonb not null,
+ updated_at timestamptz not null default now()
 );
 
 insert into public.inventory_product_settings(product_id,supply_mode)
