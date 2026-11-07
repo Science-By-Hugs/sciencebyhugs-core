@@ -17,7 +17,8 @@ const plural = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 
 export function dashboardPageMarkup(_email: string, _escapeHtml: Helpers['escapeHtml']) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   return '<section class="dashboard-head"><h1 class="dashboard-title">Today</h1></section>' +
-    '<p class="today-sub" id="today-sub">' + today + '</p>' +
+    '<div class="today-briefing-head"><span class="today-date">' + today + '</span>' +
+    '<p class="today-sub" id="today-sub" aria-live="polite">Loading your briefing…</p></div>' +
     '<section id="executive-dashboard"><div class="loading">Loading…</div></section>'
 }
 
@@ -83,50 +84,85 @@ export async function bindDashboardPage(helpers: Helpers) {
       : 'Nothing needs you right now.'
 
     const b = data.business
-    const attention = '<section class="today-section" aria-labelledby="today-attention">' +
-      '<h2 id="today-attention">Needs attention</h2>' +
-      (items.length
-        ? items.map(t =>
-            '<a class="today-row" href="' + t.href + '"' + (t.filter ? ' data-filter="' + t.filter + '"' : '') + '>' +
-              '<span class="today-dot ' + t.tone + '" aria-hidden="true"></span>' +
-              '<span class="today-row-main"><strong>' + escapeHtml(t.title) + '</strong><small>' + escapeHtml(t.detail) + '</small></span>' +
-              '<span class="today-action">' + escapeHtml(t.action) + '</span>' +
-            '</a>').join('')
-        : '<p class="today-empty">All caught up.</p>') +
+    const linkFilter = (t: Todo) => t.filter ? ' data-filter="' + t.filter + '"' : ''
+    const actionRow = (t: Todo) =>
+      '<a class="today-row" href="' + t.href + '"' + linkFilter(t) + '>' +
+        '<span class="today-dot ' + t.tone + '" aria-hidden="true"></span>' +
+        '<span class="today-row-main"><strong>' + escapeHtml(t.title) + '</strong><small>' + escapeHtml(t.detail) + '</small></span>' +
+        '<span class="today-action">' + escapeHtml(t.action) + '</span>' +
+      '</a>'
+
+    const first = items[0]
+    const priority = '<section class="today-priority" aria-labelledby="today-priority-title">' +
+      '<div class="today-priority-copy">' +
+        '<span class="today-kicker">' + (first ? 'YOUR NEXT ACTION' : 'YOU ARE CAUGHT UP') + '</span>' +
+        '<h2 id="today-priority-title">' +
+          escapeHtml(first ? first.title : 'Nothing urgent right now') + '</h2>' +
+        '<p>' + escapeHtml(first ? first.detail : 'Your attention queue is clear. Keep an eye on new orders and inventory.') + '</p>' +
+      '</div>' +
+      '<a class="today-priority-link" href="' + (first ? first.href : '#orders') + '"' +
+        (first ? linkFilter(first) : '') + '>' +
+        escapeHtml(first ? first.action + ' now' : 'View orders') +
+        '<span aria-hidden="true">→</span></a>' +
     '</section>'
 
-    const stat = (label: string, value: string, sub: string) =>
-      '<div class="today-stat"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value) + '</strong><small>' + escapeHtml(sub) + '</small></div>'
-    const stats = '<section class="today-stats" aria-label="Key numbers">' +
-      stat('Revenue · 30 days', money(b.revenue_30d), plural(b.orders_30d, 'order')) +
-      stat('Orders · 30 days', String(b.orders_30d), 'Customer checkouts') +
-      stat('Customers', String(b.customers), b.new_customers_30d + ' new in 30 days') +
-    '</section>'
-    const quick = '<nav class="core-quick-actions" aria-label="Quick actions">' +
+    const otherItems = items.slice(1)
+    const visibleOthers = otherItems.slice(0, 3)
+    const hiddenOthers = otherItems.slice(3)
+    const attention = otherItems.length
+      ? '<section class="today-section today-attention" aria-labelledby="today-attention">' +
+        '<h2 id="today-attention">Also needs attention <span class="today-section-count">' +
+          otherItems.length + '</span></h2>' +
+        visibleOthers.map(actionRow).join('') +
+        (hiddenOthers.length
+          ? '<details class="today-extra"><summary>Show ' + hiddenOthers.length +
+            ' more task' + (hiddenOthers.length === 1 ? '' : 's') + '</summary>' +
+              hiddenOthers.map(actionRow).join('') + '</details>'
+          : '') + '</section>'
+      : ''
+
+    const quick = '<nav class="core-quick-actions today-shortcuts" aria-label="Quick actions">' +
       '<a href="#orders">Review orders</a>' +
       '<a href="#products?section=inventory">Check stock</a>' +
       '<a href="#products?section=purchasing">Receive inventory</a>' +
       '<a href="#products?section=catalog">Manage products</a>' +
     '</nav>'
 
+    const stat = (label: string, value: string, sub: string) =>
+      '<div class="today-stat"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value) +
+        '</strong><small>' + escapeHtml(sub) + '</small></div>'
+    const stats = '<section class="today-performance" aria-labelledby="today-performance-title">' +
+      '<div class="today-section-heading"><h2 id="today-performance-title">Last 30 days</h2>' +
+      '<span>Business snapshot</span></div>' +
+      '<div class="today-stats" aria-label="Key numbers">' +
+        stat('Revenue', money(b.revenue_30d), plural(b.orders_30d, 'order')) +
+        stat('Orders', String(b.orders_30d), 'Customer checkouts') +
+        stat('Customers', String(b.customers), b.new_customers_30d + ' new in 30 days') +
+      '</div></section>'
+
     const recent = data.operations.recent_orders.slice(0, 6)
-    const latest = '<section class="today-section" aria-labelledby="today-latest">' +
-      '<h2 id="today-latest">Latest orders <a href="#orders">All orders</a></h2>' +
+    const recentOrder = (order: CoreDashboard['operations']['recent_orders'][number]) => {
+      const [tone, label] = orderTone(order)
+      return '<a class="today-order" href="#orders">' +
+        '<b>' + escapeHtml(order.order_number || 'Order') + '</b>' +
+        '<span class="meta">' + escapeHtml((order.payment_method || 'Payment') + ' · ' +
+          new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span>' +
+        '<span class="num">' + money(order.total) + '</span>' +
+        '<span class="tone ' + tone + '">' + escapeHtml(label) + '</span>' +
+      '</a>'
+    }
+    const latest = '<section class="today-section today-latest" aria-labelledby="today-latest">' +
+      '<h2 id="today-latest">Recent orders <a href="#orders">All orders</a></h2>' +
       (recent.length
-        ? recent.map(order => {
-            const [tone, label] = orderTone(order)
-            return '<a class="today-order" href="#orders">' +
-              '<b>' + escapeHtml(order.order_number || 'Order') + '</b>' +
-              '<span class="meta">' + escapeHtml((order.payment_method || 'Payment') + ' · ' +
-                new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span>' +
-              '<span class="num">' + money(order.total) + '</span>' +
-              '<span class="tone ' + tone + '">' + escapeHtml(label) + '</span>' +
-            '</a>'
-          }).join('')
+        ? recent.slice(0, 3).map(recentOrder).join('') +
+          (recent.length > 3
+            ? '<details class="today-extra today-extra-orders"><summary>Show ' +
+              (recent.length - 3) + ' more recent orders</summary>' +
+              recent.slice(3).map(recentOrder).join('') + '</details>' : '')
         : '<p class="today-empty">No orders yet.</p>') +
     '</section>'
 
-    root.innerHTML = stats + attention + quick + latest
+    root.innerHTML = priority + attention + quick + stats + latest
     root.querySelectorAll<HTMLAnchorElement>('a[data-filter]').forEach(a =>
       a.addEventListener('click', () => presetOrdersFilter(a.dataset.filter as OrdersFilter)))
     root.querySelectorAll<HTMLAnchorElement>('a.today-order, #today-latest a').forEach(a =>
