@@ -81,18 +81,48 @@ function matches(order: CoreOrder, s: State, filter: OrdersFilter) {
 const nameOf = (order: CoreOrder) =>
   [order.customer?.first_name, order.customer?.last_name].filter(Boolean).join(' ') || order.customer?.email || 'Customer'
 
+
+function nextOrderAction(order: CoreOrder, s: State): string {
+  const status = String(order.status || '').toLowerCase()
+  if (status === 'cancelled') return 'Cancelled order · no fulfillment action'
+  if (status === 'delivered') return 'Delivered · no further fulfillment action'
+  if (s.submitted) return 'Confirm the payment arrived, then verify it'
+  if (s.unpaidCheckout) return 'Await payment before processing this checkout'
+  if (!s.paid) return 'Record a payment reference before processing'
+  if (status === 'on_hold') return 'Review the hold and choose when to resume'
+  if (status === 'delayed') return 'Review the delay and choose the next status'
+  if (status === 'processing') return 'Update fulfillment when the order has been placed'
+  if (status === 'ordered') return 'Mark shipped when the order has been dispatched'
+  if (status === 'shipped') return 'Mark out for delivery when appropriate'
+  if (status === 'out_for_delivery') return 'Mark delivered after delivery is confirmed'
+  return 'Review this order and its payment status'
+}
+
+function orderOverview(order: CoreOrder, s: State, h: Helpers) {
+  const payment = s.paid ? 'Verified' : s.submitted ? 'Needs review' : 'Not verified'
+  const paymentTone = s.paid ? 'paid' : s.submitted ? 'review' : 'unpaid'
+  return '<section class="od-overview" aria-label="Order at a glance">' +
+    '<div class="od-overview-stats">' +
+      '<div><span>Payment</span><strong class="od-payment-state ' + paymentTone + '">' + payment + '</strong></div>' +
+      '<div><span>Fulfillment</span><strong>' + h.escapeHtml(s.label) + '</strong></div>' +
+      '<div><span>Order total</span><strong>' + h.money(order.total) + '</strong></div>' +
+    '</div>' +
+    '<p class="od-next-instruction"><span>Next step</span>' + h.escapeHtml(nextOrderAction(order,s)) + '</p>' +
+  '</section>'
+}
+
 function paymentSection(order: CoreOrder, s: State, h: Helpers) {
   const { escapeHtml, money, dateTime } = h
   const p = order.payment
   const facts = (rows: Array<[string, string]>) =>
     '<dl class="od-facts">' + rows.map(([k, v]) => '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>').join('') + '</dl>'
   if (s.paid) {
-    return '<section class="od-section"><h3>Payment</h3>' + facts([
+    return '<details class="od-secondary od-payment-details"><summary>Verified payment details</summary>' + facts([
       ['Method', escapeHtml(p?.provider || order.payment_method || '—')],
       ['Reference', escapeHtml(p?.payment_reference || '—')],
       ['Amount', money(p?.amount ?? order.total)],
       ['Verified', escapeHtml(dateTime(p?.verified_at || p?.paid_at || order.paid_at))],
-    ]) + '</section>'
+    ]) + '</details>'
   }
   if (s.submitted) {
     return '<section class="od-section od-next"><h3>Payment to review</h3>' + facts([
@@ -131,7 +161,7 @@ function fulfillmentSection(order: CoreOrder, s: State, h: Helpers) {
   const terminal = status === 'delivered' || status === 'cancelled'
   if (terminal || options.length === 0) return ''
   const primary = options[0]
-  return '<section class="od-section od-next"><h3>Fulfillment</h3>' +
+  return '<section class="od-section od-next od-fulfillment-action"><h3>Fulfillment</h3>' +
     '<div class="od-fulfill">' +
       '<select class="od-status" aria-label="Next status">' +
         options.map(([v, l], i) => '<option value="' + v + '"' + (i === 0 ? ' selected' : '') + '>' + l + '</option>').join('') +
@@ -139,7 +169,9 @@ function fulfillmentSection(order: CoreOrder, s: State, h: Helpers) {
       '<input class="od-status-note" type="text" maxlength="300" placeholder="Optional note" aria-label="Fulfillment note">' +
       '<button class="primary od-update" type="button" data-order-id="' + h.escapeHtml(order.id) + '">' + h.escapeHtml(primary ? 'Update' : 'Update') + '</button>' +
     '</div>' +
-    deliveryEstimateEditor(order.id, order.estimated_delivery_date, h.escapeHtml) +
+    '<details class="od-secondary od-delivery"><summary>Delivery date & estimate</summary>' +
+      deliveryEstimateEditor(order.id, order.estimated_delivery_date, h.escapeHtml) +
+    '</details>' +
   '</section>'
 }
 
@@ -155,6 +187,7 @@ function orderCard(order: CoreOrder, s: State, h: Helpers) {
     ['Shipping', money(order.shipping_total)],
     order.tax_total ? ['Tax', money(order.tax_total)] : null,
   ].filter(Boolean) as Array<[string, string]>
+  const itemCount = order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
   const timeline = ([
     ['Placed', order.submitted_at || order.created_at], ['Paid', order.paid_at], ['Ordered', order.ordered_at],
     ['Shipped', order.shipped_at], ['Delivered', order.delivered_at], ['Delayed', order.delayed_at], ['Cancelled', order.cancelled_at],
@@ -170,15 +203,20 @@ function orderCard(order: CoreOrder, s: State, h: Helpers) {
       (who ? '<p>' + who + '</p>' : '') +
       '<p class="tone ' + s.tone + ' od-status-line">' + escapeHtml(s.label) + '</p>' +
     '</header>' +
+    orderOverview(order, s, h) +
     paymentSection(order, s, h) +
     fulfillmentSection(order, s, h) +
     (s.unpaidCheckout
-      ? '<section class="od-section"><h3>Unpaid checkout</h3><p class="od-hint">This checkout was started but never paid. Clearing removes it from Core.</p>' +
-        '<button class="secondary od-clear" type="button" data-order-id="' + escapeHtml(order.id) + '">Clear unpaid checkout</button></section>'
+      ? '<details class="od-secondary od-unpaid-checkout"><summary>Unpaid checkout options</summary>' +
+        '<p class="od-hint">This checkout was started but never paid. Clearing removes it from Core.</p>' +
+        '<button class="secondary od-clear" type="button" data-order-id="' + escapeHtml(order.id) + '">Clear unpaid checkout</button></details>'
       : '') +
-    '<section class="od-section"><h3>Items</h3>' + (items || '<p class="od-hint">No items recorded.</p>') +
+    '<details class="od-secondary od-items"><summary>Items & total <span class="od-summary-meta">' +
+      itemCount + ' unit' + (itemCount === 1 ? '' : 's') + ' · ' + money(order.total) + '</span></summary>' +
+      '<div class="od-secondary-body">' +
+      (items || '<p class="od-hint">No items recorded.</p>') +
       totals.map(([k, v]) => '<div class="od-line od-muted"><span>' + k + '</span><b>' + v + '</b></div>').join('') +
-      '<div class="od-line od-total"><span>Total</span><b>' + money(order.total) + '</b></div></section>' +
+      '<div class="od-line od-total"><span>Total</span><b>' + money(order.total) + '</b></div></div></details>' +
     ((timeline.length || notes.length)
       ? '<details class="od-history"><summary>Timeline & notes</summary><div class="od-history-body">' +
         (timeline.length ? '<section class="od-section"><h3>Timeline</h3>' +
