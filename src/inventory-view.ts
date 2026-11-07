@@ -41,7 +41,7 @@ const input = (name:string,type='text',extra='')=>
   '<input name="'+name+'" type="'+type+'" '+extra+'>'
 
 function vendorForm(h:Helpers) {
-  return card('<div class="inv-panel-head"><h2>1. Vendors</h2><p>Give each source its own cost history.</p></div>'+
+  return card('<div class="inv-panel-head"><h2>Add a supplier</h2><p>Give each source its own cost history.</p></div>'+
     '<form id="inv-add-vendor" class="inv-form">'+
     field('Vendor name',input('name','text','required maxlength="120" placeholder="Vendor name"'))+
     field('Vendor code',input('code','text','required maxlength="8" minlength="2" placeholder="EML"'))+
@@ -52,7 +52,7 @@ function vendorForm(h:Helpers) {
 function offersForm(data:InventorySnapshot,h:Helpers) {
   const vendorOptions=data.vendors.filter(v=>v.active).map(v=>option(v.id,v.name+' · '+v.code,h.escapeHtml)).join('')
   const productOptions=data.products.map(p=>option(p.id,(p.product_code||'—')+' · '+p.name,h.escapeHtml)).join('')
-  return card('<div class="inv-panel-head"><h2>2. Vendor price book</h2>'+
+  return card('<div class="inv-panel-head"><h2>Supplier price book</h2>'+
     '<p>One Core product can have single-unit and 10-unit kit offers from different vendors. Retail prices stay unchanged.</p></div>'+
     '<form id="inv-save-offer" class="inv-form">'+
     field('Vendor','<select name="vendorId" required>'+vendorOptions+'</select>')+
@@ -83,7 +83,7 @@ function receivingForm(data:InventorySnapshot,h:Helpers) {
       ' · '+(line?.expected_units||0)+' expected units',h.escapeHtml)
   }).join('')
   const first=data.lines.find(l=>l.purchase_order_id===pending[0]?.id)
-  return card('<div class="inv-panel-head"><h2>4. Receive inventory</h2>'+
+  return card('<div class="inv-panel-head"><h2>Receive a purchase</h2>'+
     '<p>Check every vial. This first version receives one complete purchase at a time.</p></div>'+
     (pending.length?'<form id="inv-receive-po" class="inv-form">'+
     field('Purchase order','<select name="orderId" required>'+select+'</select>')+
@@ -96,7 +96,7 @@ function receivingForm(data:InventorySnapshot,h:Helpers) {
 }
 
 function lotRows(lots:InventoryLot[],data:InventorySnapshot,h:Helpers) {
-  return card('<div class="inv-panel-head"><h2>5. Lots & QR labels</h2>'+
+  return card('<div class="inv-panel-head"><h2>Lots & QR labels</h2>'+
     '<p>Download one lot QR PNG for the outer box and a 1.2 × 0.8-inch horizontal vial-label PNG. Both work with external thermal printer software.</p></div>'+
     '<div class="inv-list">'+(lots.length?lots.map(l=>{
       const p=data.products.find(p=>p.id===l.product_id)
@@ -119,7 +119,7 @@ function classificationForm(data:InventorySnapshot,h:Helpers) {
     physical:data.settings.filter(s=>s.supply_mode==='physical').length,
     vendor:data.settings.filter(s=>s.supply_mode==='vendor').length,
   }
-  return card('<div class="inv-panel-head"><h2>6. Product supply mode</h2>'+
+  return card('<div class="inv-panel-head"><h2>Product supply mode</h2>'+
     '<p>Classify physical on-hand stock separately from vendor-supplied products. This does not change what Nexus sells.</p></div>'+
     '<p class="inv-helper">'+counts.physical+' physical · '+counts.vendor+
     ' vendor-supplied · '+(data.products.length-counts.physical-counts.vendor)+' unreviewed</p>'+
@@ -300,18 +300,29 @@ export async function bindInventoryPage(
   if (!root) return
   try {
     const data=await listInventory()
+    const previousSection=root.dataset.section
+    const openPanels=previousSection===section
+      ? new Set([...root.querySelectorAll<HTMLDetailsElement>('details[data-core-panel][open]')]
+          .map(panel=>panel.dataset.corePanel||''))
+      : new Set<string>()
+    const priorSearch=previousSection===section
+      ? root.querySelector<HTMLInputElement>('.inv-stock-controls input[type="search"]')?.value || ''
+      : ''
+    const priorFilter=previousSection===section
+      ? root.querySelector<HTMLSelectElement>('.inv-stock-controls select')?.value || 'tracked'
+      : 'tracked'
     const vendorOptions=data.vendors.length
     // Group existing audited workflows without changing their backend actions.
     // Every form remains in the DOM so QR lookups and existing event bindings work.
     root.dataset.section=section
     root.innerHTML=
       '<div data-inventory-group="inventory">'+
-      (h.isOwner?'<details class="core-disclosure"><summary>Monitoring & alerts</summary><div class="core-disclosure-body"><div id="inv-monitor-slot" class="inv-monitor-slot"></div></div></details>':'')+
+      (h.isOwner?'<details class="core-disclosure" data-core-panel="monitor"><summary>Monitoring & alerts</summary><div class="core-disclosure-body"><div id="inv-monitor-slot" class="inv-monitor-slot"></div></div></details>':'')+
       '<div id="inv-overview" class="inv-overview"></div>'+
-      '<details class="core-disclosure"><summary>Add or adjust physical stock</summary><div class="core-disclosure-body"><div id="inv-manage-stock"></div></div></details>'+
-      '<details class="core-disclosure"><summary>Count and reconcile lots</summary><div class="core-disclosure-body"><div id="inv-audit-slot"></div></div></details>'+
-      '<details class="core-disclosure"><summary>Lots & QR labels</summary><div class="core-disclosure-body">'+lotRows(data.lots,data,h)+'</div></details>'+
-      '<details class="core-disclosure"><summary>Supply settings & reorder thresholds</summary><div class="core-disclosure-body">'+classificationForm(data,h)+'</div></details>'+
+      '<details class="core-disclosure" data-core-panel="adjust"><summary>Add or adjust physical stock</summary><div class="core-disclosure-body"><div id="inv-manage-stock"></div></div></details>'+
+      '<details class="core-disclosure" data-core-panel="audit"><summary>Count and reconcile lots</summary><div class="core-disclosure-body"><div id="inv-audit-slot"></div></div></details>'+
+      '<details class="core-disclosure" data-core-panel="lots"><summary>Lots & QR labels</summary><div class="core-disclosure-body">'+lotRows(data.lots,data,h)+'</div></details>'+
+      '<details class="core-disclosure" data-core-panel="classification"><summary>Supply settings & reorder thresholds</summary><div class="core-disclosure-body">'+classificationForm(data,h)+'</div></details>'+
       '</div>'+
       '<div data-inventory-group="purchasing">'+
       '<div class="inv-grid"><div id="inv-multi-anchor" class="inv-multi-anchor"></div>'+
@@ -327,6 +338,9 @@ export async function bindInventoryPage(
     root.querySelectorAll<HTMLElement>('[data-inventory-group]').forEach(group=>{
       group.hidden=group.dataset.inventoryGroup!==section
     })
+    root.querySelectorAll<HTMLDetailsElement>('details[data-core-panel]').forEach(panel=>{
+      panel.open=openPanels.has(panel.dataset.corePanel||'')
+    })
     // Unit/lot QR deep links always reveal their stock detail panel.
     if (location.hash.startsWith('#inventory?')) {
       root.querySelectorAll<HTMLElement>('[data-inventory-group]').forEach(group=>{
@@ -337,7 +351,19 @@ export async function bindInventoryPage(
     const monitorSlot=id('inv-monitor-slot')
     if(h.isOwner && monitorSlot) mountInventoryMonitor(monitorSlot,loadInventoryMonitoring)
     const overview=id('inv-overview')
-    if(overview) mountInventoryDashboard(overview,data,async()=>bindInventoryPage(h,section))
+    if(overview) {
+      mountInventoryDashboard(overview,data,async()=>bindInventoryPage(h,section))
+      const search=overview.querySelector<HTMLInputElement>('.inv-stock-controls input[type="search"]')
+      const filter=overview.querySelector<HTMLSelectElement>('.inv-stock-controls select')
+      if (search && priorSearch) {
+        search.value=priorSearch
+        search.dispatchEvent(new Event('input',{bubbles:true}))
+      }
+      if (filter && [...filter.options].some(option=>option.value===priorFilter)) {
+        filter.value=priorFilter
+        filter.dispatchEvent(new Event('change',{bubbles:true}))
+      }
+    }
     const managerSlot=id('inv-manage-stock')
     if(managerSlot) mountStockManager(managerSlot,data,async()=>bindInventoryPage(h,section))
     const auditSlot=id('inv-audit-slot')

@@ -342,6 +342,8 @@ export function mountInventoryDashboard(root:HTMLElement,data:InventorySnapshot,
       const all=document.querySelectorAll<HTMLButtonElement>('.inv-download-lot')
       const matched=[...all].find(b=>b.dataset.lot===lotId)
       if(matched){
+        const disclosure=matched.closest('details')
+        if (disclosure) disclosure.open=true
         matched.scrollIntoView({behavior:'smooth',block:'center'})
         matched.click()
       }

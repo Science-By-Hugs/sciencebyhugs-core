@@ -179,10 +179,13 @@ function orderCard(order: CoreOrder, s: State, h: Helpers) {
     '<section class="od-section"><h3>Items</h3>' + (items || '<p class="od-hint">No items recorded.</p>') +
       totals.map(([k, v]) => '<div class="od-line od-muted"><span>' + k + '</span><b>' + v + '</b></div>').join('') +
       '<div class="od-line od-total"><span>Total</span><b>' + money(order.total) + '</b></div></section>' +
-    (timeline.length ? '<section class="od-section"><h3>Timeline</h3>' +
-      timeline.map(([k, v]) => '<div class="od-line od-muted"><span>' + k + '</span><b>' + escapeHtml(dateTime(v)) + '</b></div>').join('') + '</section>' : '') +
-    (notes.length ? '<section class="od-section"><h3>Notes</h3>' +
-      notes.map(([k, v]) => '<p class="od-note"><b>' + k + ':</b> ' + escapeHtml(v) + '</p>').join('') + '</section>' : '') +
+    ((timeline.length || notes.length)
+      ? '<details class="od-history"><summary>Timeline & notes</summary><div class="od-history-body">' +
+        (timeline.length ? '<section class="od-section"><h3>Timeline</h3>' +
+          timeline.map(([k, v]) => '<div class="od-line od-muted"><span>' + k + '</span><b>' + escapeHtml(dateTime(v)) + '</b></div>').join('') + '</section>' : '') +
+        (notes.length ? '<section class="od-section"><h3>Notes</h3>' +
+          notes.map(([k, v]) => '<p class="od-note"><b>' + k + ':</b> ' + escapeHtml(v) + '</p>').join('') + '</section>' : '') +
+        '</div></details>' : '') +
     '<p class="card-message od-message" aria-live="polite"></p>' +
     deleteZone('Delete order',
       'Permanently deletes this order, its items and its payment record. It disappears from Orders and Finance. A full copy is kept in the Audit Log.',
