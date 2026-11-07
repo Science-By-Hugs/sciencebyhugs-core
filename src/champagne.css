@@ -450,3 +450,76 @@ input::placeholder,textarea::placeholder{color:#A89A86!important}
   .inv-journey-supplier-editor .inv-form{grid-template-columns:minmax(0,1fr)}
   .inv-journey-supplier-editor .inv-field{grid-column:1}
 }
+
+/* Core Champagne · order action hierarchy
+   Payment and fulfillment actions stay visible; secondary facts expand on demand. */
+.order-detail .od-overview{
+  display:grid;gap:12px;min-width:0;margin:13px 0 16px;
+}
+.od-overview-stats{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;min-width:0;
+}
+.od-overview-stats>div{
+  display:flex;flex-direction:column;gap:5px;
+  padding:12px;border:1px solid var(--core-border);border-radius:10px;
+  background:var(--core-surface);min-width:0;
+}
+.od-overview-stats>div:last-child{grid-column:1/-1}
+.od-overview-stats span{
+  color:var(--core-muted);font-size:11px;font-weight:600;
+}
+.od-overview-stats strong{
+  color:var(--core-ivory);font-size:14px;font-weight:700;
+  line-height:1.35;overflow-wrap:anywhere;
+}
+.od-overview-stats .od-payment-state.paid{color:#B7CCAA}
+.od-overview-stats .od-payment-state.review{color:var(--core-champagne)}
+.od-overview-stats .od-payment-state.unpaid{color:var(--core-muted)}
+.od-next-instruction{
+  padding:12px 14px;margin:0;border-left:3px solid var(--core-champagne);
+  background:var(--core-raised);border-radius:0 9px 9px 0;
+  color:var(--core-ivory);font-size:13px;line-height:1.45;
+  overflow-wrap:anywhere;
+}
+.od-next-instruction>span{
+  display:block;color:var(--core-champagne);
+  font-size:11px;font-weight:700;margin-bottom:4px;
+}
+.order-detail .od-secondary{
+  border-top:1px solid var(--core-border);
+  margin:8px 0 12px;
+  min-width:0;
+}
+.order-detail .od-secondary>summary{
+  cursor:pointer;list-style:none;display:flex;align-items:center;
+  justify-content:space-between;gap:8px;
+  min-height:44px;padding:13px 0;
+  color:var(--core-ivory);font-size:13px;font-weight:650;
+}
+.order-detail .od-secondary>summary::-webkit-details-marker{display:none}
+.order-detail .od-secondary>summary::after{
+  content:'+';margin-left:4px;color:var(--core-champagne);
+  font-size:18px;font-weight:400;flex:none;
+}
+.order-detail .od-secondary[open]>summary::after{content:'−'}
+.od-summary-meta{margin-left:auto;color:var(--core-muted);font-size:12px;font-weight:450;white-space:nowrap}
+.order-detail .od-payment-details .od-facts{margin:4px 0 12px}
+.order-detail .od-secondary-body{display:grid;gap:10px;padding:5px 0 13px}
+.order-detail .od-secondary-body .od-line{min-width:0}
+.order-detail .od-secondary-body .od-line>span{min-width:0;overflow-wrap:anywhere}
+.order-detail .od-unpaid-checkout .od-hint{margin:3px 0 12px}
+.order-detail .od-unpaid-checkout .od-clear{min-height:44px;border-radius:9px}
+.order-detail .od-delivery{grid-column:1/-1;margin:5px 0 0}
+.order-detail .od-delivery .delivery-estimate-editor{padding:5px 0 14px!important}
+.order-detail .od-fulfillment-action .od-status{min-width:0}
+.order-detail .od-fulfillment-action .od-update{min-height:44px}
+@media(max-width:900px){
+  .order-detail .od-secondary>summary{flex-wrap:wrap}
+  .od-summary-meta{white-space:normal;text-align:right}
+}
+@media(max-width:480px){
+  .od-overview-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .od-overview-stats>div{padding:11px}
+  .order-detail .od-fulfillment-action .od-update{width:100%}
+}
