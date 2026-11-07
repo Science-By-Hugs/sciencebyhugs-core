@@ -19,7 +19,7 @@ test('stock increases use existing purchase/receipt flow with confirmation',()=>
   assert.match(service,/registerCurrentStock/);
   assert.match(api,/action === "register_current_stock"/);
   assert.match(page,/NOT already in Core/);
-  assert.match(page,/expected>100/);
+  assert.match(page,/count>100/);
 });
 test('unit adjustments preserve allocation protections and immutable events',()=>{
   assert.match(stock,/a\.status IN \('held','committed'\)/);
