@@ -8,6 +8,7 @@ import { mountMultiInventory } from './inventory-multi'
 import { mountInventoryDashboard } from './inventory-dashboard'
 import { mountInventoryMonitor } from './inventory-monitor'
 import { mountInventoryAudit } from './inventory-audit'
+import { mountStockManager } from './inventory-adjust'
 import './inventory.css'
 
 type Helpers = {
@@ -297,7 +298,7 @@ export async function bindInventoryPage(h:Helpers) {
   try {
     const data=await listInventory()
     const vendorOptions=data.vendors.length
-    root.innerHTML=(h.isOwner?'<div id="inv-monitor-slot" class="inv-monitor-slot"></div>':'')+ '<div id="inv-overview" class="inv-overview"></div>'+ '<div id="inv-audit-slot"></div>'+  
+    root.innerHTML=(h.isOwner?'<div id="inv-monitor-slot" class="inv-monitor-slot"></div>':'')+ '<div id="inv-overview" class="inv-overview"></div>'+ '<div id="inv-manage-stock"></div>'+ '<div id="inv-audit-slot"></div>'+  
       '<p class="inv-helper">Live Nexus stock limits remain disabled until physical counts are reconciled.</p>'+ 
       '<div class="inv-grid">'+
       vendorForm(h)+
@@ -312,6 +313,8 @@ export async function bindInventoryPage(h:Helpers) {
     if(h.isOwner && monitorSlot) mountInventoryMonitor(monitorSlot,loadInventoryMonitoring)
     const overview=id('inv-overview')
     if(overview) mountInventoryDashboard(overview,data,async()=>bindInventoryPage(h))
+    const managerSlot=id('inv-manage-stock')
+    if(managerSlot) mountStockManager(managerSlot,data,async()=>bindInventoryPage(h))
     const auditSlot=id('inv-audit-slot')
     if(auditSlot) mountInventoryAudit(auditSlot,data,async()=>bindInventoryPage(h))
     mountMultiInventory(root,data,async()=>bindInventoryPage(h))
