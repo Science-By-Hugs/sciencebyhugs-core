@@ -357,3 +357,26 @@ input::placeholder,textarea::placeholder{color:#A89A86!important}
   .catalog-editor .catalog-editor-actions .primary,
   .catalog-create-panel .catalog-editor-actions .primary{width:100%;flex:1 1 100%}
 }
+
+/* Prevent the Catalog/Orders/Customers detail sheet from scrolling the page
+   behind it on iPhone Safari. The sheet itself retains its own scroll area. */
+@media(max-width:900px){
+  html.md-open,body.md-open{
+    overflow:hidden!important;
+    overscroll-behavior:none!important;
+  }
+  body.md-open{
+    position:fixed!important;
+    left:0!important;
+    right:0!important;
+    width:100%!important;
+    touch-action:none;
+  }
+  body.md-open .md-panel{
+    max-height:100dvh!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+  }
+}
