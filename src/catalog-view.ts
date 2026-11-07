@@ -285,17 +285,28 @@ export function catalogPageMarkup(email: string, escapeHtml: Helpers['escapeHtml
     '</section>' +
     '<section class="catalog-queue-panel" id="catalog-action-queue"></section>' +
     '</details>' +
-    '<section class="catalog-toolbar"><label class="queue-search"><span class="sr-only">Search catalog</span>' +
-    '<input id="catalog-search" type="search" placeholder="Search product, type, code, category…" autocomplete="off"></label>' +
-    '<select id="catalog-category" aria-label="Filter catalog by category"><option value="all">All categories</option></select>' +
-    '<select id="catalog-state" aria-label="Filter catalog by state">' +
-      '<option value="all">All (not archived)</option><option value="selling">Selling on Nexus</option>' +
-      '<option value="not-selling">Not selling</option><option value="hidden">Hidden from Resident/New</option>' +
-      '<option value="featured">Featured</option>' +
-      '<option value="metadata-incomplete">Metadata incomplete</option><option value="coa-missing">Missing COA</option>' +
-      '<option value="uncategorized">Uncategorized</option><option value="missing-cost">Missing vendor cost</option>' +
-      '<option value="below-cost">Priced below cost</option><option value="archived">Archived</option>' +
-    '</select>' + bulkToolbarMarkup() + '</section>' +
+    '<section class="catalog-toolbar" aria-label="Catalog tools">' +
+    '<details class="catalog-filter-menu" id="catalog-filter-menu">' +
+      '<summary aria-label="Show or hide catalog search and filters" aria-controls="catalog-filter-fields">' +
+        '<svg aria-hidden="true" class="catalog-filter-icon" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' +
+          '<path d="M4 6h16M4 12h16M4 18h16"/></svg>' +
+        '<span>Search & filters</span>' +
+        '<span id="catalog-active-filters" class="catalog-active-filters" hidden></span>' +
+      '</summary>' +
+      '<div id="catalog-filter-fields" class="catalog-filter-fields">' +
+        '<label class="queue-search"><span class="sr-only">Search catalog</span>' +
+          '<input id="catalog-search" type="search" placeholder="Search product, type, code, category…" autocomplete="off"></label>' +
+        '<select id="catalog-category" aria-label="Filter catalog by category"><option value="all">All categories</option></select>' +
+        '<select id="catalog-state" aria-label="Filter catalog by state">' +
+          '<option value="all">All (not archived)</option><option value="selling">Selling on Nexus</option>' +
+          '<option value="not-selling">Not selling</option><option value="hidden">Hidden from Resident/New</option>' +
+          '<option value="featured">Featured</option>' +
+          '<option value="metadata-incomplete">Metadata incomplete</option><option value="coa-missing">Missing COA</option>' +
+          '<option value="uncategorized">Uncategorized</option><option value="missing-cost">Missing vendor cost</option>' +
+          '<option value="below-cost">Priced below cost</option><option value="archived">Archived</option>' +
+        '</select>' +
+      '</div>' +
+    '</details>' + bulkToolbarMarkup() + '</section>' +
     '<div id="catalog-bulk"></div>' +
     '<p class="queue-summary" id="catalog-summary" aria-live="polite"></p>' +
     '<section class="catalog-list" id="catalog-list"><div class="loading">Loading catalog…</div></section>'
@@ -555,6 +566,14 @@ export async function bindCatalogPage(helpers: Helpers) {
 
       const summary = document.querySelector<HTMLParagraphElement>('#catalog-summary')
       if (summary) summary.textContent = shown + ' of ' + pool + (state === 'archived' ? ' archived' : '') + ' products shown.'
+      // Keep active filters visible even while the hamburger panel is closed.
+      // The search, category and status values remain applied until changed.
+      const activeFilterCount=Number(Boolean(search))+Number(category!=='all')+Number(state!=='all')
+      const indicator=document.querySelector<HTMLElement>('#catalog-active-filters')
+      if(indicator){
+        indicator.hidden=activeFilterCount===0
+        indicator.textContent=activeFilterCount ? activeFilterCount+' active' : ''
+      }
     }
 
     const cardContext = (button: HTMLElement) => {
