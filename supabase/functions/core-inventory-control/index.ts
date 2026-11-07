@@ -225,6 +225,24 @@ Deno.serve(async req => {
       if (error) return json({error:"Could not receive purchase line: "+error.message},409);
       return json({success:true,receipt:data});
     }
+    if (action === "register_current_stock") {
+      const count=Number(body.total),damaged=Number(body.damaged);
+      if(!Number.isInteger(count)||count<1||count>100||
+        !Number.isInteger(damaged)||damaged<0||damaged>count)
+        return json({error:"Choose 1–100 exact physical units and a valid damaged count"},400);
+      const cost=cents(body.unitCost),shipping=cents(body.shipping),fees=cents(body.fees);
+      if(cost<=0)return json({error:"Provide the verified cost per unit"},400);
+      const expiry=text(body.expiryDate,10);
+      const {data,error}=await db.rpc("core_inventory_register_current_stock",{
+        p_product_id:text(body.productId,36),p_vendor_id:text(body.vendorId,36),
+        p_total:count,p_damaged:damaged,p_unit_cost:cost,
+        p_shipping:shipping,p_fees:fees,p_supplier_lot:text(body.supplierLot,120),
+        p_expiry:expiry||null,p_request_id:text(body.requestId,36),
+        p_actor_id:user.id,
+      });
+      if(error)return json({error:"Could not register current stock: "+error.message},409);
+      return json({success:true,receipt:data});
+    }
     if (action === "adjust_units") {
       const ids=body.unitIds;
       if (!Array.isArray(ids) || ids.length<1 || ids.length>100 ||

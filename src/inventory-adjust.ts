@@ -1,6 +1,5 @@
 import {
-  adjustInventoryUnits,createInventoryPurchase,loadLotAudit,
-  receiveInventoryPurchase,
+  adjustInventoryUnits,loadLotAudit,registerCurrentStock,
   type InventorySnapshot,type InventoryAuditLot,type TrackedStockAction,
 } from './services/inventory'
 
@@ -28,30 +27,28 @@ export function mountStockManager(
   const grid=element('div','inv-grid')
   target.replaceChildren(grid)
   const modes=new Map(data.settings.map(s=>[s.product_id,s.supply_mode]))
-  const activeVendors=new Map(data.vendors.filter(v=>v.active).map(v=>[v.id,v.name]))
-  const offers=data.offers.filter(o=>o.active && activeVendors.has(o.vendor_id) &&
-    modes.get(o.product_id)==='physical' && o.units_per_pack>0)
+  const products=data.products.filter(p=>modes.get(p.id)==='physical')
+  const vendors=data.vendors.filter(v=>v.active)
   const stock=element('section','inv-panel')
   stock.append(element('h2','','Add current physical stock'),
     element('p','inv-helper',
-      'Use this only for units not already tracked in Core. Each receipt creates a new lot and unique unit IDs. Existing units must never be added twice.'))
+      'Enter your exact on-hand count, even if it is fewer than a full kit. Core creates a new receipt, lot and unique unit IDs. Never enter units that Core already tracks.'))
   grid.append(stock)
-  if(!offers.length){
+  if(!products.length || !vendors.length) {
     stock.append(element('p','inv-empty',
-      'No active vendor offers for physical products. Add a vendor offering in the price book first.'))
-  }else{
+      'Classify a product as Physical stock and add an active inventory vendor first.'))
+  } else {
     const form=element<HTMLFormElement>('form','inv-form')
-    const pick=element<HTMLSelectElement>('select')
-    pick.required=true
-    for(const offer of offers){
-      const product=data.products.find(p=>p.id===offer.product_id)
-      option(pick,offer.id,(product?.product_code||product?.name||'Product')+
-        ' · '+activeVendors.get(offer.vendor_id)+' · '+offer.units_per_pack+' units/pack')
-    }
-    const packs=element<HTMLInputElement>('input')
-    Object.assign(packs,{type:'number',min:'1',max:'100',step:'1',value:'1',required:true})
+    const product=element<HTMLSelectElement>('select')
+    for(const item of products)option(product,item.id,(item.product_code||'—')+' · '+item.name)
+    const vendor=element<HTMLSelectElement>('select')
+    for(const item of vendors)option(vendor,item.id,item.name+' · '+item.code)
+    const total=element<HTMLInputElement>('input')
+    Object.assign(total,{type:'number',min:'1',max:'100',step:'1',value:'1',required:true})
     const damaged=element<HTMLInputElement>('input')
     Object.assign(damaged,{type:'number',min:'0',max:'100',step:'1',value:'0',required:true})
+    const unitCost=element<HTMLInputElement>('input')
+    Object.assign(unitCost,{type:'number',min:'0.01',max:'100000',step:'0.01',required:true,placeholder:'Actual or verified estimated cost per unit'})
     const supplierLot=element<HTMLInputElement>('input')
     Object.assign(supplierLot,{type:'text',maxLength:120,required:true,placeholder:'Lot printed on packaging'})
     const expiry=element<HTMLInputElement>('input')
@@ -65,72 +62,60 @@ export function mountStockManager(
     confirmed.type='checkbox';confirmed.required=true
     const confirmation=element('label','inv-field')
     confirmation.append(confirmed,element('span','',
-      'I have physically counted these units and confirm they are NOT already in Core.'))
-    const submit=element<HTMLButtonElement>('button','primary','Create tracked receipt')
+      'I counted these physical units and confirm they are NOT already in Core.'))
+    const submit=element<HTMLButtonElement>('button','primary','Record current stock')
     submit.type='submit'
     const notice=element('p','inv-helper')
     form.append(
-      label('Product / supplier offering',pick),
-      label('Number of packs',packs),
-      label('Damaged units within this receipt',damaged),
+      label('Core product',product),label('Source vendor',vendor),
+      label('Actual total units',total),label('Damaged within this count',damaged),
+      label('Purchase cost per unit ($)',unitCost),
       label('Supplier lot number',supplierLot),
       label('Expiry date (if printed)',expiry),
-      label('Actual vendor shipping ($)',freight),
-      label('Other actual fees ($)',fees),
+      label('Original inbound shipping ($)',freight),
+      label('Original other fees ($)',fees),
       preview,confirmation,submit,notice
     )
     stock.append(form)
-    const selectedOffer=()=>offers.find(o=>o.id===pick.value)
     const update=()=>{
-      const offer=selectedOffer()
-      const expected=(offer?.units_per_pack||0)*quantity(packs.value)
-      const unusable=quantity(damaged.value)
-      preview.textContent='New units: '+expected+' total · '+(expected-unusable)+
-        ' available · '+unusable+' damaged. Limit: 100 units per receipt.'
+      const count=quantity(total.value),bad=quantity(damaged.value)
+      preview.textContent='New units: '+count+' total · '+(count-bad)+
+        ' available · '+bad+' damaged. Existing Core stock remains recorded separately.'
     }
-    pick.addEventListener('change',update)
-    packs.addEventListener('input',update)
+    total.addEventListener('input',update)
     damaged.addEventListener('input',update)
     update()
-    let poRequest=crypto.randomUUID(),receiptRequest=crypto.randomUUID()
-    let started=false
+    let request=crypto.randomUUID(),started=false
     form.addEventListener('submit',async e=>{
       e.preventDefault()
-      const offer=selectedOffer()
-      const count=Number(packs.value),bad=Number(damaged.value)
-      const expected=(offer?.units_per_pack||0)*count
-      const shipping=Number(freight.value),extraFees=Number(fees.value)
-      if(!offer||!Number.isInteger(count)||count<1||!Number.isInteger(bad)||
-        bad<0||bad>expected||expected>100||!supplierLot.value.trim()||
-        !Number.isFinite(shipping)||shipping<0||!Number.isFinite(extraFees)||extraFees<0||
-        !confirmed.checked){
-        message(notice,'Check quantities, supplier lot and the duplicate-stock confirmation.')
+      const count=Number(total.value),bad=Number(damaged.value),
+        cost=Number(unitCost.value),ship=Number(freight.value),fee=Number(fees.value)
+      if(!Number.isInteger(count)||count<1||count>100||!Number.isInteger(bad)||
+        bad<0||bad>count||!Number.isFinite(cost)||cost<=0||
+        !Number.isFinite(ship)||ship<0||!Number.isFinite(fee)||fee<0||
+        !supplierLot.value.trim()||!confirmed.checked){
+        message(notice,'Verify the exact units, cost, supplier lot, and duplicate-stock confirmation.')
         return
       }
-      if(!window.confirm('Create '+expected+' NEW tracked units? Existing Core stock will not be changed.'))return
+      if(!window.confirm('Register '+count+' NEW physical units? This creates a permanent tracked receipt.'))return
       submit.disabled=true
-      // Reuse these keys on retries. If receiving fails after PO creation,
-      // the open PO remains available in the existing Receive Inventory form.
       started=true
-      try{
-        const order=await createInventoryPurchase(offer.id,count,shipping,extraFees,poRequest)
-        await receiveInventoryPurchase({
-          orderId:order.purchase.id,accepted:expected-bad,damaged:bad,
-          supplierLot:supplierLot.value.trim(),expiryDate:expiry.value,requestId:receiptRequest,
+      try {
+        const result=await registerCurrentStock({
+          productId:product.value,vendorId:vendor.value,total:count,damaged:bad,
+          unitCost:cost,shipping:ship,fees:fee,supplierLot:supplierLot.value.trim(),
+          expiryDate:expiry.value,requestId:request,
         })
-        message(notice,'Stock received with unique lot and unit IDs.')
+        message(notice,result.receipt.already_received?'Receipt already recorded.':'Current stock recorded with unique lot and unit IDs.')
         await onRefresh()
-      }catch(err){
-        message(notice,(err instanceof Error?err.message:'Stock receipt failed')+
-          ' If a purchase order was created, finish it under Receive inventory; do not create another.')
-      }finally{
+      } catch(err) {
+        message(notice,err instanceof Error?err.message:'Current stock could not be recorded')
         submit.disabled=false
       }
     })
-    // Prevent accidental reuse of the same idempotency key with edited content.
     form.addEventListener('input',()=>{
-      if(started)notice.textContent='Receipt started. Keep the original values when retrying.'
-      else {poRequest=crypto.randomUUID();receiptRequest=crypto.randomUUID()}
+      if(started)notice.textContent='A receipt was submitted. Keep these values unchanged when retrying.'
+      else request=crypto.randomUUID()
     })
   }
 

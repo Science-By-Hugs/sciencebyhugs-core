@@ -891,6 +891,38 @@ begin
     raise exception 'Verified restoration failed'; end if;
 end $stock_review$;
 
+
+-- Exact opening-stock counts are not constrained to vendor pack multiples.
+\i supabase/migrations/20261107033000_core_inventory_opening_stock.sql
+select public.core_inventory_register_current_stock(
+  '22222222-2222-4222-8222-222222222221',
+  '11111111-1111-4111-8111-111111111111',
+  3,1,12.50,7.00,0,'ONHAND-2026-NEW',null,
+  'e3333333-3333-4333-8333-333333333333',
+  '99999999-9999-4999-8999-999999999999'
+);
+select public.core_inventory_register_current_stock(
+  '22222222-2222-4222-8222-222222222221',
+  '11111111-1111-4111-8111-111111111111',
+  3,1,12.50,7.00,0,'ONHAND-2026-NEW',null,
+  'e3333333-3333-4333-8333-333333333333',
+  '99999999-9999-4999-8999-999999999999'
+);
+do $opening_stock$
+begin
+  if (select count(*) from public.inventory_lots where supplier_lot='ONHAND-2026-NEW')<>1 then
+    raise exception 'Manual opening stock created duplicate lot'; end if;
+  if (select count(*) from public.inventory_units u join public.inventory_lots l on u.lot_id=l.id
+      where l.supplier_lot='ONHAND-2026-NEW' and u.state='available')<>2 then
+    raise exception 'On-hand available count was not exact'; end if;
+  if (select count(*) from public.inventory_units u join public.inventory_lots l on u.lot_id=l.id
+      where l.supplier_lot='ONHAND-2026-NEW' and u.state='damaged')<>1 then
+    raise exception 'On-hand damaged count was not exact'; end if;
+  if (select count(*) from public.inventory_movements m join public.inventory_lots l on m.lot_id=l.id
+      where l.supplier_lot='ONHAND-2026-NEW')<>3 then
+    raise exception 'Opening stock movement history incomplete'; end if;
+end $opening_stock$;
+
 -- The shipping RPC requires no blanket service_role UPDATE privilege.
 -- Simplified catalog schema below is for temporary tests only.
 alter table public.products add column active boolean not null default true;
