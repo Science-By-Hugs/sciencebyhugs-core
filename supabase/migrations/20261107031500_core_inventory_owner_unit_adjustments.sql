@@ -27,6 +27,7 @@ DECLARE
   v_ids uuid[];
   v_count integer := 0;
   v_delta integer;
+  v_expiry date;
 BEGIN
   IF p_lot_id IS NULL OR p_request_id IS NULL OR p_actor_id IS NULL
      OR p_action IS NULL OR p_action NOT IN ('damage','quarantine','restore_damaged','restore_quarantined')
@@ -48,7 +49,7 @@ BEGIN
     RETURN jsonb_build_object('action',p_action,'changed_units',cardinality(v_ids),'already_saved',true);
   END IF;
   -- Checkout reserve/commit locks lots before units. Maintain that order.
-  PERFORM 1 FROM public.inventory_lots WHERE id=p_lot_id FOR UPDATE;
+  SELECT expiry_date INTO v_expiry FROM public.inventory_lots WHERE id=p_lot_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Tracked lot not found'; END IF;
   -- Retry may have been committed during the lock wait.
   SELECT * INTO v_previous FROM public.inventory_owner_adjustments WHERE request_id=p_request_id;
@@ -64,6 +65,9 @@ BEGIN
       WHEN p_action='restore_damaged' THEN 'damaged' ELSE 'quarantined' END;
   v_new:=CASE WHEN p_action='damage' THEN 'damaged'
       WHEN p_action='quarantine' THEN 'quarantined' ELSE 'available' END;
+  IF v_new='available' AND v_expiry IS NOT NULL AND v_expiry<CURRENT_DATE THEN
+    RAISE EXCEPTION 'Expired lots cannot be restored to available stock';
+  END IF;
   v_delta:=CASE WHEN v_old='available' THEN -1 ELSE 1 END;
   FOR v_unit IN
     SELECT id,product_id,lot_id,state FROM public.inventory_units
