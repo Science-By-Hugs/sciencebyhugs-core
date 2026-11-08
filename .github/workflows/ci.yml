@@ -87,6 +87,11 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h 127.0.0.1 -U postgres -d inventory_test -v ON_ERROR_STOP=1 -f tests/core-financial-reconciliation-db.sql
 
+      - name: Outbound expense category PostgreSQL migration (temporary database, rollback)
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d inventory_test -v ON_ERROR_STOP=1 -f tests/core-monthly-pnl-expense-category-db.sql
+
       - name: Monthly Profit and Loss PostgreSQL integration (temporary database, rollback)
         env:
           PGPASSWORD: postgres
