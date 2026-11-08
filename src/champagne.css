@@ -1011,3 +1011,151 @@ body button:disabled{opacity:.6}
   line-height:1!important;
   letter-spacing:-.055em!important;
 }
+
+
+/* Core Marketing · Owner-first, black & gold. Reuses existing referral and discount services. */
+#referrals-root{display:grid;gap:12px;min-width:0}
+#referrals-root .referral-panel{
+  margin:0;padding:16px!important;background:var(--core-surface)!important;
+  border:1px solid var(--core-border)!important;border-radius:12px!important;min-width:0;
+}
+.marketing-hero{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  padding:20px;min-width:0;background:var(--core-surface);
+  border:1px solid var(--core-border);border-left:3px solid var(--core-gold);border-radius:12px
+}
+.marketing-hero>div{min-width:0}
+.marketing-kicker{display:block;color:var(--core-gold);font-size:10px;font-weight:800;letter-spacing:.08em;margin-bottom:7px}
+.marketing-hero h2{color:var(--core-ivory);font-size:22px;font-weight:720;letter-spacing:-.025em;line-height:1.25;margin:0}
+.marketing-hero p{max-width:65ch;margin:8px 0 0;color:var(--core-muted);font-size:12px;line-height:1.55}
+.marketing-hero-action{
+  display:flex!important;align-items:center;justify-content:space-between;gap:14px;
+  flex:0 0 auto;min-height:44px;padding:10px 14px!important;border-radius:9px!important;
+  border:1px solid var(--core-gold)!important;background:var(--core-gold)!important;
+  color:var(--core-black)!important;font-size:12px!important;font-weight:750!important
+}
+.marketing-hero-action span{font-size:18px}
+.marketing-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;min-width:0}
+.marketing-metric{
+  min-width:0;display:grid;align-content:start;gap:5px;padding:14px;
+  border:1px solid var(--core-border);background:var(--core-surface);border-radius:10px;
+}
+.marketing-metric>span{font-size:11px;color:var(--core-muted)}
+.marketing-metric strong{color:var(--core-ivory);font-size:22px;font-weight:750;line-height:1.25;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.marketing-metric small{color:var(--core-muted);font-size:11px;line-height:1.35}
+.marketing-summary .marketing-metric:last-child{border-color:#6C5A3C}
+.marketing-summary .marketing-metric:last-child strong{color:var(--core-gold)}
+.marketing-disclosure{
+  min-width:0;display:block;background:var(--core-surface);border:1px solid var(--core-border);
+  border-radius:12px;overflow:hidden;margin:0
+}
+.marketing-disclosure>summary{
+  display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;min-height:50px;
+  padding:13px 16px;box-sizing:border-box;color:var(--core-ivory);font-size:13px;
+}
+.marketing-disclosure>summary::-webkit-details-marker{display:none}
+.marketing-disclosure>summary>span:first-child{flex:1;min-width:0}
+.marketing-disclosure>summary strong{font-size:14px;font-weight:710;display:block}
+.marketing-disclosure>summary small{font-size:11px;color:var(--core-muted);margin-top:4px;display:block;line-height:1.4}
+.marketing-disclosure>summary::after{content:'+';font-size:19px;color:var(--core-gold);line-height:1;flex:0 0 auto}
+.marketing-disclosure[open]>summary::after{content:'−'}
+.marketing-disclosure>summary:focus-visible{outline:2px solid var(--core-gold)!important;outline-offset:-3px}
+.marketing-count{
+  border:1px solid var(--core-border);border-radius:40px;padding:4px 8px;
+  color:var(--core-gold);font-size:11px!important;font-weight:650;white-space:nowrap
+}
+.marketing-disclosure-body{display:grid;gap:12px;padding:0 14px 14px;min-width:0}
+.marketing-extra-kpis>summary{font-size:12px;color:var(--core-gold)}
+.marketing-additional-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:0 12px 12px}
+.marketing-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.marketing-shortcuts>a,.marketing-shortcuts>button{
+  min-height:44px;display:flex!important;align-items:center;justify-content:center;text-align:center;
+  min-width:0;border:1px solid var(--core-border)!important;border-radius:9px!important;
+  background:var(--core-surface)!important;color:var(--core-ivory)!important;
+  text-decoration:none;padding:9px!important;box-sizing:border-box;font-size:12px!important;font-weight:680!important
+}
+.marketing-shortcuts>a:hover,.marketing-shortcuts>button:hover{background:var(--core-raised)!important}
+.marketing-section-head{display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.marketing-section-head h2{color:var(--core-ivory);font-size:17px;font-weight:750;margin:0}
+.marketing-record-count{color:var(--core-muted);font-size:11px}
+.marketing-toolbar{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:9px;margin-bottom:13px}
+.marketing-toolbar label{min-width:0}
+.marketing-toolbar input,.marketing-toolbar select,.marketing-record-filter select{
+  width:100%;min-width:0;min-height:44px;box-sizing:border-box;padding:0 11px!important;
+  border:1px solid var(--sl-control)!important;border-radius:9px!important;
+  background:var(--core-black)!important;color:var(--core-ivory)!important;font-size:13px!important
+}
+.marketing-customer-list,.marketing-referral-list,.marketing-reward-list{min-width:0}
+.marketing-customer-row{
+  display:grid;grid-template-columns:minmax(130px,1.4fr) minmax(110px,1fr) minmax(120px,1fr) minmax(80px,.65fr);
+  align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--core-border);font-size:12px;min-width:0
+}
+.marketing-customer-row[hidden],.marketing-referral-row[hidden],
+.marketing-empty[hidden]{display:none!important}
+.marketing-customer-row>div{min-width:0;overflow-wrap:anywhere}
+.marketing-customer-row a,.marketing-referral-row a{font-weight:750;text-decoration:none;color:var(--core-gold)!important}
+.marketing-customer-row strong{display:block;color:var(--core-ivory);font-weight:700}
+.marketing-customer-row small{display:block;color:var(--core-muted);font-size:11px;line-height:1.5;margin-top:4px}
+.marketing-customer-reward{text-align:right}
+.marketing-customer-reward strong{color:var(--core-gold);font-size:17px;font-variant-numeric:tabular-nums}
+.marketing-referral-row{
+  display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,.8fr) minmax(0,.7fr);
+  align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--core-border);font-size:12px
+}
+.marketing-record-people{display:grid;gap:5px;min-width:0;overflow-wrap:anywhere}
+.marketing-record-people span{color:var(--core-muted)}
+.marketing-referral-row strong{color:var(--core-ivory)}
+.marketing-record-status small,.marketing-record-order span{display:block;color:var(--core-muted);font-size:11px;line-height:1.4;margin-top:3px}
+.marketing-record-filter{display:grid;gap:5px;max-width:260px;font-size:11px;color:var(--core-muted)}
+.marketing-reward-row{
+  display:flex;align-items:start;justify-content:space-between;gap:12px;min-width:0;
+  padding:12px 0;border-top:1px solid var(--core-border);font-size:12px
+}
+.marketing-reward-row>div:first-child{min-width:0;overflow-wrap:anywhere}
+.marketing-reward-row strong{display:block;color:var(--core-ivory)}
+.marketing-reward-row small{display:block;margin-top:4px;color:var(--core-muted);font-size:11px;line-height:1.4}
+.marketing-reward-meta{text-align:right;flex:0 0 auto}
+.marketing-status{display:inline-block;border:1px solid #6C5A3C;border-radius:40px;padding:5px 8px;font-size:11px;color:var(--core-gold)}
+.marketing-empty{margin:0;padding:15px;color:var(--core-muted);font-size:12px;line-height:1.5}
+.marketing-footnote{margin:0;color:var(--core-muted);font-size:11px;line-height:1.5}
+#referrals-root .referral-milestones{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+#referrals-root .referral-milestones>div{
+  background:var(--core-black)!important;border:1px solid var(--core-border)!important;
+  border-radius:10px!important;min-width:0;padding:12px
+}
+#referrals-root .referral-milestones span{color:var(--core-gold);font-size:11px}
+#referrals-root .referral-milestones strong{display:block;color:var(--core-ivory);font-size:13px;line-height:1.4}
+#referrals-root .referral-milestones small{display:block;color:var(--core-muted);font-size:11px;line-height:1.4}
+#referrals-root .referral-warning{color:#E7BC74;border-color:#6C5A3C;background:#191A1B;border-radius:9px}
+#referrals-root .marketing-promotions .discount-admin-panel{
+  padding:0!important;border:0!important;background:transparent!important;
+}
+#referrals-root .marketing-promotions .discount-admin-panel>.dashboard-section-head{display:none}
+#referrals-root .marketing-promotions .discount-create{margin-top:0}
+#referrals-root .marketing-promotions .discount-code-list{min-width:0}
+@media(max-width:1050px){
+  .marketing-customer-row{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);row-gap:10px}
+  .marketing-customer-reward{text-align:left}
+  .marketing-additional-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+  .marketing-hero{flex-direction:column;align-items:stretch;padding:16px;gap:14px}
+  .marketing-hero-action{width:100%}
+  .marketing-hero h2{font-size:20px}
+  .marketing-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .marketing-summary>.marketing-metric:last-child:nth-child(odd){grid-column:1/-1}
+  .marketing-shortcuts{grid-template-columns:1fr}
+  .marketing-toolbar{grid-template-columns:1fr}
+  .marketing-customer-row{grid-template-columns:1fr 1fr;gap:11px 10px}
+  .marketing-customer-name{grid-column:1/-1}
+  .marketing-referral-row{grid-template-columns:1fr 1fr}
+  .marketing-record-people{grid-column:1/-1}
+  .marketing-reward-row{flex-direction:column;gap:8px}
+  .marketing-reward-meta{text-align:left}
+  #referrals-root .referral-milestones{grid-template-columns:1fr}
+  .marketing-additional-metrics{grid-template-columns:1fr 1fr}
+}
+@media(max-width:390px){
+  .marketing-summary,.marketing-additional-metrics{grid-template-columns:1fr}
+  .marketing-summary>.marketing-metric:last-child:nth-child(odd){grid-column:auto}
+}
