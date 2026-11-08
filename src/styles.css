@@ -2220,3 +2220,14 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
 .danger-zone-row{display:flex;gap:8px;flex-wrap:wrap}
 .danger-zone-row input{flex:1;min-width:200px;min-height:38px;border-radius:10px;border:1px solid #3a2a2a;background:#090909;color:var(--text);padding:0 12px}
 .deleted-tag{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;font-size:.62rem;letter-spacing:.04em;vertical-align:middle;color:#e18a8a;border:1px solid rgba(225,138,138,.4)}
+
+
+/* Editable business names are labels only. Checkout identity stays immutable. */
+.catalog-shipping-source{border:1px solid var(--border,#34383C);border-radius:12px;padding:12px;background:var(--surface)}
+.catalog-source-id{display:block;font-size:.7rem;font-weight:400;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.catalog-display-row{display:flex;gap:8px;align-items:end;margin-top:9px;padding-top:9px;border-top:1px solid #34383C}
+.catalog-display-row label{display:grid;gap:5px;flex:1 1 auto;min-width:0}
+.catalog-display-row label span{font-size:.7rem;color:var(--muted)}
+.catalog-display-row input{width:100%;box-sizing:border-box;min-height:42px;border:1px solid #34383C;border-radius:10px;background:#090909;color:var(--text);padding:0 10px;font:inherit}
+.catalog-display-row button{min-height:42px}
+@media(max-width:760px){.catalog-display-row{flex-direction:column;align-items:stretch}.catalog-display-row button{width:100%}}
