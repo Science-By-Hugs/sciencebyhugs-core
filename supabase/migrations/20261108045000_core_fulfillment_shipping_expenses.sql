@@ -155,7 +155,7 @@ BEGIN
   );
   RETURN to_jsonb(v_new);
 END;
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION public.core_manage_finance_expense(text,jsonb,timestamptz,uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.core_manage_finance_expense(text,jsonb,timestamptz,uuid,text) TO service_role;
