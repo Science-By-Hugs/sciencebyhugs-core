@@ -536,7 +536,20 @@ export async function bindInventoryPage(
       if(reorder) reorder.value=String(current?.reorder_point||0)
     }
     classifiedProduct?.addEventListener('change',updateClassification)
+    // An explicit Catalog readiness link selects the exact product and opens
+    // the existing audited classification form. Never infer a supply mode from
+    // shipping source, product name, product type, or storefront status.
+    const classifyId=new URLSearchParams(location.hash.split('?')[1]||'').get('classify')
+    const canDeepLink=Boolean(classifyId && data.products.some(p=>p.id===classifyId))
+    if(canDeepLink && classifiedProduct && classifyId)classifiedProduct.value=classifyId
     updateClassification()
+    if(canDeepLink){
+      const panel=root.querySelector<HTMLDetailsElement>('details[data-core-panel="classification"]')
+      if(panel){
+        panel.open=true
+        requestAnimationFrame(()=>panel.isConnected && panel.scrollIntoView({block:'start',behavior:'smooth'}))
+      }
+    }
     form('inv-classify-product',async f=>{
       await classifyInventoryProduct(val(f,'productId'),
         val(f,'supplyMode') as 'unreviewed'|'physical'|'vendor',num(f,'reorderPoint'))

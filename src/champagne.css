@@ -1296,3 +1296,29 @@ body button:disabled{opacity:.6}
   .dc-delete-dialog-inner{padding:16px}
   .dc-delete-dialog .dc-delete-actions{grid-template-columns:1fr}
 }
+
+
+/* Core ↔ Nexus catalog readiness. Listing status is not an inventory promise. */
+#catalog-supply-review:empty{display:none}
+.catalog-supply-alert{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  min-width:0;margin:12px 0 15px;padding:15px 17px;
+  border:1px solid #826C42;border-left:3px solid var(--core-gold);
+  border-radius:11px;background:var(--core-surface)
+}
+.catalog-supply-alert>div{min-width:0}
+.catalog-supply-alert h2{font-size:16px;line-height:1.4;letter-spacing:-.01em;color:var(--core-ivory);margin:3px 0 5px}
+.catalog-supply-alert p{color:var(--core-muted);font-size:12px;line-height:1.6;margin:0;max-width:70ch}
+.catalog-supply-actions{display:flex;flex-wrap:wrap;gap:7px;flex:0 1 48%;justify-content:flex-end}
+.catalog-supply-actions a{
+  display:flex;align-items:center;justify-content:center;min-height:44px;min-width:0;
+  border-radius:9px;border:1px solid #826C42;padding:9px 12px;box-sizing:border-box;
+  background:var(--core-raised);color:var(--core-gold);font-weight:750;font-size:12px;
+  text-decoration:none;text-align:center;overflow-wrap:anywhere
+}
+.catalog-supply-actions a:focus-visible{outline:2px solid var(--core-gold);outline-offset:2px}
+@media(max-width:760px){
+  .catalog-supply-alert{flex-direction:column;align-items:stretch;padding:14px}
+  .catalog-supply-actions{flex:1 1 auto;justify-content:stretch}
+  .catalog-supply-actions a{flex:1 1 100%}
+}
