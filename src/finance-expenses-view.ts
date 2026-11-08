@@ -15,6 +15,7 @@ let expenseNotice=''
 const CATEGORIES:Array<[FinanceExpenseCategory,string]>=[
   ['inventory_purchase','Vendor merchandise / inventory'],
   ['vendor_shipping','Inbound vendor shipping'],
+  ['fulfillment_shipping','Outbound delivery & shipping'],
   ['processing_fee','Payment / processing fee'],
   ['software','Software & services'],
   ['marketing','Marketing'],
