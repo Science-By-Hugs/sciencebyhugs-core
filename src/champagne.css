@@ -1345,3 +1345,13 @@ body button:disabled{opacity:.6}
   .catalog-rename-dialog-inner{padding:15px}
   .catalog-rename-buttons{grid-template-columns:1fr}
 }
+
+/* Mobile-safe five-column shipping management. */
+.catalog-rate-row:not(.catalog-rate-new){grid-template-columns:minmax(0,1fr) 92px auto auto auto}
+.catalog-rate-row:not(.catalog-rate-new) .compact{min-height:44px}
+@media(max-width:760px){
+ .catalog-rate-row:not(.catalog-rate-new){grid-template-columns:repeat(2,minmax(0,1fr))}
+ .catalog-rate-row:not(.catalog-rate-new)>strong,
+ .catalog-rate-row:not(.catalog-rate-new)>.catalog-rate-input,
+ .catalog-rate-row:not(.catalog-rate-new)>.rename-rate{grid-column:1/-1}
+}
