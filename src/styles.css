@@ -2156,6 +2156,7 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
 .catalog-rate-list{display:grid;gap:8px;margin-top:14px}
 .catalog-rate-row{display:grid;grid-template-columns:minmax(0,1fr) 96px auto auto;gap:8px;align-items:center}
 .catalog-rate-row strong{font-size:.8rem;overflow-wrap:anywhere}
+.catalog-founder-waiver-badge{display:block;margin-top:4px;color:var(--primary);font-weight:650;font-size:.73rem;line-height:1.45}
 .catalog-rate-row input{width:100%;min-height:38px;border:1px solid #34383C;border-radius:10px;background:#090909;color:var(--text);padding:0 10px;outline:none;font:inherit}
 .catalog-rate-new{grid-template-columns:minmax(0,1fr) 96px auto;margin-top:12px;padding-top:12px;border-top:1px solid #34383C}
 .catalog-rate-message{min-height:1em;margin:8px 0 4px}
