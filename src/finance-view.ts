@@ -88,6 +88,15 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
         '<div class="report-key-figure"><span>Recorded gross profit</span><strong>' + profitDisplay + '</strong><small>Only ' + costedLines + ' of ' + t.lines + ' sales lines have costs</small></div>' +
         '<div><span>Recorded vendor costs</span><strong>' + money(t.vendor_cost) + '</strong><small>Costs captured at the time of sale</small></div>' +
       '</section>' +
+      '<section class="finance-quality' + (t.uncosted_lines ? ' finance-quality-partial' : '') + '" aria-label="Cost coverage">' +
+        '<div class="finance-quality-head"><div><span class="eyebrow">HISTORICAL COST COVERAGE</span>' +
+          '<strong>' + (t.lines ? coverage + '% of sold lines have recorded costs' : 'No sales lines this period') + '</strong>' +
+          '<small>' + costedLines + ' costed · ' + t.uncosted_lines + ' missing historical costs</small></div>' +
+          '<span class="finance-quality-count">' + costedLines + ' / ' + t.lines + '</span></div>' +
+        '<div class="finance-quality-meter" role="progressbar" aria-label="Costed sold lines" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + coverage + '">' +
+          '<span style="width:' + coverage + '%"></span></div>' +
+        '<p>This gross profit is based only on costed product lines. It is <strong>not total business profit</strong>. Discounts, shipping expense, payment fees, taxes and overhead are not deducted.</p>' +
+      '</section>' +
       '<details class="report-expander report-profit-extra"><summary>Discounts, margin & markup</summary>' +
         '<section class="finance-kpis report-finance-extra">' +
           '<div><span>Discounts given</span><strong>' + money(t.discounts) + '</strong><small>Net sales ' + money(t.net_sales) + '</small></div>' +
@@ -101,17 +110,18 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
           ' of sales) had no vendor cost on file when they sold, so they are left out of profit. ' +
           'Earlier orders may not have had costs recorded. <a href="#products?section=catalog">Check the catalog</a></p>'
         : '') +
-      '<p class="finance-note">Profit uses each item\'s vendor cost captured at the moment of sale, so later cost changes never rewrite past profit. ' +
-      'Sales are line totals before order discounts; discounts, shipping, processing fees and tax are shown or handled separately. ' +
-      'Catalog: ' + r.catalog.with_cost + ' of ' + r.catalog.products + ' products have a vendor cost' +
+      '<p class="finance-note">Profit uses recorded vendor-cost snapshots from each sale. Missing historical costs are never estimated automatically. ' +
+      'Sales are product-line totals before order discounts; they are not bank deposits. ' +
+      'Current catalog: ' + r.catalog.with_cost + ' of ' + r.catalog.products + ' products have a vendor cost' +
       (r.catalog.avg_margin_pct !== null ? ' · average list margin ' + pct(r.catalog.avg_margin_pct) : '') +
       (r.catalog.selling_without_cost ? ' · <strong>' + r.catalog.selling_without_cost + ' selling without a cost</strong> (Catalog → filter “Missing vendor cost”)' : '') + '.</p>' +
+      '<p class="finance-note">Date filters use the paid-at timestamp. A paid order without that timestamp can be missing from a selected period even when it appears in all-time results.</p>' +
       '<details class="report-expander report-profit-breakdown"><summary>Product & monthly profit breakdown</summary>' +
         '<div class="finance-columns">' +
           '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">BY PRODUCT</span><h2>Profit by product</h2></div></div>' +
-            rows(productRows ? [productRows] : []) + '</section>' +
+            rows(productRows ? [productRows] : [], 'No paid product lines for this period.') + '</section>' +
           '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">BY MONTH</span><h2>Monthly profit</h2></div></div>' +
-            rows(monthRows ? [monthRows] : []) + '</section>' +
+            rows(monthRows ? [monthRows] : [], 'No monthly profit entries for this period.') + '</section>' +
         '</div></details>' +
       (belowCost
         ? '<section class="finance-panel report-cost-alert"><div class="dashboard-section-head"><div><span class="eyebrow">ATTENTION</span><h2>Priced below vendor cost</h2></div><a href="#products?section=catalog">Open Catalog</a></div>' + belowCost + '</section>'
