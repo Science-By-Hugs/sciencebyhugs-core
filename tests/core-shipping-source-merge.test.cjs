@@ -35,7 +35,7 @@ test('Source merge preserves existing matching rate and moves product assignment
  assert.doesNotMatch(sql,/UPDATE public\.orders|UPDATE public\.invoices|DELETE FROM public\.products/i)
 })
 test('Core shipping UI has safe rename and rate-aware target selection',()=>{
- assert.match(view,/function shippingPanel\(rates: Record<string, number>, products: CoreCatalogProduct\[\], helpers: Helpers\)/)
+ assert.match(view,/function shippingPanel\(rates: Record<string, number>, products: CoreCatalogProduct\[\], labels: Record<string, string>, helpers: Helpers\)/)
  assert.match(view,/class="ghost compact rename-rate"/)
  assert.match(view,/class="catalog-rename-dialog"/)
  assert.match(view,/class="catalog-rename-target"/)
