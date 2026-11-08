@@ -225,7 +225,7 @@ function render(data:FinanceExpenseSnapshot,helpers:Helpers){
         vendor_id:get('vendor_id')||null,purchase_order_id:get('purchase_order_id')||null,
         reference_number:get('reference_number'),notes:get('notes')
       }
-      if(!/^\\d+(\\.\\d{1,2})?$/.test(payload.amount)||Number(payload.amount)<=0){
+      if(!/^[0-9]+([.][0-9]{1,2})?$/.test(payload.amount)||Number(payload.amount)<=0){
         const el=form.querySelector<HTMLElement>('.expense-form-message')
         if(el)el.textContent='Enter a positive amount with at most two decimals.'
         return
