@@ -147,6 +147,7 @@ export async function bindFinancePage(helpers: Helpers) {
 
   try {
     const data = await loadCoreFinance()
+    if (!root.isConnected) return
     const s = data.summary
     // This summary is derived exclusively from the existing authorized finance response.
     const priority = s.payment_review_count > 0
@@ -168,12 +169,18 @@ export async function bindFinancePage(helpers: Helpers) {
           '<p>' + helpers.escapeHtml(priority.detail) + '</p></div>' +
         '<a href="' + priority.href + '" class="report-priority-action">' + helpers.escapeHtml(priority.action) + ' <span aria-hidden="true">→</span></a>' +
       '</section>' +
-      '<div class="report-section-heading"><h2>Money at a glance</h2><span>Operational figures · not bank reconciliation</span></div>' +
+      '<div class="report-section-heading"><h2>Money at a glance</h2><span>All-time order values · not bank deposits</span></div>' +
       '<section class="finance-kpis report-finance-featured">' +
-        '<div><span>Paid revenue</span><strong>' + helpers.money(s.paid_revenue) + '</strong><small>' + s.paid_orders + ' paid orders</small></div>' +
-        '<div class="report-key-figure"><span>Payment needs review</span><strong>' + helpers.money(s.payment_review_value) + '</strong><small>' + s.payment_review_count + ' submitted payments</small></div>' +
-        '<div><span>Open order value</span><strong>' + helpers.money(s.open_order_value) + '</strong><small>Not recorded as paid</small></div>' +
+        '<div class="report-key-figure"><span>Paid order revenue</span><strong>' + helpers.money(s.paid_revenue) + '</strong><small>' + s.paid_orders + ' orders marked paid</small></div>' +
+        '<div><span>Submitted · unverified</span><strong>' + helpers.money(s.payment_review_value) + '</strong><small>' + s.payment_review_count + ' payments need confirmation</small></div>' +
+        '<div><span>Open order value</span><strong>' + helpers.money(s.open_order_value) + '</strong><small>Not marked as paid</small></div>' +
       '</section>' +
+      '<div class="finance-scope-note"><strong>What these numbers mean:</strong> Paid revenue uses orders marked paid, not bank deposits. Submitted payments are still unverified. Open orders and invoice totals can overlap; never add these cards together as cash.</div>' +
+      '<nav class="finance-shortcuts" aria-label="Finance shortcuts">' +
+        '<a href="#orders">Orders & payments</a>' +
+        '<a href="#products?section=catalog">Product costs</a>' +
+        '<a href="#finance-profit" data-finance-profit-link>Profit & cost coverage ↓</a>' +
+      '</nav>' +
       '<details class="report-expander report-finance-extra-wrap"><summary>More financial figures</summary>' +
         '<section class="finance-kpis report-finance-extra">' +
           '<div><span>Sent unpaid invoices</span><strong>' + helpers.money(s.sent_unpaid_invoice_value) + '</strong><small>Invoice receivables</small></div>' +
@@ -181,7 +188,7 @@ export async function bindFinancePage(helpers: Helpers) {
           '<div><span>Verified records</span><strong>' + helpers.money(s.verified_payment_total) + '</strong><small>' + s.verified_payment_records + ' payment records</small></div>' +
         '</section>' +
       '</details>' +
-      '<div class="report-section-heading"><h2>Needs review</h2><span>Live payment and invoice records</span></div>' +
+      '<div class="report-section-heading"><h2>Needs review</h2><span>Payments and invoices awaiting action</span></div>' +
 
       '<div class="finance-columns">' +
         '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">RECEIVABLES</span><h2>Invoice aging</h2></div><a href="#orders">Open Orders</a></div>' +
@@ -189,7 +196,7 @@ export async function bindFinancePage(helpers: Helpers) {
             '<div class="finance-row"><span><strong>' + helpers.escapeHtml(item.invoice_number) + '</strong><small>' +
             helpers.escapeHtml(item.customer_name) + '</small></span><span>' + helpers.escapeHtml(item.bucket) +
             '<small>' + item.age_days + ' days</small></span><strong>' + helpers.money(item.total) + '</strong></div>'
-          )) +
+          ), 'No sent unpaid invoices to follow up.') +
         '</section>' +
 
         '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">PAYMENT REVIEW</span><h2>Submitted, not verified</h2></div><a href="#orders">Review Orders</a></div>' +
@@ -197,7 +204,7 @@ export async function bindFinancePage(helpers: Helpers) {
             '<div class="finance-row"><span><strong>' + helpers.escapeHtml(item.customer_name) + '</strong><small>' +
             helpers.escapeHtml(item.provider || 'Unspecified') + '</small></span><span>' +
             helpers.escapeHtml(helpers.dateTime(item.submitted_at)) + '</span><strong>' + helpers.money(item.amount) + '</strong></div>'
-          )) +
+          ), 'No submitted payments await verification.') +
         '</section>' +
       '</div>' +
 
@@ -222,7 +229,7 @@ export async function bindFinancePage(helpers: Helpers) {
         rows(data.monthly.map(item =>
           '<div class="finance-row"><span><strong>' + helpers.escapeHtml(item.month) + '</strong></span><span>' +
           item.orders + ' paid orders</span><strong>' + helpers.money(item.revenue) + '</strong></div>'
-        )) +
+        ), 'No paid monthly revenue records yet.') +
       '</section>' +
       '</details>' +
       '<p class="dashboard-generated">Finance generated ' + helpers.escapeHtml(helpers.dateTime(data.generated_at)) + '</p>'
