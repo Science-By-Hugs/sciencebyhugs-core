@@ -5,6 +5,7 @@ export type CoreFinancePayload = {
   summary: {
     paid_revenue: number
     paid_orders: number
+    undated_paid_orders?: number
     verified_payment_records: number
     verified_payment_total: number
     open_order_value: number
@@ -68,6 +69,8 @@ export type ProfitReport = {
     costed_sales: number
     uncosted_sales: number
     uncosted_lines: number
+    reconciled_cost_lines: number
+    reconciled_paid_dates: number
     gross_profit: number
     margin_pct: number | null
     markup_pct: number | null
