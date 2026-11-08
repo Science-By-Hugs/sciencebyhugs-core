@@ -1508,3 +1508,77 @@ body button:disabled{opacity:.6}
   #finance-expenses .expense-vendor-row{grid-template-columns:minmax(0,1fr) auto}
   #finance-expenses .expense-vendor-row small{grid-column:1}
 }
+
+
+/* Core Finances | owner-only reconciliation review, premium black & champagne */
+#finance-reconciliation{--recon-gold:#D6AF61;--recon-panel:#131516;--recon-line:#35383b;--recon-muted:#abb0b7;
+ color:#F3F4F5;display:grid;gap:16px;scroll-margin-top:82px;min-width:0;margin-top:20px}
+#finance-reconciliation .dashboard-section-head{align-items:center;gap:12px;flex-wrap:wrap;margin:0}
+#finance-reconciliation .dashboard-section-head h2{font-size:21px;margin:2px 0}
+#finance-reconciliation .reconcile-label{display:inline-block;font-size:12px;border:1px solid #75603a;
+ color:var(--recon-gold);border-radius:99px;padding:7px 11px;font-weight:700}
+#finance-reconciliation .reconcile-intro,#finance-reconciliation .reconcile-scope,#finance-reconciliation .reconcile-footnote{
+ font-size:12px;line-height:1.65;color:var(--recon-muted);margin:0}
+#finance-reconciliation .reconcile-intro strong,#finance-reconciliation .reconcile-scope strong{color:#F3F4F5}
+#finance-reconciliation .reconcile-notice{border:1px solid #9A8052;border-radius:10px;
+ background:#282317;color:var(--recon-gold);padding:12px;font-size:12px;line-height:1.5;margin:0}
+#finance-reconciliation .reconcile-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+#finance-reconciliation .reconcile-kpis>div{border:1px solid var(--recon-line);border-radius:13px;
+ padding:16px;background:var(--recon-panel);min-width:0;display:grid;gap:5px}
+#finance-reconciliation .reconcile-kpis>div:first-child{background:#22211e;border-color:#725e3e}
+#finance-reconciliation .reconcile-kpis small,#finance-reconciliation .reconcile-kpis span{font-size:11px;line-height:1.45;color:var(--recon-muted)}
+#finance-reconciliation .reconcile-kpis strong{font-size:25px;color:var(--recon-gold);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+#finance-reconciliation .reconcile-scope{border-left:3px solid var(--recon-gold);background:#201e1a;
+ padding:11px 13px;border-radius:0 9px 9px 0}
+#finance-reconciliation .reconcile-sections{display:grid;gap:11px}
+#finance-reconciliation .reconcile-section{border:1px solid var(--recon-line);background:var(--recon-panel);
+ border-radius:12px;min-width:0;overflow:hidden}
+#finance-reconciliation .reconcile-section>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;
+ cursor:pointer;list-style:none;min-height:52px;padding:15px 17px;font-weight:700;font-size:13px}
+#finance-reconciliation .reconcile-section>summary::-webkit-details-marker,
+#finance-reconciliation .reconcile-edit>summary::-webkit-details-marker{display:none}
+#finance-reconciliation .reconcile-section>summary strong{color:var(--recon-gold);font-size:14px;white-space:nowrap}
+#finance-reconciliation .reconcile-section[open]>summary{border-bottom:1px solid var(--recon-line)}
+#finance-reconciliation .reconcile-records{display:grid;gap:0;padding:0 16px}
+#finance-reconciliation .reconcile-record,#finance-reconciliation .reconcile-po{
+ padding:14px 0;border-bottom:1px solid var(--recon-line);min-width:0}
+#finance-reconciliation .reconcile-record:last-child,#finance-reconciliation .reconcile-po:last-child{border-bottom:0}
+#finance-reconciliation .reconcile-record-head{display:flex;justify-content:space-between;align-items:start;gap:12px;min-width:0}
+#finance-reconciliation .reconcile-record-head>div{min-width:0}
+#finance-reconciliation .reconcile-record-head strong{font-size:13px;overflow-wrap:anywhere}
+#finance-reconciliation .reconcile-record-head>strong{font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#finance-reconciliation .reconcile-record-head small{display:block;color:var(--recon-muted);font-size:11px;margin-top:4px;line-height:1.45}
+#finance-reconciliation .reconcile-edit>summary{cursor:pointer;list-style:none;display:flex;align-items:center;
+ color:var(--recon-gold);font-size:12px;min-height:44px;font-weight:700}
+#finance-reconciliation .reconcile-edit[open]>summary{border-bottom:1px solid var(--recon-line)}
+#finance-reconciliation .reconcile-evidence-form,#finance-reconciliation .reconcile-match-form{
+ display:grid;gap:12px;padding:14px 0}
+#finance-reconciliation .reconcile-evidence-form label,#finance-reconciliation .reconcile-match-form label{
+ display:grid;gap:6px;color:var(--recon-muted);font-size:12px}
+#finance-reconciliation :is(input:not([type=checkbox]),select,textarea){
+ background:#0D0E0F;border:1px solid #505356;border-radius:10px;
+ min-height:44px;padding:10px 12px;box-sizing:border-box;color:#F3F4F5;font:inherit;width:100%}
+#finance-reconciliation .reconcile-evidence-check{display:flex;align-items:start;gap:9px;
+ line-height:1.6;font-size:12px;color:#DFE1E3}
+#finance-reconciliation .reconcile-evidence-check input{width:19px;height:19px;flex:none;accent-color:var(--recon-gold);margin-top:2px}
+#finance-reconciliation .reconcile-hint{font-size:11px;line-height:1.6;color:var(--recon-muted);margin:0}
+#finance-reconciliation .reconcile-hint strong{color:#F3F4F5}
+#finance-reconciliation .reconcile-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#finance-reconciliation .reconcile-actions button{min-height:44px;font-size:12px;border-radius:10px}
+#finance-reconciliation .reconcile-message{font-size:12px;color:var(--recon-gold);overflow-wrap:anywhere}
+#finance-reconciliation .reconcile-po-facts{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0;
+ color:var(--recon-muted);font-size:11px;line-height:1.5}
+#finance-reconciliation .reconcile-po-status{color:var(--recon-gold)}
+#finance-reconciliation .reconcile-goto-expenses{min-height:44px;border-radius:10px;margin-top:12px}
+#finance-reconciliation :is(button,summary,input,textarea,select):focus-visible{
+ outline:2px solid var(--recon-gold);outline-offset:3px}
+#finance-reconciliation .finance-empty{font-size:12px;color:var(--recon-muted);line-height:1.6}
+@media(max-width:660px){
+ #finance-reconciliation .reconcile-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #finance-reconciliation .reconcile-kpis>div:first-child{grid-column:1/-1}
+ #finance-reconciliation .reconcile-kpis strong{font-size:21px}
+ #finance-reconciliation .reconcile-records{padding:0 12px}
+ #finance-reconciliation .reconcile-record-head{gap:8px}
+ #finance-reconciliation .reconcile-actions button{width:100%}
+ #finance-reconciliation .reconcile-section>summary{padding:13px 12px}
+}

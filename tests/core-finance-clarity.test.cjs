@@ -26,7 +26,7 @@ test('Profit highlights partial data coverage and never guesses missing historic
   assert.match(view, /aria-valuenow/)
   assert.match(view, /not total business profit/)
   assert.match(view, /Missing historical costs are never estimated automatically/)
-  assert.match(view, /Paid orders missing a paid-at timestamp|A paid order without that timestamp/)
+  assert.match(view, /A paid order without either date remains outside period reports until reviewed/)
 })
 
 test('Finance mobile design is responsive and no accounting records or checkout code changed', () => {

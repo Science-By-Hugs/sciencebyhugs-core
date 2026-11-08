@@ -1,6 +1,7 @@
 import { loadCoreFinance, loadProfitReport } from './services/finance'
 import { pct } from './pricing'
 import { bindExpensesPage, expensesPageMarkup } from './finance-expenses-view'
+import { bindReconciliationPage, reconciliationPageMarkup } from './finance-reconciliation-view'
 
 type Helpers = {
   escapeHtml: (value: unknown) => string
@@ -14,6 +15,7 @@ export function financePageMarkup(email: string, escapeHtml: Helpers['escapeHtml
     '<p class="copy">Know what customers have paid, what needs attention, and what your products cost. Operational reporting, not a bank balance or accounting ledger.</p>' +
     '</div><div class="operator">Signed in as <strong>' + escapeHtml(email) + '</strong></div></section>' +
     '<section id="finance-root" aria-label="Financial overview"><div class="loading">Loading finance…</div></section>' +
+    reconciliationPageMarkup() +
     expensesPageMarkup() +
     '<section id="finance-profit" class="finance-panel" aria-label="Profit report"><div class="loading">Loading profit…</div></section>'
 }
@@ -97,7 +99,7 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
           '<span class="finance-quality-count">' + costedLines + ' / ' + t.lines + '</span></div>' +
         '<div class="finance-quality-meter" role="progressbar" aria-label="Costed sold lines" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + coverage + '">' +
           '<span style="width:' + coverage + '%"></span></div>' +
-        '<p>This gross profit is based only on costed product lines. It is <strong>not total business profit</strong>. Discounts, shipping expense, payment fees, taxes and overhead are not deducted.</p>' +
+        '<p>'+ (t.reconciled_cost_lines ? t.reconciled_cost_lines + ' of these lines were completed using manually reviewed historical evidence. ' : '') + 'Gross profit covers only costed product lines. It is <strong>not total business profit</strong>. Discounts, shipping expense, payment fees, taxes and overhead are not deducted.</p>' +
       '</section>' +
       '<details class="report-expander report-profit-extra"><summary>Discounts, margin & markup</summary>' +
         '<section class="finance-kpis report-finance-extra">' +
@@ -112,12 +114,12 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
           ' of sales) had no vendor cost on file when they sold, so they are left out of profit. ' +
           'Earlier orders may not have had costs recorded. <a href="#products?section=catalog">Check the catalog</a></p>'
         : '') +
-      '<p class="finance-note">Profit uses recorded vendor-cost snapshots from each sale. Missing historical costs are never estimated automatically. ' +
+      '<p class="finance-note">Profit uses original vendor-cost snapshots and separately audited, evidence-backed corrections. Missing historical costs are never estimated automatically. ' +
       'Sales are product-line totals before order discounts; they are not bank deposits. ' +
       'Current catalog: ' + r.catalog.with_cost + ' of ' + r.catalog.products + ' products have a vendor cost' +
       (r.catalog.avg_margin_pct !== null ? ' · average list margin ' + pct(r.catalog.avg_margin_pct) : '') +
       (r.catalog.selling_without_cost ? ' · <strong>' + r.catalog.selling_without_cost + ' selling without a cost</strong> (Catalog → filter “Missing vendor cost”)' : '') + '.</p>' +
-      '<p class="finance-note">Date filters use the paid-at timestamp. A paid order without that timestamp can be missing from a selected period even when it appears in all-time results.</p>' +
+      '<p class="finance-note">Date filters use original paid-at timestamps or documented payment-date corrections. A paid order without either date remains outside period reports until reviewed.</p>' +
       '<details class="report-expander report-profit-breakdown"><summary>Product & monthly profit breakdown</summary>' +
         '<div class="finance-columns">' +
           '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">BY PRODUCT</span><h2>Profit by product</h2></div></div>' +
@@ -147,6 +149,10 @@ export async function bindFinancePage(helpers: Helpers) {
   if (!root) return
   void renderProfit(helpers,storedProfitPeriod())
   void bindExpensesPage(helpers)
+  void bindReconciliationPage(helpers,()=>{
+    void renderProfit(helpers,storedProfitPeriod())
+    void bindExpensesPage(helpers)
+  })
 
   try {
     const data = await loadCoreFinance()
@@ -178,10 +184,12 @@ export async function bindFinancePage(helpers: Helpers) {
         '<div><span>Submitted · unverified</span><strong>' + helpers.money(s.payment_review_value) + '</strong><small>' + s.payment_review_count + ' payments need confirmation</small></div>' +
         '<div><span>Open order value</span><strong>' + helpers.money(s.open_order_value) + '</strong><small>Not marked as paid</small></div>' +
       '</section>' +
-      '<div class="finance-scope-note"><strong>What these numbers mean:</strong> Paid revenue uses orders marked paid, not bank deposits. Submitted payments are still unverified. Open orders and invoice totals can overlap; never add these cards together as cash.</div>' +
+      '<div class="finance-scope-note"><strong>What these numbers mean:</strong> Paid revenue uses orders marked paid, not bank deposits. Submitted payments are still unverified. Open orders and invoice totals can overlap; never add these cards together as cash.' +
+         (s.undated_paid_orders ? ' '+s.undated_paid_orders+' paid order(s) are awaiting supported dates and excluded from monthly totals.' : '') + '</div>' +
       '<nav class="finance-shortcuts" aria-label="Finance shortcuts">' +
         '<a href="#orders">Orders & payments</a>' +
         '<a href="#products?section=catalog">Product costs</a>' +
+        '<button type="button" data-finance-reconcile-link>Reconciliation Center ↓</button>' +
         '<button type="button" data-finance-expenses-link>Expenses & vendor spending ↓</button>' +
         '<button type="button" data-finance-profit-link>Profit & cost coverage ↓</button>' +
       '</nav>' +
@@ -237,6 +245,9 @@ export async function bindFinancePage(helpers: Helpers) {
       '</section>' +
       '</details>' +
       '<p class="dashboard-generated">Finance generated ' + helpers.escapeHtml(helpers.dateTime(data.generated_at)) + '</p>'
+    root.querySelector<HTMLButtonElement>('[data-finance-reconcile-link]')?.addEventListener('click', () => {
+      document.querySelector('#finance-reconciliation')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
     root.querySelector<HTMLButtonElement>('[data-finance-expenses-link]')?.addEventListener('click', () => {
       document.querySelector('#finance-expenses')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
