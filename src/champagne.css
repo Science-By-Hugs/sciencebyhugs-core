@@ -1395,3 +1395,116 @@ body button:disabled{opacity:.6}
   #finance-profit .finance-quality{padding:14px}
   #finance-profit .finance-quality-head strong{font-size:15px}
 }
+
+
+/* Core Finances · Expenses & Vendor Spending (owner-only ledger + PO commitments). */
+#finance-expenses{
+  --report-panel:#0B0C0E;--report-panel-raised:#1C1F22;--report-gold:#D6AF61;
+  --report-line:#34383C;--report-muted:#B6BBC0;--report-light:#F3F4F5;
+  color:var(--report-light);min-width:0;scroll-margin-top:86px;
+  display:grid;gap:14px;margin:24px 0 20px
+}
+#finance-expenses .report-section-heading{align-items:end;gap:12px}
+#finance-expenses .report-section-heading>div{display:grid;gap:4px}
+#finance-expenses .expense-period-label{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--report-muted)}
+#finance-expenses select,#finance-expenses input,#finance-expenses textarea{
+  font:inherit;color:var(--report-light);
+  min-height:44px;border:1px solid #484B4F;border-radius:10px;
+  box-sizing:border-box;background:#101113;padding:10px 12px;width:100%;
+}
+#finance-expenses .expense-period{width:auto;min-width:136px}
+#finance-expenses .finance-note{margin:0;line-height:1.6;font-size:12px;color:var(--report-muted)}
+#finance-expenses .finance-note strong{color:var(--report-light)}
+#finance-expenses .expense-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#finance-expenses .expense-kpis>div{padding:17px;min-width:0;border:1px solid var(--report-line);border-radius:12px;background:var(--report-panel)}
+#finance-expenses .expense-kpis .expense-kpi-paid{background:var(--report-panel-raised);border-color:#836F4A}
+#finance-expenses .expense-kpis span,#finance-expenses .expense-kpis small{display:block;color:var(--report-muted);font-size:11px;line-height:1.5}
+#finance-expenses .expense-kpis strong{display:block;color:var(--report-light);font-size:22px;font-variant-numeric:tabular-nums;line-height:1.2;margin:7px 0;overflow-wrap:anywhere}
+#finance-expenses .expense-kpis .expense-kpi-paid strong{color:var(--report-gold)}
+#finance-expenses .expense-separation,#finance-expenses .expense-panel-note{
+  font-size:12px;line-height:1.6;color:var(--report-muted);margin:0
+}
+#finance-expenses .expense-separation{padding:10px 13px;border-left:3px solid var(--report-gold);background:#17191A;border-radius:0 9px 9px 0}
+#finance-expenses .expense-separation strong{color:var(--report-light)}
+#finance-expenses .expense-notice{border:1px solid #83714E;border-radius:9px;padding:10px 12px;font-size:12px;margin:0;color:var(--report-gold)}
+#finance-expenses .expense-create{padding:0;border:0;background:transparent}
+#finance-expenses .expense-create>summary{display:inline-flex;align-items:center;min-height:44px;cursor:pointer;list-style:none}
+#finance-expenses .expense-create>summary::-webkit-details-marker,
+#finance-expenses .expense-edit>summary::-webkit-details-marker{display:none}
+#finance-expenses .expense-create>summary .primary{min-height:46px;border-radius:12px;font-size:13px;display:inline-flex;align-items:center}
+#finance-expenses .expense-create[open]{padding:15px;border:1px solid var(--report-line);border-radius:12px;background:var(--report-panel)}
+#finance-expenses .expense-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}
+#finance-expenses .expense-panel{
+  border:1px solid var(--report-line);border-radius:12px;background:var(--report-panel);
+  padding:16px;min-width:0;display:grid;gap:12px;
+}
+#finance-expenses .expense-panel .dashboard-section-head{margin:0;gap:10px;align-items:start}
+#finance-expenses .expense-panel h3{margin:3px 0;font-size:17px;line-height:1.3;color:var(--report-light)}
+#finance-expenses .expense-panel a{color:var(--report-gold)!important;font-size:12px}
+#finance-expenses .expense-subcount{color:var(--report-muted);font-size:12px;white-space:nowrap}
+#finance-expenses .expense-entry,#finance-expenses .expense-po-row{
+  display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--report-line);min-width:0
+}
+#finance-expenses .expense-entry-head,#finance-expenses .expense-po-row{
+  display:flex;justify-content:space-between;align-items:start;gap:12px;min-width:0
+}
+#finance-expenses .expense-entry-head>div:first-child,#finance-expenses .expense-po-row>div:first-child{min-width:0}
+#finance-expenses .expense-entry-head strong,#finance-expenses .expense-po-row strong{
+  color:var(--report-light);font-size:13px;line-height:1.4;overflow-wrap:anywhere
+}
+#finance-expenses .expense-entry-head small,#finance-expenses .expense-po-row small{
+  display:block;color:var(--report-muted);font-size:11px;line-height:1.4;margin-top:4px
+}
+#finance-expenses .expense-entry-end,#finance-expenses .expense-po-right{display:grid;justify-items:end;gap:5px;text-align:right;min-width:94px}
+#finance-expenses .expense-entry-end>strong,#finance-expenses .expense-po-right>strong{font-variant-numeric:tabular-nums}
+#finance-expenses .expense-status{display:inline-block;border:1px solid var(--report-line);border-radius:999px;padding:4px 8px;font-size:10px;color:var(--report-muted);white-space:nowrap}
+#finance-expenses .expense-status-paid{color:var(--report-gold);border-color:#83714E}
+#finance-expenses .expense-status-voided{color:#9FA3A7}
+#finance-expenses .expense-entry-void{opacity:.7}
+#finance-expenses .expense-entry-meta,#finance-expenses .expense-po-breakdown{
+  margin:0;color:var(--report-muted);font-size:11px;line-height:1.5;overflow-wrap:anywhere
+}
+#finance-expenses .expense-po-row{display:grid;grid-template-columns:minmax(0,1fr) auto}
+#finance-expenses .expense-po-breakdown{grid-column:1/-1}
+#finance-expenses .expense-po-summary{display:grid;gap:6px;border:1px solid #534832;border-radius:11px;background:var(--report-panel-raised);padding:13px}
+#finance-expenses .expense-po-summary strong{color:var(--report-gold);font-size:22px;font-variant-numeric:tabular-nums}
+#finance-expenses .expense-po-summary small{color:var(--report-muted);font-size:11px;line-height:1.45}
+#finance-expenses .expense-entry-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#finance-expenses .expense-edit>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;list-style:none;color:var(--report-gold);font-size:12px;font-weight:700}
+#finance-expenses .expense-void{min-height:44px;background:transparent;border:0;color:#D5A5A0;font:inherit;font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer}
+#finance-expenses .core-expense-form{padding:14px 0;min-width:0;display:grid;gap:13px}
+#finance-expenses .expense-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+#finance-expenses .expense-form-grid label{display:grid;gap:5px;min-width:0}
+#finance-expenses .expense-form-grid label span{font-size:12px;color:var(--report-muted)}
+#finance-expenses .expense-form-grid .expense-form-wide{grid-column:1/-1}
+#finance-expenses .expense-form-guidance{font-size:11px;line-height:1.6;color:var(--report-muted);margin:0}
+#finance-expenses .expense-form-guidance strong{color:var(--report-light)}
+#finance-expenses .expense-form-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+#finance-expenses .expense-form-actions .primary{min-height:44px;border-radius:10px;font-size:13px}
+#finance-expenses .expense-form-message{font-size:12px;color:var(--report-gold);overflow-wrap:anywhere}
+#finance-expenses .expense-vendor-breakdown{border:1px solid var(--report-line);border-radius:11px;background:var(--report-panel);overflow:hidden}
+#finance-expenses .expense-vendor-breakdown>summary{cursor:pointer;min-height:48px;padding:12px 15px;display:flex;align-items:center;justify-content:space-between;list-style:none;font-weight:700;font-size:13px}
+#finance-expenses .expense-vendor-breakdown>summary::-webkit-details-marker{display:none}
+#finance-expenses .expense-vendor-breakdown>summary:after{content:'+';font-size:19px;color:var(--report-gold)}
+#finance-expenses .expense-vendor-breakdown[open]>summary:after{content:'−'}
+#finance-expenses .expense-vendor-rows{padding:0 15px 10px}
+#finance-expenses .expense-vendor-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:9px;padding:10px 0;border-top:1px solid var(--report-line);align-items:center;font-size:12px}
+#finance-expenses .expense-vendor-row small{color:var(--report-muted)}
+#finance-expenses .expense-vendor-breakdown>.expense-panel-note{padding:0 15px 15px}
+#finance-expenses .finance-empty{font-size:12px;line-height:1.5;color:var(--report-muted)}
+#finance-expenses :is(input,select,textarea,button,summary):focus-visible{outline:2px solid var(--report-gold);outline-offset:3px}
+@media(max-width:900px){#finance-expenses .expense-columns{grid-template-columns:1fr}}
+@media(max-width:600px){
+  #finance-expenses .report-section-heading{align-items:stretch}
+  #finance-expenses .expense-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #finance-expenses .expense-kpis>div:last-child:nth-child(odd){grid-column:1/-1}
+  #finance-expenses .expense-kpis strong{font-size:19px}
+  #finance-expenses .expense-form-grid{grid-template-columns:1fr}
+  #finance-expenses .expense-form-grid .expense-form-wide{grid-column:1}
+  #finance-expenses .expense-form-actions .primary{width:100%}
+  #finance-expenses .expense-period-label{justify-content:space-between}
+  #finance-expenses .expense-period{width:170px}
+  #finance-expenses .expense-entry-head{gap:8px}
+  #finance-expenses .expense-vendor-row{grid-template-columns:minmax(0,1fr) auto}
+  #finance-expenses .expense-vendor-row small{grid-column:1}
+}
