@@ -563,7 +563,7 @@ export async function bindCatalogPage(helpers: Helpers) {
         renamePreview.textContent = 'Move ' + productCount + ' product(s) from “' +
           renameFrom + '” to “' + destination + '” at the same ' +
           helpers.money(rate) + ' rate. ' + waiverDetails +
-          ' No historical orders or shipping rates will change.'
+          ' Historical orders stay unchanged. Items from the merged sources will share one shipping charge at the unchanged per-source rate.'
       }
       renameTarget?.addEventListener('change', syncRename)
       renameConfirm?.addEventListener('input', syncRename)
