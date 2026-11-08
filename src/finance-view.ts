@@ -99,7 +99,7 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
           '<span class="finance-quality-count">' + costedLines + ' / ' + t.lines + '</span></div>' +
         '<div class="finance-quality-meter" role="progressbar" aria-label="Costed sold lines" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + coverage + '">' +
           '<span style="width:' + coverage + '%"></span></div>' +
-        '<p>This gross profit is based only on costed product lines. It is <strong>not total business profit</strong>. Discounts, shipping expense, payment fees, taxes and overhead are not deducted.</p>' +
+        '<p>'+ (t.reconciled_cost_lines ? t.reconciled_cost_lines + ' of these lines were completed using manually reviewed historical evidence. ' : '') + 'Gross profit covers only costed product lines. It is <strong>not total business profit</strong>. Discounts, shipping expense, payment fees, taxes and overhead are not deducted.</p>' +
       '</section>' +
       '<details class="report-expander report-profit-extra"><summary>Discounts, margin & markup</summary>' +
         '<section class="finance-kpis report-finance-extra">' +
@@ -114,12 +114,12 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
           ' of sales) had no vendor cost on file when they sold, so they are left out of profit. ' +
           'Earlier orders may not have had costs recorded. <a href="#products?section=catalog">Check the catalog</a></p>'
         : '') +
-      '<p class="finance-note">Profit uses recorded vendor-cost snapshots from each sale. Missing historical costs are never estimated automatically. ' +
+      '<p class="finance-note">Profit uses original vendor-cost snapshots and separately audited, evidence-backed corrections. Missing historical costs are never estimated automatically. ' +
       'Sales are product-line totals before order discounts; they are not bank deposits. ' +
       'Current catalog: ' + r.catalog.with_cost + ' of ' + r.catalog.products + ' products have a vendor cost' +
       (r.catalog.avg_margin_pct !== null ? ' · average list margin ' + pct(r.catalog.avg_margin_pct) : '') +
       (r.catalog.selling_without_cost ? ' · <strong>' + r.catalog.selling_without_cost + ' selling without a cost</strong> (Catalog → filter “Missing vendor cost”)' : '') + '.</p>' +
-      '<p class="finance-note">Date filters use the paid-at timestamp. A paid order without that timestamp can be missing from a selected period even when it appears in all-time results.</p>' +
+      '<p class="finance-note">Date filters use original paid-at timestamps or documented payment-date corrections. A paid order without either date remains outside period reports until reviewed.</p>' +
       '<details class="report-expander report-profit-breakdown"><summary>Product & monthly profit breakdown</summary>' +
         '<div class="finance-columns">' +
           '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">BY PRODUCT</span><h2>Profit by product</h2></div></div>' +
@@ -184,7 +184,8 @@ export async function bindFinancePage(helpers: Helpers) {
         '<div><span>Submitted · unverified</span><strong>' + helpers.money(s.payment_review_value) + '</strong><small>' + s.payment_review_count + ' payments need confirmation</small></div>' +
         '<div><span>Open order value</span><strong>' + helpers.money(s.open_order_value) + '</strong><small>Not marked as paid</small></div>' +
       '</section>' +
-      '<div class="finance-scope-note"><strong>What these numbers mean:</strong> Paid revenue uses orders marked paid, not bank deposits. Submitted payments are still unverified. Open orders and invoice totals can overlap; never add these cards together as cash.</div>' +
+      '<div class="finance-scope-note"><strong>What these numbers mean:</strong> Paid revenue uses orders marked paid, not bank deposits. Submitted payments are still unverified. Open orders and invoice totals can overlap; never add these cards together as cash.' +
+         (s.undated_paid_orders ? ' '+s.undated_paid_orders+' paid order(s) are awaiting supported dates and excluded from monthly totals.' : '') + '</div>' +
       '<nav class="finance-shortcuts" aria-label="Finance shortcuts">' +
         '<a href="#orders">Orders & payments</a>' +
         '<a href="#products?section=catalog">Product costs</a>' +
