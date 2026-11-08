@@ -65,30 +65,45 @@ Deno.serve(async(req:Request)=>{
     return json({success:true,evidence:data});
   }
   if(action!=="list")return json({error:"Unknown operation"},400);
+  // A transient PostgREST JWT-claims validation (PGRST303) can occur for
+  // individual service-key reads, even while other reads succeed. Retry only
+  // this read-only failure (never financial mutations), at most twice.
+  // Keep non-auth errors visible to operators instead of masking them.
+  const retryRead = async <T extends {error: {code?:string} | null}>(
+    label:string, run:()=>PromiseLike<T>
+  ):Promise<T> => {
+    let result=await run();
+    for(let attempt=1; result.error?.code==="PGRST303" && attempt<=2; attempt++){
+      console.warn("core_reconciliation_read_auth_retry",label,attempt);
+      await new Promise(resolve=>setTimeout(resolve,150*attempt));
+      result=await run();
+    }
+    return result;
+  };
   const fetches=await Promise.all([
-    admin.from("orders").select("id,order_number,payment_status,created_at,paid_at,total")
-      .eq("payment_status","paid").limit(5001),
-    admin.from("order_items").select("id,order_id,product_name,product_code,quantity,line_total")
-      .limit(10001),
-    admin.from("order_item_costs").select("order_item_id,line_cost").limit(10001),
-    admin.from("core_finance_cost_evidence")
+    retryRead("orders",()=>admin.from("orders").select("id,order_number,payment_status,created_at,paid_at,total")
+      .eq("payment_status","paid").limit(5001)),
+    retryRead("order_items",()=>admin.from("order_items").select("id,order_id,product_name,product_code,quantity,line_total")
+      .limit(10001)),
+    retryRead("order_item_costs",()=>admin.from("order_item_costs").select("order_item_id,line_cost").limit(10001)),
+    retryRead("cost_evidence",()=>admin.from("core_finance_cost_evidence")
       .select("order_item_id,order_id,unit_cost,line_cost,evidence_reference,explanation,updated_at")
-      .limit(10001),
-    admin.from("core_finance_paid_date_evidence")
+      .limit(10001)),
+    retryRead("paid_date_evidence",()=>admin.from("core_finance_paid_date_evidence")
       .select("order_id,effective_paid_at,evidence_reference,explanation,updated_at")
-      .limit(5001),
-    admin.from("inventory_purchase_orders")
-      .select("id,po_number,vendor_id,status,ordered_at,shipping_actual,fees_actual").limit(1001),
-    admin.from("inventory_purchase_lines")
-      .select("purchase_order_id,packs_ordered,pack_price_snapshot").limit(5001),
-    admin.from("inventory_vendors").select("id,name").limit(1001),
-    admin.from("core_finance_expenses")
+      .limit(5001)),
+    retryRead("purchase_orders",()=>admin.from("inventory_purchase_orders")
+      .select("id,po_number,vendor_id,status,ordered_at,shipping_actual,fees_actual").limit(1001)),
+    retryRead("purchase_lines",()=>admin.from("inventory_purchase_lines")
+      .select("purchase_order_id,packs_ordered,pack_price_snapshot").limit(5001)),
+    retryRead("vendors",()=>admin.from("inventory_vendors").select("id,name").limit(1001)),
+    retryRead("expenses",()=>admin.from("core_finance_expenses")
       .select("id,expense_date,category,vendor_id,purchase_order_id,payee,amount,payment_method,reference_number,notes,status,updated_at")
-      .limit(5001)
+      .limit(5001))
   ]);
   if(fetches.some(x=>x.error)){
     console.error("core_reconciliation_list_error",fetches.map(x=>x.error?.code||null));
-    return json({error:"Financial review temporarily unavailable"},503);
+    return json({error:"Financial review data could not be loaded. Please retry.",retryable:true},503);
   }
   const [orders,items,costs,costEvidence,dateEvidence,purchases,purchaseLines,vendors,expenses]=
     fetches.map(x=>x.data||[]);
