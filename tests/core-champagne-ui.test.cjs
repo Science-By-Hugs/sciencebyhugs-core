@@ -262,3 +262,62 @@ test('Today uses original authorized metrics and keeps Orders and Inventory deep
   assert.match(today,/id="retry-dashboard"/)
   assert.doesNotMatch(today,/createMultiInventoryPurchase|verifyPayment|updateFulfillment/)
 })
+
+
+test('Customers Champagne profile has four keyboard accessible sections with original audited editors',()=>{
+  const source=read('src/customers-view.ts')
+  const css=read('src/champagne.css')
+  for (const tab of ['overview','orders','rewards','profile']) {
+    assert.match(source,new RegExp("tab\\('"+tab+"'"))
+    assert.match(source,new RegExp("panel\\('"+tab+"'"))
+  }
+  assert.match(source,/role="tablist" aria-label="Customer profile sections"/)
+  assert.match(source,/role="tabpanel" data-customer-panel="/)
+  assert.match(source,/bindCustomerProfileTabs\(list\)/)
+  assert.match(source,/panel\.hidden=panel\.dataset\.customerPanel!==section/)
+  assert.match(source,/event\.key==='ArrowRight'/)
+  assert.match(source,/event\.key==='Home'/)
+  assert.match(source,/data-customer-jump="profile"/)
+  assert.match(css,/\.customer-profile-panel\[hidden\]\{display:none!important\}/)
+  for (const action of ['save-customer-email','save-customer-profile','save-customer-notes','customer-contact-preference','customer-membership-select','customer-account-status','delete-customer']) {
+    assert.match(source,new RegExp(action))
+  }
+  for (const method of ['updateCustomerEmail','updateCustomerProfile','updateCustomerNotes','updateCustomerMembership','updateCustomerAccountStatus','updateCustomerContactPreference','deleteCustomer']) {
+    assert.match(source,new RegExp('await '+method+'\\('))
+  }
+})
+test('Customer order history opens the exact order through the existing Orders selection',()=>{
+  const source=read('src/customers-view.ts')
+  const orders=read('src/orders-hub.ts')
+  assert.match(source,/customer\.orders \|\| \[\]/)
+  assert.match(source,/data-customer-order-id="/)
+  assert.match(source,/presetOrdersSelection\(link\.dataset\.customerOrderId\|\|''\)/)
+  assert.match(orders,/export function presetOrdersSelection\(orderId: string\)/)
+  assert.match(orders,/presetOrdersFilter\('all'\)/)
+  assert.match(orders,/sessionStorage\.setItem\('core-md:orders', orderId \+ '\|' \+ Date\.now\(\)\)/)
+  assert.match(orders,/key: 'orders'/)
+})
+test('Customer rewards and referrals use existing returned customer data, not new backend actions',()=>{
+  const source=read('src/customers-view.ts')
+  assert.match(source,/const referrals = customer\.referrals \|\| \[\]/)
+  assert.match(source,/const rewards = customer\.rewards \|\| \[\]/)
+  assert.match(source,/customer\.metrics\.qualified_referral_count/)
+  assert.match(source,/ref\.qualifying_order_number/)
+  assert.match(source,/reward\.status/)
+  assert.match(source,/customer\.membership\?\.description/)
+})
+test('Customer filters are collapsible and preserve their state on refresh',()=>{
+  const source=read('src/customers-view.ts')
+  const css=read('src/champagne.css')
+  assert.match(source,/class="customer-filter-menu"/)
+  assert.match(source,/id="customers-account"/)
+  assert.match(source,/id="customers-activity"/)
+  assert.match(source,/customerDirectoryState\(\)/)
+  assert.match(source,/saveCustomerDirectoryState\(state\)/)
+  assert.match(source,/customer\.account_status\.toLowerCase\(\)===state\.account/)
+  assert.match(source,/customer\.metrics\.order_count>0/)
+  assert.match(source,/customer\.metrics\.order_count===0/)
+  assert.match(source,/if\(menu\)menu\.open=filtersActive\(\)>0/)
+  assert.match(css,/\.customer-filter-fields\{/)
+  assert.match(css,/@media\(max-width:650px\)\{[\s\S]*?\.customer-filter-fields\{grid-template-columns:1fr!important\}/)
+})

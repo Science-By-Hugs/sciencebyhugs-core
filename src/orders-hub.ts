@@ -27,6 +27,14 @@ const FILTER_KEY = 'core-orders-filter'
 export function presetOrdersFilter(filter: OrdersFilter) {
   try { sessionStorage.setItem(FILTER_KEY, filter) } catch { /* convenience */ }
 }
+// A Customers order link opens that exact order, not merely the Orders directory.
+// The existing master-detail panel honors this one-time session selection.
+export function presetOrdersSelection(orderId: string) {
+  if (!orderId) return
+  presetOrdersFilter('all')
+  try { sessionStorage.setItem('core-md:orders', orderId + '|' + Date.now()) }
+  catch { /* navigation still works without persisted panel selection */ }
+}
 function storedFilter(): OrdersFilter | null {
   try {
     const value = sessionStorage.getItem(FILTER_KEY) as OrdersFilter | null
