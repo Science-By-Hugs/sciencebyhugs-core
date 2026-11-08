@@ -2224,7 +2224,7 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
 
 /* Owner-facing membership plan management. Never exposes customer billing data. */
 .membership-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0 20px}
-.membership-summary>div,.membership-card,.membership-create{border:1px solid #34383C;border-radius:14px;background:var(--surface);padding:16px}
+.membership-summary>div,.membership-card{border:1px solid #34383C;border-radius:14px;background:var(--surface);padding:16px}
 .membership-summary small,.membership-card-head small{display:block;font-size:.7rem;color:var(--muted)}
 .membership-summary strong{display:block;font-size:1.5rem;margin-top:4px}
 .membership-list{display:grid;gap:14px;margin:14px 0}
@@ -2239,6 +2239,15 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
 .membership-editor,.membership-create{margin-top:12px}
 .membership-editor summary,.membership-create summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:650;color:var(--core-gold);list-style:none}
 .membership-editor summary::-webkit-details-marker,.membership-create summary::-webkit-details-marker{display:none}
+
+/* The Memberships create toggle mirrors the compact Catalog + New product
+   button. Keep the expanded editor panel, not an empty closed card. */
+.membership-create{padding:0;border:0;background:transparent;border-radius:0}
+.membership-create[open]{padding:16px;border:1px solid #34383C;border-radius:14px;background:var(--surface)}
+.membership-create>summary{display:inline-flex;align-items:center;width:max-content;max-width:100%;min-height:0;padding:0;color:inherit}
+.membership-create-button{min-height:44px;border-radius:14px;padding:0 18px;white-space:nowrap;box-sizing:border-box}
+.membership-create>summary:focus-visible{outline:2px solid var(--primary);outline-offset:4px;border-radius:14px}
+@media(max-width:650px){.membership-create-button{min-height:48px}}
 .membership-plan-form{padding-top:14px;border-top:1px solid #34383C}
 .membership-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .membership-form-grid label{min-width:0;display:grid;gap:6px;font-size:.8rem;color:var(--muted)}
