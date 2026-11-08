@@ -44,9 +44,11 @@ BEGIN
     RAISE EXCEPTION 'Display order must be between 0 and 10000';
   END IF;
   IF p_active IS NULL THEN RAISE EXCEPTION 'Active status required'; END IF;
-  IF jsonb_typeof(p_benefits) IS DISTINCT FROM 'array'
-     OR jsonb_array_length(p_benefits) > 20 THEN
-    RAISE EXCEPTION 'Benefits must be an array of at most 20 items';
+  IF jsonb_typeof(p_benefits) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Benefits must be an array of text';
+  END IF;
+  IF jsonb_array_length(p_benefits) > 20 THEN
+    RAISE EXCEPTION 'A membership may have at most 20 benefits';
   END IF;
   FOR v_benefit IN SELECT value FROM jsonb_array_elements(p_benefits)
   LOOP
