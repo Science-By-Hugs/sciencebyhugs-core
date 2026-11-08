@@ -2244,8 +2244,8 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
    button. Keep the expanded editor panel, not an empty closed card. */
 .membership-create{padding:0;border:0;background:transparent;border-radius:0}
 .membership-create[open]{padding:16px;border:1px solid #34383C;border-radius:14px;background:var(--surface)}
-.membership-create>summary{display:inline-flex;align-items:center;width:max-content;max-width:100%;min-height:0;padding:0;color:inherit}
-.membership-create-button{min-height:44px;border-radius:14px;padding:0 18px;white-space:nowrap;box-sizing:border-box}
+.membership-create>summary{display:flex;align-items:center;width:100%;min-height:0;padding:0;color:inherit}
+.membership-create-button{display:flex;width:100%;justify-content:center;min-height:44px;border-radius:14px;padding:0 18px;font-size:.84rem;white-space:nowrap;box-sizing:border-box}
 .membership-create>summary:focus-visible{outline:2px solid var(--primary);outline-offset:4px;border-radius:14px}
 @media(max-width:650px){.membership-create-button{min-height:48px}}
 .membership-plan-form{padding-top:14px;border-top:1px solid #34383C}
