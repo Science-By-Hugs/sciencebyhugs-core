@@ -1,3 +1,4 @@
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 export type EvidenceCost={
   order_item_id:string;order_id:string;unit_cost:number;line_cost:number;
@@ -47,6 +48,16 @@ type MutateData={
 }
 async function call<T>(body:Record<string,unknown>):Promise<T>{
   const {data,error}=await supabase.functions.invoke('core-finance-reconciliation',{body})
+  if(error instanceof FunctionsHttpError){
+    // Extract the owner's safe API error instead of showing a raw HTTP status.
+    try{
+      const response=await error.context.json() as {error?:string}
+      throw new Error(response?.error||'Financial review temporarily unavailable. Please retry.')
+    }catch(cause){
+      if(cause instanceof Error && cause!==error)throw cause
+      throw new Error('Financial review temporarily unavailable. Please retry.')
+    }
+  }
   if(error)throw error
   if(!data?.success)throw new Error(data?.error||'Reconciliation operation failed')
   return data as T
