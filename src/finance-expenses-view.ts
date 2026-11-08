@@ -54,9 +54,9 @@ function selectOptions(options:Array<[string,string]>,current:string,escape:Help
 function expenseForm(e:FinanceExpense|null,data:FinanceExpenseSnapshot,helpers:Helpers){
   const h=helpers.escapeHtml
   const poOptions:Array<[string,string]>=[['','Not linked to a purchase order'],
-    ...data.purchase_orders.map(po=>[po.id,po.po_number+' · '+(data.vendors.find(v=>v.id===po.vendor_id)?.name||'Vendor')])]
+    ...data.purchase_orders.map((po):[string,string]=>[po.id,po.po_number+' · '+(data.vendors.find(v=>v.id===po.vendor_id)?.name||'Vendor')])]
   const vendorOptions:Array<[string,string]>=[['','No linked Core vendor'],
-    ...data.vendors.map(v=>[v.id,v.name])]
+    ...data.vendors.map((v):[string,string]=>[v.id,v.name])]
   return '<form class="core-expense-form" data-id="'+h(e?.id||'')+
     '" data-version="'+h(e?.updated_at||'')+'">' +
     '<div class="expense-form-grid">'+
