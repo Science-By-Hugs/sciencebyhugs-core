@@ -347,9 +347,9 @@ test('Profit report is explicit about cost coverage and preserves complete origi
   for(const metric of ['t.sales','t.discounts','t.net_sales','t.vendor_cost','t.gross_profit','t.margin_pct','t.markup_pct','t.costed_sales','t.uncosted_lines','t.uncosted_sales']){
     assert.match(f,new RegExp(metric.replace('.','\\.')))
   }
-  assert.match(f,/Gross profit · costed lines only/)
+  assert.match(f,/Recorded gross profit/)
   assert.match(f,/Profit needs a cost review/)
-  assert.match(f,/cost captured at the moment of sale/)
+  assert.match(f,/Costs captured at the time of sale/)
   assert.match(f,/class="report-expander report-profit-breakdown"/)
   assert.match(f,/class="finance-panel report-cost-alert"/)
   assert.match(f,/const PROFIT_PERIOD_KEY/)

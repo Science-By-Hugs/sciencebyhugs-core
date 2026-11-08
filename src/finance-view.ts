@@ -9,14 +9,15 @@ type Helpers = {
 
 export function financePageMarkup(email: string, escapeHtml: Helpers['escapeHtml']) {
   return '<section class="dashboard-head dashboard-head-compact"><div>' +
-    '<span class="eyebrow">FINANCE</span><h1 class="dashboard-title">Finance</h1>' +
-    '<p class="copy">Operational revenue, verified payments, receivables, and open cash exposure. This is internal reporting, not bank reconciliation.</p>' +
+    '<span class="eyebrow">BUSINESS PERFORMANCE</span><h1 class="dashboard-title">Finances</h1>' +
+    '<p class="copy">Know what customers have paid, what needs attention, and what your products cost. Operational reporting, not a bank balance or accounting ledger.</p>' +
     '</div><div class="operator">Signed in as <strong>' + escapeHtml(email) + '</strong></div></section>' +
     '<section id="finance-root" aria-label="Financial overview"><div class="loading">Loading finance…</div></section>' +
     '<section id="finance-profit" class="finance-panel" aria-label="Profit report"><div class="loading">Loading profit…</div></section>'
 }
 
-const rows = (items: string[]) => items.length ? items.join('') : '<p class="dashboard-muted">Nothing to show.</p>'
+const rows = (items: string[], empty = 'No records to review.') => items.length ? items.join('') :
+  '<p class="finance-empty">' + empty + '</p>'
 
 type ProfitPeriod = 'all' | 'this-month' | 'last-month' | 'last-90' | 'this-year'
 const PROFIT_PERIOD_KEY = 'core-reports-profit-period'
@@ -51,7 +52,7 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
     ['all', 'All time'], ['this-month', 'This month'], ['last-month', 'Last month'], ['last-90', 'Last 90 days'], ['this-year', 'This year'],
   ]
   const head = (body: string) =>
-    '<div class="dashboard-section-head finance-profit-head"><div><span class="eyebrow">GROSS PROFIT · VENDOR COST BASIS</span><h2>Profit & product costs</h2></div>' +
+    '<div class="dashboard-section-head finance-profit-head"><div><span class="eyebrow">COSTED SALES · NOT NET INCOME</span><h2>Product profit & costs</h2></div>' +
     '<select id="finance-profit-period" aria-label="Profit period">' +
       options.map(([value, label]) => '<option value="' + value + '"' + (value === period ? ' selected' : '') + '>' + label + '</option>').join('') +
     '</select></div>' + body
@@ -62,6 +63,9 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
     const r = await loadProfitReport(range.from, range.to)
     if(version!==profitRequestVersion||!el.isConnected)return
     const t = r.totals
+    const costedLines = Math.max(0, t.lines - t.uncosted_lines)
+    const coverage = t.lines > 0 ? Math.min(100, Math.max(0, Math.round(costedLines / t.lines * 100))) : 0
+    const profitDisplay = costedLines > 0 ? money(t.gross_profit) : '—'
     const signed = (value: number | null) => value === null ? '—' : money(value)
     const productRows = r.by_product.slice(0, 25).map(line =>
       '<div class="finance-row' + (line.profit !== null && line.profit < 0 ? ' loss' : '') + '"><span><strong>' + escapeHtml(line.name) + '</strong><small>' +
@@ -81,8 +85,17 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
       '<p class="report-kicker">Profit snapshot · selected period</p>' +
       '<section class="finance-kpis report-finance-featured">' +
         '<div><span>Sales before discounts</span><strong>' + money(t.sales) + '</strong><small>' + t.orders + ' paid orders · ' + t.lines + ' lines</small></div>' +
-        '<div class="report-key-figure"><span>Gross profit · costed lines only</span><strong>' + money(t.gross_profit) + '</strong><small>On ' + money(t.costed_sales) + ' costed sales</small></div>' +
-        '<div><span>Vendor cost</span><strong>' + money(t.vendor_cost) + '</strong><small>Cost captured at time of sale</small></div>' +
+        '<div class="report-key-figure"><span>Recorded gross profit</span><strong>' + profitDisplay + '</strong><small>Only ' + costedLines + ' of ' + t.lines + ' sales lines have costs · ' + money(t.costed_sales) + ' costed product sales</small></div>' +
+        '<div><span>Recorded vendor costs</span><strong>' + money(t.vendor_cost) + '</strong><small>Costs captured at the time of sale</small></div>' +
+      '</section>' +
+      '<section class="finance-quality' + (t.uncosted_lines ? ' finance-quality-partial' : '') + '" aria-label="Cost coverage">' +
+        '<div class="finance-quality-head"><div><span class="eyebrow">HISTORICAL COST COVERAGE</span>' +
+          '<strong>' + (t.lines ? coverage + '% of sold lines have recorded costs' : 'No sales lines this period') + '</strong>' +
+          '<small>' + costedLines + ' costed · ' + t.uncosted_lines + ' missing historical costs</small></div>' +
+          '<span class="finance-quality-count">' + costedLines + ' / ' + t.lines + '</span></div>' +
+        '<div class="finance-quality-meter" role="progressbar" aria-label="Costed sold lines" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + coverage + '">' +
+          '<span style="width:' + coverage + '%"></span></div>' +
+        '<p>This gross profit is based only on costed product lines. It is <strong>not total business profit</strong>. Discounts, shipping expense, payment fees, taxes and overhead are not deducted.</p>' +
       '</section>' +
       '<details class="report-expander report-profit-extra"><summary>Discounts, margin & markup</summary>' +
         '<section class="finance-kpis report-finance-extra">' +
@@ -97,17 +110,18 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
           ' of sales) had no vendor cost on file when they sold, so they are left out of profit. ' +
           'Earlier orders may not have had costs recorded. <a href="#products?section=catalog">Check the catalog</a></p>'
         : '') +
-      '<p class="finance-note">Profit uses each item\'s vendor cost captured at the moment of sale, so later cost changes never rewrite past profit. ' +
-      'Sales are line totals before order discounts; discounts, shipping, processing fees and tax are shown or handled separately. ' +
-      'Catalog: ' + r.catalog.with_cost + ' of ' + r.catalog.products + ' products have a vendor cost' +
+      '<p class="finance-note">Profit uses recorded vendor-cost snapshots from each sale. Missing historical costs are never estimated automatically. ' +
+      'Sales are product-line totals before order discounts; they are not bank deposits. ' +
+      'Current catalog: ' + r.catalog.with_cost + ' of ' + r.catalog.products + ' products have a vendor cost' +
       (r.catalog.avg_margin_pct !== null ? ' · average list margin ' + pct(r.catalog.avg_margin_pct) : '') +
       (r.catalog.selling_without_cost ? ' · <strong>' + r.catalog.selling_without_cost + ' selling without a cost</strong> (Catalog → filter “Missing vendor cost”)' : '') + '.</p>' +
+      '<p class="finance-note">Date filters use the paid-at timestamp. A paid order without that timestamp can be missing from a selected period even when it appears in all-time results.</p>' +
       '<details class="report-expander report-profit-breakdown"><summary>Product & monthly profit breakdown</summary>' +
         '<div class="finance-columns">' +
           '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">BY PRODUCT</span><h2>Profit by product</h2></div></div>' +
-            rows(productRows ? [productRows] : []) + '</section>' +
+            rows(productRows ? [productRows] : [], 'No paid product lines for this period.') + '</section>' +
           '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">BY MONTH</span><h2>Monthly profit</h2></div></div>' +
-            rows(monthRows ? [monthRows] : []) + '</section>' +
+            rows(monthRows ? [monthRows] : [], 'No monthly profit entries for this period.') + '</section>' +
         '</div></details>' +
       (belowCost
         ? '<section class="finance-panel report-cost-alert"><div class="dashboard-section-head"><div><span class="eyebrow">ATTENTION</span><h2>Priced below vendor cost</h2></div><a href="#products?section=catalog">Open Catalog</a></div>' + belowCost + '</section>'
@@ -133,6 +147,7 @@ export async function bindFinancePage(helpers: Helpers) {
 
   try {
     const data = await loadCoreFinance()
+    if (!root.isConnected) return
     const s = data.summary
     // This summary is derived exclusively from the existing authorized finance response.
     const priority = s.payment_review_count > 0
@@ -154,12 +169,18 @@ export async function bindFinancePage(helpers: Helpers) {
           '<p>' + helpers.escapeHtml(priority.detail) + '</p></div>' +
         '<a href="' + priority.href + '" class="report-priority-action">' + helpers.escapeHtml(priority.action) + ' <span aria-hidden="true">→</span></a>' +
       '</section>' +
-      '<div class="report-section-heading"><h2>Money at a glance</h2><span>Operational figures · not bank reconciliation</span></div>' +
+      '<div class="report-section-heading"><h2>Money at a glance</h2><span>All-time order values · not bank deposits</span></div>' +
       '<section class="finance-kpis report-finance-featured">' +
-        '<div><span>Paid revenue</span><strong>' + helpers.money(s.paid_revenue) + '</strong><small>' + s.paid_orders + ' paid orders</small></div>' +
-        '<div class="report-key-figure"><span>Payment needs review</span><strong>' + helpers.money(s.payment_review_value) + '</strong><small>' + s.payment_review_count + ' submitted payments</small></div>' +
-        '<div><span>Open order value</span><strong>' + helpers.money(s.open_order_value) + '</strong><small>Not recorded as paid</small></div>' +
+        '<div class="report-key-figure"><span>Paid order revenue</span><strong>' + helpers.money(s.paid_revenue) + '</strong><small>' + s.paid_orders + ' orders marked paid</small></div>' +
+        '<div><span>Submitted · unverified</span><strong>' + helpers.money(s.payment_review_value) + '</strong><small>' + s.payment_review_count + ' payments need confirmation</small></div>' +
+        '<div><span>Open order value</span><strong>' + helpers.money(s.open_order_value) + '</strong><small>Not marked as paid</small></div>' +
       '</section>' +
+      '<div class="finance-scope-note"><strong>What these numbers mean:</strong> Paid revenue uses orders marked paid, not bank deposits. Submitted payments are still unverified. Open orders and invoice totals can overlap; never add these cards together as cash.</div>' +
+      '<nav class="finance-shortcuts" aria-label="Finance shortcuts">' +
+        '<a href="#orders">Orders & payments</a>' +
+        '<a href="#products?section=catalog">Product costs</a>' +
+        '<button type="button" data-finance-profit-link>Profit & cost coverage ↓</button>' +
+      '</nav>' +
       '<details class="report-expander report-finance-extra-wrap"><summary>More financial figures</summary>' +
         '<section class="finance-kpis report-finance-extra">' +
           '<div><span>Sent unpaid invoices</span><strong>' + helpers.money(s.sent_unpaid_invoice_value) + '</strong><small>Invoice receivables</small></div>' +
@@ -167,7 +188,7 @@ export async function bindFinancePage(helpers: Helpers) {
           '<div><span>Verified records</span><strong>' + helpers.money(s.verified_payment_total) + '</strong><small>' + s.verified_payment_records + ' payment records</small></div>' +
         '</section>' +
       '</details>' +
-      '<div class="report-section-heading"><h2>Needs review</h2><span>Live payment and invoice records</span></div>' +
+      '<div class="report-section-heading"><h2>Needs review</h2><span>Payments and invoices awaiting action</span></div>' +
 
       '<div class="finance-columns">' +
         '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">RECEIVABLES</span><h2>Invoice aging</h2></div><a href="#orders">Open Orders</a></div>' +
@@ -175,7 +196,7 @@ export async function bindFinancePage(helpers: Helpers) {
             '<div class="finance-row"><span><strong>' + helpers.escapeHtml(item.invoice_number) + '</strong><small>' +
             helpers.escapeHtml(item.customer_name) + '</small></span><span>' + helpers.escapeHtml(item.bucket) +
             '<small>' + item.age_days + ' days</small></span><strong>' + helpers.money(item.total) + '</strong></div>'
-          )) +
+          ), 'No sent unpaid invoices to follow up.') +
         '</section>' +
 
         '<section class="finance-panel"><div class="dashboard-section-head"><div><span class="eyebrow">PAYMENT REVIEW</span><h2>Submitted, not verified</h2></div><a href="#orders">Review Orders</a></div>' +
@@ -183,7 +204,7 @@ export async function bindFinancePage(helpers: Helpers) {
             '<div class="finance-row"><span><strong>' + helpers.escapeHtml(item.customer_name) + '</strong><small>' +
             helpers.escapeHtml(item.provider || 'Unspecified') + '</small></span><span>' +
             helpers.escapeHtml(helpers.dateTime(item.submitted_at)) + '</span><strong>' + helpers.money(item.amount) + '</strong></div>'
-          )) +
+          ), 'No submitted payments await verification.') +
         '</section>' +
       '</div>' +
 
@@ -208,10 +229,13 @@ export async function bindFinancePage(helpers: Helpers) {
         rows(data.monthly.map(item =>
           '<div class="finance-row"><span><strong>' + helpers.escapeHtml(item.month) + '</strong></span><span>' +
           item.orders + ' paid orders</span><strong>' + helpers.money(item.revenue) + '</strong></div>'
-        )) +
+        ), 'No paid monthly revenue records yet.') +
       '</section>' +
       '</details>' +
       '<p class="dashboard-generated">Finance generated ' + helpers.escapeHtml(helpers.dateTime(data.generated_at)) + '</p>'
+    root.querySelector<HTMLButtonElement>('[data-finance-profit-link]')?.addEventListener('click', () => {
+      document.querySelector('#finance-profit')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   } catch (error) {
     root.innerHTML = '<div class="empty-state error-state"><h2>Could not load finance.</h2><p>' +
       helpers.escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p></div>'
