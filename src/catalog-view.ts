@@ -4,6 +4,7 @@ import {
   deleteShippingRate,
   listShippingRates,
   listVendorCosts,
+  mergeShippingSource,
   loadCoreCatalog,
   removeCatalogProduct,
   setCatalogAvailability,
@@ -333,13 +334,15 @@ function productCard(
   '</article>'
 }
 
-function shippingPanel(rates: Record<string, number>, helpers: Helpers) {
+function shippingPanel(rates: Record<string, number>, products: CoreCatalogProduct[], helpers: Helpers) {
   const { escapeHtml, money } = helpers
   const rows = Object.keys(rates).sort((a, b) => a.localeCompare(b)).map(source =>
     '<div class="catalog-rate-row" data-source="' + escapeHtml(source) + '">' +
-      '<strong>' + escapeHtml(source) + '</strong>' +
+      '<strong>' + escapeHtml(source) + '<small class="catalog-rate-usage">' +
+        products.filter(p => p.shipping_from === source).length + ' product(s)</small></strong>' +
       '<input class="catalog-rate-input" inputmode="decimal" aria-label="Rate for ' + escapeHtml(source) + '" value="' + escapeHtml(Number(rates[source]).toFixed(2)) + '">' +
       '<button class="secondary compact save-rate" type="button">Save</button>' +
+      '<button class="ghost compact rename-rate" type="button">Rename / merge</button>' +
       '<button class="ghost compact delete-rate" type="button">Remove</button>' +
     '</div>').join('')
   return '<details class="catalog-ops-panel catalog-shipping-panel"><summary><span class="eyebrow">SHIPPING</span>' +
@@ -352,7 +355,20 @@ function shippingPanel(rates: Record<string, number>, helpers: Helpers) {
       '<button class="primary compact add-rate" type="button">Add</button>' +
     '</div>' +
     '<p class="card-message catalog-rate-message" aria-live="polite"></p>' +
-    '<small class="catalog-rate-hint">Current flat rates: ' + escapeHtml(Object.entries(rates).map(([k, r]) => k + ' ' + money(r)).join(' · ')) + '</small>' +
+    '<small class="catalog-rate-hint">Each product uses its saved “Ships from” source. Nexus charges the matching rate once per distinct source in an order; source names are not customer-visible. To rename safely, add the new name at the same rate first, then merge. Built-in founding-member shipping waivers follow the source.</small>' +
+    '<dialog class="catalog-rename-dialog" aria-labelledby="catalog-rename-title">' +
+      '<div class="catalog-rename-dialog-inner"><span class="eyebrow">SHIPPING SOURCE</span>' +
+      '<h3 id="catalog-rename-title">Rename or merge shipping</h3>' +
+      '<p class="catalog-rename-preview"></p>' +
+      '<label><span>Move all products to</span><select class="catalog-rename-target">' +
+        '<option value="">Choose an existing source at the same rate…</option></select></label>' +
+      '<label><span>Type the old source name exactly</span>' +
+        '<input class="catalog-rename-confirm" autocomplete="off" autocapitalize="off" spellcheck="false"></label>' +
+      '<p class="catalog-rename-message" aria-live="polite"></p>' +
+      '<div class="catalog-rename-buttons">' +
+        '<button type="button" class="secondary catalog-rename-cancel">Cancel</button>' +
+        '<button type="button" class="primary catalog-rename-submit" disabled>Move &amp; rename</button></div>' +
+      '</div></dialog>' +
   '</details>'
 }
 
@@ -495,7 +511,7 @@ export async function bindCatalogPage(helpers: Helpers) {
     // ---------- Shipping rates ----------
     const shippingEl = document.querySelector<HTMLDivElement>('#catalog-shipping')
     if (shippingEl) {
-      shippingEl.innerHTML = shippingPanel(rates, helpers)
+      shippingEl.innerHTML = shippingPanel(rates, products, helpers)
       const rateMessage = shippingEl.querySelector<HTMLElement>('.catalog-rate-message')
       const say = (text: string) => { if (rateMessage) rateMessage.textContent = text }
       const keepOpen = async () => {
@@ -506,6 +522,74 @@ export async function bindCatalogPage(helpers: Helpers) {
         const panel = document.querySelector<HTMLDetailsElement>('.catalog-shipping-panel')
         if (panel) panel.open = true
       }
+
+      // Rename is a consolidated owner-only operation: no product-by-product
+      // edits, no rate changes and no accidental loss of founding-member waiver.
+      const renameDialog = shippingEl.querySelector<HTMLDialogElement>('.catalog-rename-dialog')
+      const renameTarget = renameDialog?.querySelector<HTMLSelectElement>('.catalog-rename-target')
+      const renameConfirm = renameDialog?.querySelector<HTMLInputElement>('.catalog-rename-confirm')
+      const renameSubmit = renameDialog?.querySelector<HTMLButtonElement>('.catalog-rename-submit')
+      const renameCancel = renameDialog?.querySelector<HTMLButtonElement>('.catalog-rename-cancel')
+      const renamePreview = renameDialog?.querySelector<HTMLElement>('.catalog-rename-preview')
+      const renameMessage = renameDialog?.querySelector<HTMLElement>('.catalog-rename-message')
+      let renameFrom = ''
+      let renaming = false
+      const syncRename = () => {
+        if (renameSubmit) renameSubmit.disabled = renaming || !renameTarget?.value ||
+          !renameFrom || renameConfirm?.value !== renameFrom
+      }
+      renameTarget?.addEventListener('change', syncRename)
+      renameConfirm?.addEventListener('input', syncRename)
+      renameCancel?.addEventListener('click', () => { if (!renaming) renameDialog?.close() })
+      shippingEl.querySelectorAll<HTMLButtonElement>('.rename-rate').forEach(button => {
+        button.addEventListener('click', () => {
+          const source = button.closest<HTMLElement>('.catalog-rate-row')?.dataset.source || ''
+          if (!source || !renameDialog || !renameTarget || !renameConfirm) return
+          renameFrom = source
+          renameConfirm.value = ''
+          if (renameMessage) renameMessage.textContent = ''
+          const rate = Number(rates[source])
+          const productCount = products.filter(product => product.shipping_from === source).length
+          if (renamePreview) renamePreview.textContent =
+            'Move ' + productCount + ' product(s) from “' + source + '” to an existing ' +
+            'source at the same ' + helpers.money(rate) +
+            ' rate. Founding-member waivers move too. No shipping charges change.'
+          renameTarget.innerHTML =
+            '<option value="">Choose an existing source at the same rate…</option>' +
+            Object.keys(rates).filter(target => target !== source && Number(rates[target]) === rate)
+              .sort((a,b)=>a.localeCompare(b)).map(target =>
+                '<option value="' + helpers.escapeHtml(target) + '">' + helpers.escapeHtml(target) + '</option>'
+              ).join('')
+          if (renameTarget.options.length === 1 && renameMessage)
+            renameMessage.textContent = 'Add your desired name at the same rate above, then open Rename / merge again.'
+          syncRename()
+          renameDialog.showModal()
+          renameConfirm.focus()
+        })
+      })
+      renameSubmit?.addEventListener('click', async () => {
+        if (!renameFrom || !renameTarget?.value || renameConfirm?.value !== renameFrom || renaming) return
+        const from = renameFrom, to = renameTarget.value
+        renaming = true
+        syncRename()
+        if (renameMessage) renameMessage.textContent = 'Checking rates and moving the product mappings…'
+        try {
+          const result = await mergeShippingSource(from, to, renameConfirm.value, Number(rates[from]))
+          renaming = false
+          renameDialog?.close()
+          await keepOpen()
+          const message = document.querySelector<HTMLElement>('.catalog-rate-message')
+          if (message) message.textContent = result.movedProducts + ' product(s) moved from “' + from +
+            '” to “' + to + '”. The ' + helpers.money(result.rate) +
+            ' shipping rate is unchanged. Audit event recorded.'
+        } catch (error) {
+          if (renameMessage) renameMessage.textContent =
+            error instanceof Error ? error.message : 'Could not rename shipping source.'
+        } finally {
+          renaming = false
+          syncRename()
+        }
+      })
 
       shippingEl.querySelectorAll<HTMLButtonElement>('.save-rate').forEach(button => {
         button.addEventListener('click', async () => {
