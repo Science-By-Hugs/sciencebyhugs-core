@@ -3,6 +3,7 @@ import {
   type ReconciliationSnapshot,type MissingCost,type MissingDate
 } from './services/reconciliation'
 import {downloadCsv,reconciliationCsv} from './finance-csv'
+import {groupMissingCosts,purchaseReviewStatus,sortCostGroups} from './finance-reconciliation-triage'
 import {saveCoreExpense} from './services/expenses'
 
 type Helpers={
@@ -72,20 +73,41 @@ function render(data:ReconciliationSnapshot,h:Helpers,refresh:()=>void){
   const totalCosted=s.native_cost_lines+s.reconciled_cost_lines
   const coverage=s.paid_lines?Math.round(totalCosted/s.paid_lines*100):100
   const missing=s.missing_cost_lines+s.missing_paid_dates
+  const groupedCosts=sortCostGroups(groupMissingCosts(data.missing_costs),'largest')
+  const impactedOrders=new Set(data.missing_costs.map(line=>line.order_id)).size
+  const affectedSales=data.missing_costs.reduce((sum,line)=>sum+Number(line.sales||0),0)
+  const groupedMarkup=groupedCosts.map(group=>{
+    const search=[group.name,group.productCode||'',...group.lines.map(line=>line.order_number)]
+      .join(' ').toLocaleLowerCase('en-US')
+    return '<details class="reconcile-cost-group" data-search="'+e(search)+'" '+
+      'data-total="'+Number(group.salesAmount).toFixed(2)+'" '+
+      'data-lines="'+group.lineCount+'" '+
+      'data-oldest="'+e(group.oldestOrderAt)+'" '+
+      'data-name="'+e(group.name.toLocaleLowerCase('en-US'))+'">'+
+      '<summary><div class="reconcile-cost-group-title"><strong>'+e(group.name)+'</strong>'+
+      '<small>'+group.lineCount+' sale line'+(group.lineCount===1?'':'s')+
+      ' · '+group.units+' units · '+group.distinctOrders+' order'+(group.distinctOrders===1?'':'s')+
+      '</small></div><div class="reconcile-cost-group-value"><strong>'+h.money(group.salesAmount)+
+      '</strong><small>sales awaiting cost evidence</small></div></summary>'+
+      '<p class="reconcile-hint">Grouping is based on product name and SKU only. '+
+      'Costs must be documented separately for each historical sale.</p>'+
+      '<div class="reconcile-cost-group-lines">'+
+        group.lines.map(line=>costCard(line,h)).join('')+
+      '</div></details>'
+  }).join('')
   const poRows=data.purchase_matches.map(po=>{
     const linked=po.linked_expenses
-    const status=linked.length?
-      po.difference===0?'Amounts align (manual entries)':'Needs amount review':
-      'No linked expense'
+    const status=purchaseReviewStatus(po)
     const candidates=data.unmatched_expenses.filter(exp=>
       (!exp.vendor_id||exp.vendor_id===po.vendor_id) &&
-      ['inventory_purchase','vendor_shipping','processing_fee','other'].includes(exp.category))
+      ['inventory_purchase','vendor_shipping','processing_fee'].includes(exp.category))
     return '<article class="reconcile-po"><div class="reconcile-record-head">'+
       '<div><strong>'+e(po.number)+'</strong><small>'+e(po.vendor_name)+' · '+e(po.status)+'</small></div>'+
       '<strong>'+h.money(po.total)+'</strong></div>'+
       '<div class="reconcile-po-facts"><span>Manual paid entries '+h.money(po.paid_total)+'</span>'+
       '<span>Planned entries '+h.money(po.planned_total)+'</span>'+
-      '<span class="reconcile-po-status">'+status+'</span></div>'+
+      '<span class="reconcile-po-status">'+e(status.label)+'</span></div>'+
+      '<p class="reconcile-hint">'+e(status.caution)+'</p>'+
       (linked.length?'<p class="reconcile-hint">Linked: '+
         linked.map(x=>e(x.payee)+' ('+h.money(x.amount)+', '+e(x.status)+')').join(' · ')+'</p>':'')+
       '<details class="reconcile-edit"><summary>Match an existing expense</summary>'+
@@ -133,12 +155,32 @@ function render(data:ReconciliationSnapshot,h:Helpers,refresh:()=>void){
         '</div></details>'+
       '<details class="reconcile-section"><summary>'+
         '<span>Historical product costs needing evidence</span><strong>'+s.missing_cost_lines+'</strong></summary>'+
-        '<div class="reconcile-records">'+
-          (data.missing_costs.length?data.missing_costs.map(item=>costCard(item,h)).join(''):
-           '<p class="finance-empty">No missing cost evidence remains.</p>')+
+        '<div class="reconcile-cost-overview">'+
+          '<strong>'+s.missing_cost_lines+' lines across '+impactedOrders+' paid orders</strong>'+
+          '<p>'+h.money(affectedSales)+' of product-line sales still need historical cost evidence. '+
+          'That is affected revenue, <strong>not an estimated product cost or debt.</strong></p>'+
+          '<p>Product names differing only in capitalization or spacing are grouped for easier review. '+
+          'Do not assume shared supplier costs or reuse an invoice without checking the date and lot.</p>'+
+        '</div>'+
+        '<div class="reconcile-cost-controls">'+
+          '<label>Find a product or order<input type="search" class="reconcile-cost-search" '+
+            'placeholder="Product or order number" autocomplete="off" aria-label="Find missing historical costs"></label>'+
+          '<label>Review order<select class="reconcile-cost-sort" aria-label="Sort missing historical costs">'+
+            '<option value="largest">Highest affected sales first</option>'+
+            '<option value="most_lines">Most missing lines first</option>'+
+            '<option value="oldest">Oldest orders first</option>'+
+            '<option value="product">Product name A–Z</option>'+
+          '</select></label>'+
+        '</div>'+
+        '<p class="reconcile-cost-count" aria-live="polite">'+groupedCosts.length+' product-name groups</p>'+
+        '<div class="reconcile-cost-groups">'+
+          (groupedMarkup||'<p class="finance-empty">No missing cost evidence remains.</p>')+
         '</div></details>'+
       '<details class="reconcile-section"><summary>'+
         '<span>Purchase orders & expense matching</span><strong>'+data.purchase_matches.length+'</strong></summary>'+
+        '<p class="reconcile-po-intro">These totals are purchase commitments, not confirmed payments. '+
+          'Only link a real expense when the supplier, amount and supporting reference agree. '+
+          'A linked expense does not automatically prove settlement.</p>'+
         '<div class="reconcile-records">'+
           (poRows||'<p class="finance-empty">No purchase orders to reconcile.</p>')+
         '</div></details>'+
@@ -156,6 +198,33 @@ function render(data:ReconciliationSnapshot,h:Helpers,refresh:()=>void){
     '</div>'+
     '<p class="reconcile-footnote">Original sale-time cost snapshots take priority when they exist.'+
       ' Core never automatically replaces them with newer product prices. Expense matching never creates duplicate charges.</p>'
+  const costSearch=root.querySelector<HTMLInputElement>('.reconcile-cost-search')
+  const costSort=root.querySelector<HTMLSelectElement>('.reconcile-cost-sort')
+  const costList=root.querySelector<HTMLElement>('.reconcile-cost-groups')
+  const updateCostReview=()=>{
+    if(!costList)return
+    const query=(costSearch?.value||'').trim().toLocaleLowerCase('en-US')
+    const nodes=[...costList.querySelectorAll<HTMLDetailsElement>('.reconcile-cost-group')]
+    const sort=costSort?.value||'largest'
+    nodes.sort((a,b)=>{
+      const amount=(n:HTMLElement)=>Number(n.dataset.total||0)
+      const count=(n:HTMLElement)=>Number(n.dataset.lines||0)
+      if(sort==='most_lines')return count(b)-count(a)||amount(b)-amount(a)
+      if(sort==='oldest')return (a.dataset.oldest||'9999').localeCompare(b.dataset.oldest||'9999')
+      if(sort==='product')return (a.dataset.name||'').localeCompare(b.dataset.name||'')
+      return amount(b)-amount(a)||count(b)-count(a)
+    })
+    let visible=0
+    for(const node of nodes){
+      node.hidden=!!query&&!((node.dataset.search||'').includes(query))
+      if(!node.hidden)visible++
+      costList.appendChild(node)
+    }
+    const counter=root.querySelector<HTMLElement>('.reconcile-cost-count')
+    if(counter)counter.textContent=visible+' of '+nodes.length+' product-name groups shown'
+  }
+  costSearch?.addEventListener('input',updateCostReview)
+  costSort?.addEventListener('change',updateCostReview)
   root.querySelector<HTMLButtonElement>('[data-reconcile-export]')?.addEventListener('click',()=>{
     const feedback=root.querySelector<HTMLElement>('.reconcile-export-feedback')
     try{
