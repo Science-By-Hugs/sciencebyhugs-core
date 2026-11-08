@@ -18,7 +18,7 @@ test('Shipping rename preview describes the waiver transfer without modifying th
   const catalog = read('src/catalog-view.ts')
   const sql = read('supabase/migrations/20261108035000_core_merge_shipping_sources.sql')
   assert.match(catalog, /Founding Member free shipping will automatically follow/)
-  assert.match(catalog, /No historical orders or shipping rates will change/)
+  assert.match(catalog, /Historical orders stay unchanged/)
   assert.match(catalog, /result\.foundingWaiverMoved/)
   assert.match(catalog, /renameConfirm\?\.value !== renameFrom/)
   assert.match(sql, /v_old_rate IS DISTINCT FROM v_target_rate/)
