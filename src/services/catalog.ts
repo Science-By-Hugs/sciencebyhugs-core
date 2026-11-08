@@ -258,6 +258,23 @@ export async function removeCatalogProduct(productId: string) {
     { action: 'remove_product', productId }, 'Could not delete product')
 }
 
+export type CoreShippingRateConfig = {
+  shippingRates: Record<string, number>
+  shippingDisplayLabels: Record<string, string>
+  foundingMemberFreeShippingSource?: string | null
+}
+
+export async function listShippingRateConfig(): Promise<CoreShippingRateConfig> {
+  return catalogControl<CoreShippingRateConfig>(
+    { action: 'list_shipping_rates' }, 'Could not load shipping rate configuration')
+}
+
+export async function setShippingDisplayLabel(source: string, displayLabel: string) {
+  const data = await catalogControl<{ shippingDisplayLabels: Record<string, string> }>(
+    { action: 'set_shipping_display_label', source, displayLabel }, 'Could not save shipping display name')
+  return data.shippingDisplayLabels
+}
+
 export async function listShippingRates() {
   const data = await catalogControl<{ shippingRates: Record<string, number> }>(
     { action: 'list_shipping_rates' }, 'Could not load shipping rates')
