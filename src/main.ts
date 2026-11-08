@@ -6,6 +6,7 @@ import './brand.css'
 import { supabase } from './services/supabase'
 import { bindOrdersHub, ordersHubMarkup, presetOrdersFilter } from './orders-hub'
 import { bindCustomersPage, customersPageMarkup } from './customers-view'
+import { disposeMasterDetail } from './master-detail'
 import { bindCatalogPage, catalogPageMarkup } from './catalog-view'
 import { bindInventoryPage, inventoryPageMarkup } from './inventory-view'
 import { bindDashboardPage, dashboardPageMarkup } from './dashboard-view'
@@ -201,6 +202,9 @@ function moreScreen(email: string) {
 }
 
 function shell(content: string, signedIn = false) {
+  // Old master-detail controllers can own document-level Escape handlers and
+  // per-card observers. Release them before any navigation or auth rerender.
+  disposeMasterDetail()
   const activeView = resolveCoreView()
 
   if (!signedIn) {
