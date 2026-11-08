@@ -53,7 +53,7 @@ export async function bindMembershipsPage(helpers: Helpers) {
         '<div><small>Active plans</small><strong>' + active + '</strong></div>' +
         '<div><small>Customer assignments</small><strong>' + assigned + '</strong></div>' +
       '</div>' +
-      '<details class="membership-create"><summary class="primary">+ Create membership</summary>' +
+      '<details class="membership-create"><summary><span class="primary catalog-create-button membership-create-button">+ New membership</span></summary>' +
         membershipForm(null, e) + '</details>' +
       '<div class="membership-list">' +
       memberships.map(plan =>
