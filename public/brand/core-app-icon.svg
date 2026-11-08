@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Core lowercase c app icon">
-  <title>Core</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Core lowercase c dot app icon">
+  <title>Core c.</title>
   <rect width="1024" height="1024" fill="#08090B"/>
-  <path d="M665 383C620 348 567 329 506 329C400 329 318 408 318 513C318 619 400 698 506 698C567 698 620 677 665 641" fill="none" stroke="#D6AF61" stroke-width="91" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M438.18 691.92C532.965 691.92 601.835 630.86 608.225 548.855H519.83C511.31 590.39 486.105 617.37 439.245 617.37C380.315 617.37 345.525 570.155 345.525 496.315C345.525 422.12 380.67 374.55 439.245 374.55C485.75 374.55 513.795 402.595 520.54 442.71H608.225C600.415 359.285 532.255 300 438.18 300C328.485 300 255 380.585 255 496.315C255 612.045 328.485 691.92 438.18 691.92Z" fill="#D6AF61"/>
+  <circle cx="725" cy="651" r="41" fill="#D6AF61"/>
 </svg>

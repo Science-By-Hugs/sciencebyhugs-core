@@ -24,7 +24,7 @@ export default defineConfig({
       ],
       manifest: {
         id: '/',
-        name: 'Core — Science By Hugs',
+        name: 'core. — Science By Hugs',
         short_name: 'core',
         description: 'Internal operations for Science By Hugs.',
         theme_color: '#08090B',

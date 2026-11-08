@@ -994,3 +994,20 @@ body button:disabled{opacity:.6}
 @media(max-width:900px){
   .app-topbar,.app-tabs{background:#0B0C0E!important}
 }
+
+/* The Nexus-inspired c. brand lockup keeps the dot aligned with the lowercase baseline.
+   Typography remains unadorned; the brand mark is an actual font-derived glyph outline. */
+.app-wordmark .core-wordmark-c,.app-topbar-mark .core-wordmark-c,.login-title .core-wordmark-c{
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif!important;
+  font-weight:650!important;
+  font-style:normal!important;
+}
+.app-wordmark .core-wordmark-dot,.app-topbar-mark .core-wordmark-dot,.login-title .core-wordmark-dot{
+  display:inline!important;
+  color:var(--core-gold)!important;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif!important;
+  font-size:.9em!important;
+  font-weight:750!important;
+  line-height:1!important;
+  letter-spacing:-.055em!important;
+}

@@ -229,7 +229,7 @@ function shell(content: string, signedIn = false) {
     <a class="skip-link" href="#core-content">Skip to content</a>
     <div class="app">
       <aside class="app-side" aria-label="Core navigation">
-        <a class="app-wordmark" href="#dashboard" aria-label="Core home"><span class="core-wordmark-c">c</span>ore</a>
+        <a class="app-wordmark" href="#dashboard" aria-label="Core home"><span class="core-wordmark-c">c</span>ore<span class="core-wordmark-dot">.</span></a>
         <nav class="app-nav" aria-label="Main">${MAIN_NAV.map(([v, l, i]) => link(v, l, i)).join('')}</nav>
         ${['products','catalog','inventory'].includes(activeView) ? '<nav class="app-subnav" aria-label="Product sections">' +
           (['catalog','inventory','purchasing','suppliers'] as ProductSection[]).map(section =>
@@ -249,7 +249,7 @@ function shell(content: string, signedIn = false) {
       </aside>
       <div class="app-main">
         <header class="app-topbar">
-          <a class="app-topbar-mark" href="#dashboard" aria-label="Core home"><span class="core-wordmark-c">c</span>ore</a>
+          <a class="app-topbar-mark" href="#dashboard" aria-label="Core home"><span class="core-wordmark-c">c</span>ore<span class="core-wordmark-dot">.</span></a>
           <a class="app-me core-account-shortcut" href="#account" aria-label="Account">${avatarMarkup()}</a>
         </header>
         <main class="app-content core-content-shell" id="core-content" tabindex="-1">${pushPrompt()}${content}</main>
@@ -287,7 +287,7 @@ function renderLogin(message = '') {
     <section class="login-wrap">
       <div class="login-card">
         <img class="core-login-icon" src="${coreIconUrl}" alt="" width="64" height="64" />
-        <h1 class="login-title"><span class="core-wordmark-c">c</span>ore</h1>
+        <h1 class="login-title"><span class="core-wordmark-c">c</span>ore<span class="core-wordmark-dot">.</span></h1>
         <p class="copy">Sign in with your Science By Hugs administrator account.</p>
         <form id="login-form" class="login-form">
           <label>Email<input name="email" type="email" autocomplete="email" required></label>

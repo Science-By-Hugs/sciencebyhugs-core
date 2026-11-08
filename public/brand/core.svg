@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 160" role="img" aria-label="Core — Science By Hugs">
- <title>Core — Science By Hugs</title>
- <rect width="620" height="160" fill="none"/>
- <text x="20" y="102" fill="#D6AF61" font-family="Arial, Helvetica, sans-serif" font-size="101" font-weight="600" letter-spacing="-3">c</text>
- <text x="82" y="102" fill="#F3F4F5" font-family="Arial, Helvetica, sans-serif" font-size="96" font-weight="600" letter-spacing="-3">ore</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 160" role="img" aria-label="Core c. — Science By Hugs">
+ <title>Core c. — Science By Hugs</title>
+ <text x="20" y="103" fill="#D6AF61" font-family="Inter,Helvetica Neue,Arial,sans-serif" font-size="103" font-weight="650">c</text>
+ <text x="80" y="103" fill="#F3F4F5" font-family="Inter,Helvetica Neue,Arial,sans-serif" font-size="100" font-weight="650">ore</text>
+ <circle cx="256" cy="93" r="9" fill="#D6AF61"/>
  <path d="M22 116H414" stroke="#D6AF61" stroke-width="3"/>
- <text x="24" y="146" fill="#B6BBC0" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" letter-spacing="6">SCIENCE BY HUGS</text>
+ <text x="24" y="146" fill="#B6BBC0" font-family="Inter,Helvetica Neue,Arial,sans-serif" font-size="16" font-weight="600" letter-spacing="6">SCIENCE BY HUGS</text>
 </svg>
