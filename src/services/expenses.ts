@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 
 export type FinanceExpenseStatus='planned'|'paid'|'voided'
 export type FinanceExpenseCategory=
-  'inventory_purchase'|'vendor_shipping'|'processing_fee'|'software'|
+  'inventory_purchase'|'vendor_shipping'|'fulfillment_shipping'|'processing_fee'|'software'|
   'marketing'|'packaging'|'supplies'|'operations'|'other'
 export type FinancePaymentMethod='card'|'bank_transfer'|'paypal'|'zelle'|'cash'|'crypto'|'other'
 
