@@ -120,6 +120,8 @@ export type DiscountCodeRecord = {
   active: boolean
   created_at: string
   used_at: string | null
+  used_order_id?: string | null
+  used_by_profile_id?: string | null
   expires_at?: string | null
   assigned_profile_id?: string | null
   assigned?: DiscountCustomer | null
@@ -155,6 +157,14 @@ async function discountControl<T>(body: Record<string, unknown>, fallback: strin
 export async function createCustomDiscountCode(input: CustomDiscountInput) {
   return discountControl<{ success: true; code: { id: string; code: string }; codes: DiscountCodeRecord[] }>(
     { action: 'create', ...input }, 'Could not create discount code')
+}
+
+export async function deleteUnusedDiscountCode(id: string, confirmCode: string) {
+  const result = await discountControl<{
+    deleted: { id: string; code: string }
+    codes: DiscountCodeRecord[] | null
+  }>({ action: 'delete', id, confirmCode }, 'Could not delete discount code')
+  return { deleted: result.deleted, codes: result.codes ?? await loadDiscountCodes() }
 }
 
 export async function setDiscountCodeActive(id: string, active: boolean) {

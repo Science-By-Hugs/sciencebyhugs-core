@@ -1268,3 +1268,31 @@ body button:disabled{opacity:.6}
   .comms-alert-filter{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
   #notifications-root .notification-row{grid-template-columns:auto minmax(0,1fr);gap:8px}
 }
+
+
+/* Core Marketing: permanent-delete confirmation for disabled, never-used discounts. */
+.dc-delete-dialog{
+  width:min(440px,calc(100vw - 28px));max-width:440px;max-height:calc(100dvh - 32px);
+  padding:0;border:1px solid #77706B;border-radius:14px;
+  background:var(--core-surface);color:var(--core-ivory);box-shadow:0 24px 64px rgba(0,0,0,.65);
+  overflow-y:auto;
+}
+.dc-delete-dialog::backdrop{background:rgba(0,0,0,.76);backdrop-filter:blur(3px)}
+.dc-delete-dialog-inner{display:grid;gap:13px;padding:20px;min-width:0}
+.dc-delete-dialog h3{margin:0;color:var(--core-ivory);font-size:20px}
+.dc-delete-dialog p{margin:0;color:var(--core-muted);font-size:13px;line-height:1.55}
+.dc-delete-code-label strong{color:var(--core-gold);font-size:14px;letter-spacing:.02em;overflow-wrap:anywhere}
+.dc-delete-dialog label{display:grid;gap:7px;color:var(--core-ivory);font-size:12px}
+.dc-delete-dialog input{width:100%;box-sizing:border-box;min-height:44px}
+.dc-delete-dialog .dc-delete-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.dc-delete-dialog .dc-delete-actions button{min-height:44px;border-radius:9px}
+.dc-delete-dialog .dc-delete-actions .danger{
+  background:#71362F!important;color:#FFF7F3!important;border:1px solid #A85B52!important;
+}
+.dc-delete-dialog .dc-delete-actions .danger:disabled{opacity:.48}
+.dc-delete-dialog .card-message{min-height:16px}
+.dc-row-actions .dc-delete-open{color:#E6A4A4!important;border-color:#6D4B49!important}
+@media(max-width:420px){
+  .dc-delete-dialog-inner{padding:16px}
+  .dc-delete-dialog .dc-delete-actions{grid-template-columns:1fr}
+}
