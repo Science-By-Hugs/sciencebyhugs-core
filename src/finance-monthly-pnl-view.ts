@@ -1,4 +1,5 @@
 import {loadMonthlyPnl,type MonthlyPnlReport,type MonthlyPnlRow} from './services/monthly-pnl'
+import {downloadCsv,monthlyPnlCsv} from './finance-csv'
 
 type Helpers={
  escapeHtml:(value:unknown)=>string
@@ -136,9 +137,11 @@ function view(data:MonthlyPnlReport,h:Helpers){
      'separate accounting reconciliation.</p>'+
   '</details>'+
   '<nav class="pnl-actions" aria-label="Financial report actions">'+
+   '<button type="button" data-pnl-export>Download P&L CSV</button>'+
    '<button type="button" data-pnl-reconcile>Resolve missing records</button>'+
    '<button type="button" data-pnl-expenses>Record expenses</button>'+
   '</nav>'+
+  '<p class="pnl-export-feedback" role="status" aria-live="polite"></p>'+
   '<p class="pnl-generated">Based on records as of '+e(new Date(data.generated_at).toLocaleString())+
     '. Reporting months use '+e(data.timezone)+'.</p>'
  root.querySelector<HTMLSelectElement>('.pnl-year')?.addEventListener('change',event=>{
@@ -146,6 +149,15 @@ function view(data:MonthlyPnlReport,h:Helpers){
   if(data.years.includes(next)){
    selectedYear=next
    void bindMonthlyPnl(h)
+  }
+ })
+ root.querySelector<HTMLButtonElement>('[data-pnl-export]')?.addEventListener('click',()=>{
+  const feedback=root.querySelector<HTMLElement>('.pnl-export-feedback')
+  try{
+   downloadCsv(monthlyPnlCsv(data),'science-by-hugs-monthly-pnl-'+data.year+'.csv')
+   if(feedback)feedback.textContent='CSV prepared from the displayed reporting snapshot. Keep financial exports private.'
+  }catch(err){
+   if(feedback)feedback.textContent=err instanceof Error?err.message:'CSV export unavailable.'
   }
  })
  root.querySelector<HTMLButtonElement>('[data-pnl-reconcile]')?.addEventListener('click',()=>{
