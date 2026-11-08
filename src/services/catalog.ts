@@ -264,6 +264,17 @@ export async function listShippingRates() {
   return data.shippingRates
 }
 
+export async function mergeShippingSource(
+  oldSource: string, newSource: string, confirmOldSource: string, expectedRate: number,
+) {
+  return catalogControl<{
+    success: true; oldSource: string; newSource: string; rate: number;
+    movedProducts: number; foundingWaiverMoved: boolean;
+    shippingRates: Record<string, number>
+  }>({ action: 'merge_shipping_source', oldSource, newSource, confirmOldSource, expectedRate },
+    'Could not rename or merge shipping sources')
+}
+
 export async function setShippingRate(source: string, rate: string) {
   const data = await catalogControl<{ shippingRates: Record<string, number> }>(
     { action: 'set_shipping_rate', source, rate }, 'Could not save shipping rate')

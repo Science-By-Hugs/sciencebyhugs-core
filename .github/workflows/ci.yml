@@ -77,6 +77,11 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h 127.0.0.1 -U postgres -d inventory_test -v ON_ERROR_STOP=1 -f tests/core-discount-delete-db.sql
 
+      - name: Shipping source rename PostgreSQL integration (temporary database, rollback)
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d inventory_test -v ON_ERROR_STOP=1 -f tests/core-shipping-source-merge-db.sql
+
       - name: Two-session checkout contention test (temporary database only)
         env:
           PGPASSWORD: postgres

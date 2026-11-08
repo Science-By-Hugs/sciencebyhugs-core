@@ -162,6 +162,33 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  if (action === "merge_shipping_source") {
+    // Core auth is already verified above. The service-role-only database
+    // function also rechecks the user's protected app_metadata and performs
+    // all product, rate, waiver and audit writes atomically.
+    const oldSource = clean(body.oldSource, 120);
+    const newSource = clean(body.newSource, 120);
+    const confirmOldSource = typeof body.confirmOldSource === "string" ? body.confirmOldSource : "";
+    const expectedRate = body.expectedRate;
+    if (!oldSource || !newSource || confirmOldSource !== oldSource ||
+        typeof expectedRate !== "number" || !Number.isFinite(expectedRate) || expectedRate < 0) {
+      return json({ error: "Choose two sources and type the existing name exactly." }, 400);
+    }
+    const { data, error } = await admin.rpc("core_catalog_merge_shipping_source", {
+      p_old_source: oldSource,
+      p_new_source: newSource,
+      p_confirm_old_source: confirmOldSource,
+      p_expected_rate: expectedRate,
+      p_actor_id: user.id,
+    });
+    if (error) {
+      const message = error.message || "Could not merge shipping sources";
+      return json({ error: message }, /already|same rate|changed|old source|new source|source|refresh|role|required/i.test(message) ? 409 : 500);
+    }
+    if (!data?.success) return json({ error: data?.error || "Could not merge shipping sources" }, 409);
+    return json(data);
+  }
+
   if (action === "set_shipping_rate" || action === "delete_shipping_rate") {
     const source = clean(body.source, 120);
     if (!source) return json({ error: "Shipping source name is required" }, 400);
