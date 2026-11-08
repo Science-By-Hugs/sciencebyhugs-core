@@ -144,6 +144,7 @@ Deno.serve(async (req: Request) => {
     if (product.active && storefront !== "available") issues.push("Active flag disagrees with storefront status");
     if (!product.active && storefront === "available") issues.push("Inactive flag disagrees with storefront status");
     if (
+      catalogMode !== "core_manual" &&
       latestSync?.id &&
       product.sync_source === latestSync.source &&
       product.last_sync_run_id &&
