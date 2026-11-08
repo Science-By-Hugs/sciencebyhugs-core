@@ -1684,3 +1684,34 @@ body button:disabled{opacity:.6}
  #finance-monthly-pnl .pnl-actions{display:grid;grid-template-columns:1fr 1fr}
  #finance-monthly-pnl .pnl-actions button{min-width:0;white-space:normal}
 }
+
+
+/* Core Finance exports: quiet touch-friendly controls; never crowd iPhone headings. */
+#finance-monthly-pnl .pnl-actions button[data-pnl-export]{
+  background:#D6AF61;color:#121314;border-color:#D6AF61;
+}
+#finance-monthly-pnl .pnl-export-feedback,
+#finance-reconciliation .reconcile-export-feedback{
+  color:#D6AF61;font-size:12px;line-height:1.5;margin:0;
+}
+#finance-monthly-pnl .pnl-export-feedback:empty,
+#finance-reconciliation .reconcile-export-feedback:empty{display:none}
+#finance-reconciliation .reconcile-head-actions{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+#finance-reconciliation [data-reconcile-export]{
+  min-height:44px;min-width:0;max-width:100%;border-radius:10px;
+  background:#D6AF61;color:#111213;border:1px solid #D6AF61;
+  font:inherit;font-size:12px;font-weight:750;padding:10px 13px;cursor:pointer;
+}
+#finance-reconciliation [data-reconcile-export]:focus-visible{
+  outline:2px solid #F5E1AD;outline-offset:3px;
+}
+@media(max-width:640px){
+  #finance-reconciliation .reconcile-head-actions{width:100%;justify-content:space-between}
+  #finance-reconciliation .reconcile-head-actions [data-reconcile-export]{flex:1}
+  #finance-monthly-pnl .pnl-actions{grid-template-columns:minmax(0,1fr)}
+  #finance-monthly-pnl .pnl-actions button{min-height:46px;width:100%}
+  #finance-monthly-pnl .pnl-month-label,
+  #finance-monthly-pnl .pnl-breakdown span{min-width:0;overflow-wrap:anywhere}
+}
