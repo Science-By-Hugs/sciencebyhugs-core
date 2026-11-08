@@ -9,14 +9,15 @@ type Helpers = {
 
 export function financePageMarkup(email: string, escapeHtml: Helpers['escapeHtml']) {
   return '<section class="dashboard-head dashboard-head-compact"><div>' +
-    '<span class="eyebrow">FINANCE</span><h1 class="dashboard-title">Finance</h1>' +
-    '<p class="copy">Operational revenue, verified payments, receivables, and open cash exposure. This is internal reporting, not bank reconciliation.</p>' +
+    '<span class="eyebrow">BUSINESS PERFORMANCE</span><h1 class="dashboard-title">Finances</h1>' +
+    '<p class="copy">Know what customers have paid, what needs attention, and what your products cost. Operational reporting, not a bank balance or accounting ledger.</p>' +
     '</div><div class="operator">Signed in as <strong>' + escapeHtml(email) + '</strong></div></section>' +
     '<section id="finance-root" aria-label="Financial overview"><div class="loading">Loading finance…</div></section>' +
     '<section id="finance-profit" class="finance-panel" aria-label="Profit report"><div class="loading">Loading profit…</div></section>'
 }
 
-const rows = (items: string[]) => items.length ? items.join('') : '<p class="dashboard-muted">Nothing to show.</p>'
+const rows = (items: string[], empty = 'No records to review.') => items.length ? items.join('') :
+  '<p class="finance-empty">' + empty + '</p>'
 
 type ProfitPeriod = 'all' | 'this-month' | 'last-month' | 'last-90' | 'this-year'
 const PROFIT_PERIOD_KEY = 'core-reports-profit-period'
@@ -51,7 +52,7 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
     ['all', 'All time'], ['this-month', 'This month'], ['last-month', 'Last month'], ['last-90', 'Last 90 days'], ['this-year', 'This year'],
   ]
   const head = (body: string) =>
-    '<div class="dashboard-section-head finance-profit-head"><div><span class="eyebrow">GROSS PROFIT · VENDOR COST BASIS</span><h2>Profit & product costs</h2></div>' +
+    '<div class="dashboard-section-head finance-profit-head"><div><span class="eyebrow">COSTED SALES · NOT NET INCOME</span><h2>Product profit & costs</h2></div>' +
     '<select id="finance-profit-period" aria-label="Profit period">' +
       options.map(([value, label]) => '<option value="' + value + '"' + (value === period ? ' selected' : '') + '>' + label + '</option>').join('') +
     '</select></div>' + body
@@ -62,6 +63,9 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
     const r = await loadProfitReport(range.from, range.to)
     if(version!==profitRequestVersion||!el.isConnected)return
     const t = r.totals
+    const costedLines = Math.max(0, t.lines - t.uncosted_lines)
+    const coverage = t.lines > 0 ? Math.min(100, Math.max(0, Math.round(costedLines / t.lines * 100))) : 0
+    const profitDisplay = costedLines > 0 ? money(t.gross_profit) : '—'
     const signed = (value: number | null) => value === null ? '—' : money(value)
     const productRows = r.by_product.slice(0, 25).map(line =>
       '<div class="finance-row' + (line.profit !== null && line.profit < 0 ? ' loss' : '') + '"><span><strong>' + escapeHtml(line.name) + '</strong><small>' +
@@ -81,8 +85,8 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
       '<p class="report-kicker">Profit snapshot · selected period</p>' +
       '<section class="finance-kpis report-finance-featured">' +
         '<div><span>Sales before discounts</span><strong>' + money(t.sales) + '</strong><small>' + t.orders + ' paid orders · ' + t.lines + ' lines</small></div>' +
-        '<div class="report-key-figure"><span>Gross profit · costed lines only</span><strong>' + money(t.gross_profit) + '</strong><small>On ' + money(t.costed_sales) + ' costed sales</small></div>' +
-        '<div><span>Vendor cost</span><strong>' + money(t.vendor_cost) + '</strong><small>Cost captured at time of sale</small></div>' +
+        '<div class="report-key-figure"><span>Recorded gross profit</span><strong>' + profitDisplay + '</strong><small>Only ' + costedLines + ' of ' + t.lines + ' sales lines have costs</small></div>' +
+        '<div><span>Recorded vendor costs</span><strong>' + money(t.vendor_cost) + '</strong><small>Costs captured at the time of sale</small></div>' +
       '</section>' +
       '<details class="report-expander report-profit-extra"><summary>Discounts, margin & markup</summary>' +
         '<section class="finance-kpis report-finance-extra">' +
