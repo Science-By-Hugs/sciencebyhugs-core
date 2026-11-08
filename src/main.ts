@@ -151,9 +151,9 @@ const MAIN_NAV: Array<[CoreView, string, string]> = [
   ['orders', 'Orders', 'orders'],
   ['products', 'Products', 'catalog'],
   ['customers', 'Customers', 'customers'],
-  ['memberships', 'Memberships', 'customers'],
 ]
 const MORE_NAV: Array<[CoreView, string]> = [
+  ['memberships', 'Memberships'],
   ['reports', 'Reports'],
   ['referrals', 'Marketing'],
   ['notifications', 'Messages & alerts'],
