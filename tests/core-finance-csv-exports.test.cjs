@@ -33,7 +33,7 @@ const report={
   months:[
     row('2026-10'),
     row('2026-11',{coverage_status:'incomplete',original_cost_lines:1,
-      missing_cost_lines:1,uncosted_sales:65,recorded_operating_result:null}),
+      missing_cost_lines:1,uncosted_sales:65,processor_expenses:0,recorded_operating_result:null}),
     row('2026-12',{paid_orders:0})
   ]
 }
