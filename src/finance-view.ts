@@ -179,7 +179,7 @@ export async function bindFinancePage(helpers: Helpers) {
       '<nav class="finance-shortcuts" aria-label="Finance shortcuts">' +
         '<a href="#orders">Orders & payments</a>' +
         '<a href="#products?section=catalog">Product costs</a>' +
-        '<a href="#finance-profit" data-finance-profit-link>Profit & cost coverage ↓</a>' +
+        '<button type="button" data-finance-profit-link>Profit & cost coverage ↓</button>' +
       '</nav>' +
       '<details class="report-expander report-finance-extra-wrap"><summary>More financial figures</summary>' +
         '<section class="finance-kpis report-finance-extra">' +
@@ -233,6 +233,9 @@ export async function bindFinancePage(helpers: Helpers) {
       '</section>' +
       '</details>' +
       '<p class="dashboard-generated">Finance generated ' + helpers.escapeHtml(helpers.dateTime(data.generated_at)) + '</p>'
+    root.querySelector<HTMLButtonElement>('[data-finance-profit-link]')?.addEventListener('click', () => {
+      document.querySelector('#finance-profit')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   } catch (error) {
     root.innerHTML = '<div class="empty-state error-state"><h2>Could not load finance.</h2><p>' +
       helpers.escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p></div>'
