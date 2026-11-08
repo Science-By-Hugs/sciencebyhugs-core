@@ -1715,3 +1715,67 @@ body button:disabled{opacity:.6}
   #finance-monthly-pnl .pnl-month-label,
   #finance-monthly-pnl .pnl-breakdown span{min-width:0;overflow-wrap:anywhere}
 }
+
+
+/* Financial Reconciliation: grouped evidence queue and vendor matching checklist */
+#finance-reconciliation .reconcile-cost-overview{
+  margin:14px 15px 8px;display:grid;gap:6px;padding:14px;
+  border-left:3px solid var(--recon-gold);background:#222019;border-radius:0 10px 10px 0
+}
+#finance-reconciliation .reconcile-cost-overview strong{font-size:13px;color:#F5F5F5}
+#finance-reconciliation .reconcile-cost-overview p{font-size:11px;line-height:1.65;color:var(--recon-muted);margin:0}
+#finance-reconciliation .reconcile-cost-controls{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:12px;padding:12px 15px 5px
+}
+#finance-reconciliation .reconcile-cost-controls label{display:grid;gap:6px;font-size:12px;color:var(--recon-muted)}
+#finance-reconciliation .reconcile-cost-count{font-size:11px;color:var(--recon-muted);padding:0 15px;margin:8px 0}
+#finance-reconciliation .reconcile-cost-groups{display:grid;gap:10px;padding:3px 15px 16px}
+#finance-reconciliation .reconcile-cost-group{border:1px solid var(--recon-line);border-radius:12px;
+ min-width:0;background:#17191b;overflow:hidden}
+#finance-reconciliation .reconcile-cost-group[hidden]{display:none!important}
+#finance-reconciliation .reconcile-cost-group>summary{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:13px;min-height:48px;cursor:pointer;list-style:none
+}
+#finance-reconciliation .reconcile-cost-group>summary::-webkit-details-marker{display:none}
+#finance-reconciliation .reconcile-cost-group>summary:after{
+  content:'+';font-size:19px;color:var(--recon-gold);font-weight:750
+}
+#finance-reconciliation .reconcile-cost-group[open]>summary:after{content:'−'}
+#finance-reconciliation .reconcile-cost-group-title{min-width:0;flex:1;display:grid;gap:5px}
+#finance-reconciliation .reconcile-cost-group-title strong{
+  color:#F5F5F5;font-size:13px;line-height:1.4;overflow-wrap:anywhere
+}
+#finance-reconciliation .reconcile-cost-group-title small{
+  font-size:11px;color:var(--recon-muted);line-height:1.5
+}
+#finance-reconciliation .reconcile-cost-group-value{
+  display:grid;justify-items:end;min-width:80px;gap:4px
+}
+#finance-reconciliation .reconcile-cost-group-value strong{
+  font-size:15px;font-variant-numeric:tabular-nums;color:var(--recon-gold)
+}
+#finance-reconciliation .reconcile-cost-group-value small{
+  font-size:10px;line-height:1.3;max-width:90px;text-align:right;color:var(--recon-muted)
+}
+#finance-reconciliation .reconcile-cost-group>.reconcile-hint{
+  padding:12px 13px;margin:0;border-top:1px solid var(--recon-line)
+}
+#finance-reconciliation .reconcile-cost-group-lines{padding:0 13px 7px}
+#finance-reconciliation .reconcile-po-intro{
+  margin:12px 16px;font-size:12px;line-height:1.6;color:var(--recon-muted)
+}
+#finance-reconciliation .reconcile-cost-controls input[type=search]{
+  -webkit-appearance:none;appearance:none;min-width:0
+}
+@media(max-width:600px){
+ #finance-reconciliation .reconcile-cost-controls{grid-template-columns:1fr;padding:12px 12px 3px}
+ #finance-reconciliation .reconcile-cost-overview{margin:12px}
+ #finance-reconciliation .reconcile-cost-groups{padding:3px 12px 13px}
+ #finance-reconciliation .reconcile-cost-group>summary{padding:12px 10px;gap:8px}
+ #finance-reconciliation .reconcile-cost-group-value{min-width:73px}
+ #finance-reconciliation .reconcile-cost-group-value strong{font-size:13px}
+ #finance-reconciliation .reconcile-cost-group-value small{max-width:80px}
+ #finance-reconciliation .reconcile-cost-group-lines{padding:0 10px 6px}
+}
