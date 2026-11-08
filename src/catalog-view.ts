@@ -508,7 +508,7 @@ export async function bindCatalogPage(helpers: Helpers) {
     // ---------- Shipping rates ----------
     const shippingEl = document.querySelector<HTMLDivElement>('#catalog-shipping')
     if (shippingEl) {
-      shippingEl.innerHTML = shippingPanel(rates, products, helpers)
+      shippingEl.innerHTML = shippingPanel(rates, labels, helpers)
       const rateMessage = shippingEl.querySelector<HTMLElement>('.catalog-rate-message')
       const say = (text: string) => { if (rateMessage) rateMessage.textContent = text }
       const keepOpen = async () => {
