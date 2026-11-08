@@ -18,8 +18,10 @@ function view(data:MonthlyPnlReport,h:Helpers){
  const root=document.querySelector<HTMLElement>('#finance-monthly-pnl')
  if(!root)return
  const e=h.escapeHtml,money=h.money
- const currentMonth=new Intl.DateTimeFormat('en-CA',{timeZone:data.timezone,year:'numeric',month:'2-digit'})
-  .format(new Date(data.generated_at)).slice(0,7)
+ const nowParts=new Intl.DateTimeFormat('en-US',{timeZone:data.timezone,year:'numeric',month:'2-digit'})
+   .formatToParts(new Date(data.generated_at))
+ const currentMonth=(nowParts.find(part=>part.type==='year')?.value||String(data.year))+'-'+
+   (nowParts.find(part=>part.type==='month')?.value||'12')
  const visible=data.months.filter(row=>row.month<=currentMonth)
  const active=visible.filter(row=>row.paid_orders>0||row.paid_expense_records>0||row.planned_expenses>0||row.purchase_orders>0)
  const allRevenue=sum(visible,'revenue_ex_tax')
