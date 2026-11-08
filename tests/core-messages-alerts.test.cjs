@@ -16,6 +16,7 @@ test('Core operational alerts appear before customer broadcast tools',()=>{
   assert.match(src,/s\.warning > 0/)
   assert.match(src,/No urgent operational alerts/)
   assert.match(src,/await loadCoreNotifications\(\)/)
+  assert.match(src,/void renderOperationalAlerts\(helpers\)/)
   assert.match(src,/data\.notifications\.map\(item =>/)
 })
 test('Core alerts use accessible local severity filters without mutations',()=>{

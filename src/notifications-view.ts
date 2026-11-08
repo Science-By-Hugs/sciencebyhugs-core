@@ -65,9 +65,85 @@ export function notificationsPageMarkup(email: string, escapeHtml: Helpers['esca
       '<div class="comms-disclosure-body">' + nexusOnboardingPanelMarkup() + '</div></details>'
 }
 
+async function renderOperationalAlerts(helpers: Helpers) {
+  const root = document.querySelector<HTMLDivElement>('#notifications-root')
+  if (!root) return
+  try {
+    const data = await loadCoreNotifications()
+    if (!root.isConnected) return
+    const s = data.summary
+    const urgent = s.critical > 0
+      ? {title: s.critical + ' critical alert' + (s.critical === 1 ? '' : 's') + ' need attention',
+         text: 'Review critical operational issues before sending customer messages.'}
+      : s.warning > 0
+        ? {title: s.warning + ' warning' + (s.warning === 1 ? '' : 's') + ' to review',
+           text: 'Check warning details and follow the relevant Core workflow.'}
+        : {title: 'No urgent operational alerts',
+           text: s.info > 0 ? 'Informational updates are listed below.' : 'Your current operations queue is clear.'}
+    root.innerHTML =
+      '<section class="comms-alert-priority" aria-labelledby="comms-alert-title">' +
+        '<span class="comms-kicker">CORE · NEEDS ATTENTION</span>' +
+        '<h2 id="comms-alert-title">' + helpers.escapeHtml(urgent.title) + '</h2>' +
+        '<p>' + helpers.escapeHtml(urgent.text) + '</p></section>' +
+      '<section class="notification-kpis comms-kpis" aria-label="Alert counts">' +
+        '<div><span>Total alerts</span><strong>' + s.total + '</strong></div>' +
+        '<div><span>Critical</span><strong>' + s.critical + '</strong></div>' +
+        '<div><span>Warning</span><strong>' + s.warning + '</strong></div>' +
+        '<div><span>Info</span><strong>' + s.info + '</strong></div>' +
+      '</section>' +
+      '<section class="notification-panel comms-alert-panel">' +
+        '<div class="comms-section-head"><h2>Operational alerts</h2><small id="comms-alert-visible">' +
+          data.notifications.length + ' of ' + data.notifications.length + ' shown</small></div>' +
+        '<div class="comms-alert-filter" role="group" aria-label="Filter operational alerts">' +
+          '<button type="button" data-alert-filter="all" aria-pressed="true">All</button>' +
+          '<button type="button" data-alert-filter="critical" aria-pressed="false">Critical</button>' +
+          '<button type="button" data-alert-filter="warning" aria-pressed="false">Warning</button>' +
+          '<button type="button" data-alert-filter="info" aria-pressed="false">Info</button>' +
+        '</div>' +
+        (data.notifications.length
+          ? '<div class="notification-list">' + data.notifications.map(item =>
+              '<a class="notification-row ' + helpers.escapeHtml(item.severity) +
+                '" data-alert-severity="' + helpers.escapeHtml(item.severity) +
+                '" href="' + helpers.escapeHtml(item.href) + '">' +
+                '<b>' + helpers.escapeHtml(item.severity.toUpperCase()) + '</b>' +
+                '<span><strong>' + helpers.escapeHtml(item.title) + '</strong><small>' +
+                  helpers.escapeHtml(item.category) + ' · ' + helpers.escapeHtml(item.detail) + '</small></span>' +
+                '<time>' + helpers.escapeHtml(helpers.dateTime(item.created_at)) + '</time>' +
+                '<i>Open →</i></a>'
+            ).join('') + '</div>' +
+            '<p class="comms-empty" id="comms-alert-empty" hidden>No alerts match this filter.</p>'
+          : '<p class="comms-empty">No active operational alerts.</p>') +
+      '</section>' +
+      '<p class="dashboard-generated">Notifications generated ' +
+        helpers.escapeHtml(helpers.dateTime(data.generated_at)) + '</p>'
+
+    const filters = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-alert-filter]'))
+    const rows = Array.from(root.querySelectorAll<HTMLElement>('.notification-row[data-alert-severity]'))
+    const visible = root.querySelector<HTMLElement>('#comms-alert-visible')
+    const empty = root.querySelector<HTMLElement>('#comms-alert-empty')
+    filters.forEach(button => button.addEventListener('click', () => {
+      const category = button.dataset.alertFilter || 'all'
+      filters.forEach(other => other.setAttribute('aria-pressed', String(other === button)))
+      let shown = 0
+      rows.forEach(row => {
+        row.hidden = category !== 'all' && row.dataset.alertSeverity !== category
+        if (!row.hidden) shown++
+      })
+      if (visible) visible.textContent = shown + ' of ' + rows.length + ' shown'
+      if (empty) empty.hidden = shown !== 0
+    }))
+  } catch (error) {
+    if (!root.isConnected) return
+    root.innerHTML = '<div class="empty-state error-state"><h2>Could not load notifications.</h2><p>' +
+      helpers.escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p></div>'
+  }
+}
+
 export async function bindNotificationsPage(helpers: Helpers) {
   void bindPushPanel()
   void bindNexusOnboardingPanel(helpers)
+  // Alert rendering begins immediately; recipient lookup cannot delay urgent signals.
+  void renderOperationalAlerts(helpers)
 
   const mode = document.querySelector<HTMLSelectElement>('#nexus-push-mode')
   const customerWrap = document.querySelector<HTMLElement>('#nexus-push-customer-wrap')
@@ -171,75 +247,5 @@ export async function bindNotificationsPage(helpers: Helpers) {
     })
   }
 
-  const root = document.querySelector<HTMLDivElement>('#notifications-root')
-  if (!root) return
-  try {
-    const data = await loadCoreNotifications()
-    if (!root.isConnected) return
-    const s = data.summary
-    const urgent = s.critical > 0
-      ? {title: s.critical + ' critical alert' + (s.critical === 1 ? '' : 's') + ' need attention',
-         text: 'Review critical operational issues before sending customer messages.'}
-      : s.warning > 0
-        ? {title: s.warning + ' warning' + (s.warning === 1 ? '' : 's') + ' to review',
-           text: 'Check warning details and follow the relevant Core workflow.'}
-        : {title: 'No urgent operational alerts',
-           text: s.info > 0 ? 'Informational updates are listed below.' : 'Your current operations queue is clear.'}
-    root.innerHTML =
-      '<section class="comms-alert-priority" aria-labelledby="comms-alert-title">' +
-        '<span class="comms-kicker">CORE · NEEDS ATTENTION</span>' +
-        '<h2 id="comms-alert-title">' + helpers.escapeHtml(urgent.title) + '</h2>' +
-        '<p>' + helpers.escapeHtml(urgent.text) + '</p></section>' +
-      '<section class="notification-kpis comms-kpis" aria-label="Alert counts">' +
-        '<div><span>Total alerts</span><strong>' + s.total + '</strong></div>' +
-        '<div><span>Critical</span><strong>' + s.critical + '</strong></div>' +
-        '<div><span>Warning</span><strong>' + s.warning + '</strong></div>' +
-        '<div><span>Info</span><strong>' + s.info + '</strong></div>' +
-      '</section>' +
-      '<section class="notification-panel comms-alert-panel">' +
-        '<div class="comms-section-head"><h2>Operational alerts</h2><small id="comms-alert-visible">' +
-          data.notifications.length + ' of ' + data.notifications.length + ' shown</small></div>' +
-        '<div class="comms-alert-filter" role="group" aria-label="Filter operational alerts">' +
-          '<button type="button" data-alert-filter="all" aria-pressed="true">All</button>' +
-          '<button type="button" data-alert-filter="critical" aria-pressed="false">Critical</button>' +
-          '<button type="button" data-alert-filter="warning" aria-pressed="false">Warning</button>' +
-          '<button type="button" data-alert-filter="info" aria-pressed="false">Info</button>' +
-        '</div>' +
-        (data.notifications.length
-          ? '<div class="notification-list">' + data.notifications.map(item =>
-              '<a class="notification-row ' + helpers.escapeHtml(item.severity) +
-                '" data-alert-severity="' + helpers.escapeHtml(item.severity) +
-                '" href="' + helpers.escapeHtml(item.href) + '">' +
-                '<b>' + helpers.escapeHtml(item.severity.toUpperCase()) + '</b>' +
-                '<span><strong>' + helpers.escapeHtml(item.title) + '</strong><small>' +
-                  helpers.escapeHtml(item.category) + ' · ' + helpers.escapeHtml(item.detail) + '</small></span>' +
-                '<time>' + helpers.escapeHtml(helpers.dateTime(item.created_at)) + '</time>' +
-                '<i>Open →</i></a>'
-            ).join('') + '</div>' +
-            '<p class="comms-empty" id="comms-alert-empty" hidden>No alerts match this filter.</p>'
-          : '<p class="comms-empty">No active operational alerts.</p>') +
-      '</section>' +
-      '<p class="dashboard-generated">Notifications generated ' +
-        helpers.escapeHtml(helpers.dateTime(data.generated_at)) + '</p>'
 
-    const filters = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-alert-filter]'))
-    const rows = Array.from(root.querySelectorAll<HTMLElement>('.notification-row[data-alert-severity]'))
-    const visible = root.querySelector<HTMLElement>('#comms-alert-visible')
-    const empty = root.querySelector<HTMLElement>('#comms-alert-empty')
-    filters.forEach(button => button.addEventListener('click', () => {
-      const category = button.dataset.alertFilter || 'all'
-      filters.forEach(other => other.setAttribute('aria-pressed', String(other === button)))
-      let shown = 0
-      rows.forEach(row => {
-        row.hidden = category !== 'all' && row.dataset.alertSeverity !== category
-        if (!row.hidden) shown++
-      })
-      if (visible) visible.textContent = shown + ' of ' + rows.length + ' shown'
-      if (empty) empty.hidden = shown !== 0
-    }))
-  } catch (error) {
-    if (!root.isConnected) return
-    root.innerHTML = '<div class="empty-state error-state"><h2>Could not load notifications.</h2><p>' +
-      helpers.escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p></div>'
-  }
 }
