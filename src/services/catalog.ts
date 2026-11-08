@@ -31,6 +31,8 @@ export type CoreCatalogProduct = {
   shipping_from: string | null
   source: string | null
   storefront_status: string | null
+  /** Validated Core-only mode; unreviewed products remain unavailable in Nexus. */
+  supply_mode: 'physical' | 'vendor' | 'unreviewed'
   source_key: string | null
   sync_source: string | null
   last_sync_run_id: string | null
@@ -80,6 +82,9 @@ export type CoreCatalogDiscrepancy = {
 
 export type CoreCatalogOperations = {
   feed: {
+    mode?: 'core_manual'
+    last_product_updated_at?: string | null
+    legacy_last_sync_at?: string | null
     status: 'healthy' | 'attention'
     stale: boolean
     latest_sync_at: string | null
@@ -91,7 +96,7 @@ export type CoreCatalogOperations = {
     latest_deactivated_count: number | null
     recent_successful_runs: number
     recent_run_count: number
-    stale_after_minutes: number
+    stale_after_minutes: number | null
   }
   metadata: {
     active_products: number
@@ -117,6 +122,7 @@ export type CoreCatalogPayload = {
     metadata_completeness_percent: number
     action_queue: number
     discrepancy_count: number
+    needs_supply_classification: number
   }
   operations: CoreCatalogOperations
   categories: CoreCatalogCategory[]

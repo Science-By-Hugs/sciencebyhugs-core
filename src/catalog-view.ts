@@ -363,6 +363,7 @@ export function catalogPageMarkup(email: string, escapeHtml: Helpers['escapeHtml
     '</div><div class="operator">Signed in as <strong>' + escapeHtml(email) + '</strong></div></section>' +
     '<section class="catalog-create-wrap" id="catalog-create"></section>' +
     '<section class="catalog-metrics" id="catalog-metrics"></section>' +
+    '<section id="catalog-supply-review" aria-live="polite"></section>' +
     '<details class="catalog-health"><summary>Shipping rates and catalog health</summary>' +
     '<section class="catalog-ops-grid">' +
       '<div id="catalog-shipping"></div>' +
@@ -411,7 +412,7 @@ export async function bindCatalogPage(helpers: Helpers) {
     if (createEl) {
       createEl.innerHTML =
         '<details class="catalog-editor catalog-create-panel"><summary><span class="primary catalog-create-button">+ New product</span></summary>' +
-          '<p class="catalog-editor-note">New products are saved directly to the live catalog. Leave “Selling on Nexus” off to prepare a product before it goes on sale.</p>' +
+          '<p class="catalog-editor-note">New products are saved directly to Core. Leave “Selling on Nexus” off while preparing them. Every new product also needs a supply classification in Products → Inventory before Nexus can make it available.</p>' +
           productForm(null, categories, rates, helpers) +
           '<div class="catalog-editor-actions"><p class="card-message catalog-create-message" aria-live="polite"></p>' +
           '<button class="primary create-catalog-product" type="button">Create Product</button></div>' +
@@ -455,21 +456,42 @@ export async function bindCatalogPage(helpers: Helpers) {
       })
     }
 
+    // ---------- Nexus supply readiness ----------
+    // The storefront availability flag is NOT a supply promise. Nexus only
+    // permits classified vendor products or stocked physical products.
+    const supplyReview = products.filter(product => product.active && product.supply_mode === 'unreviewed')
+    const supplyReviewEl = document.querySelector<HTMLElement>('#catalog-supply-review')
+    if (supplyReviewEl) {
+      supplyReviewEl.innerHTML = supplyReview.length
+        ? '<div class="catalog-supply-alert"><div><span class="eyebrow">NEXUS READINESS</span>' +
+            '<h2>' + supplyReview.length + ' product' + (supplyReview.length === 1 ? '' : 's') +
+            ' need' + (supplyReview.length === 1 ? 's' : '') + ' a supply classification</h2>' +
+            '<p>These products may be listed in Core, but Nexus keeps them unavailable until you choose physical stock or vendor-supplied. No availability is changed automatically.</p></div>' +
+            '<div class="catalog-supply-actions">' + supplyReview.slice(0, 5).map(product =>
+              '<a href="#products?section=inventory&classify=' + encodeURIComponent(product.id) + '">' +
+                'Classify ' + helpers.escapeHtml(product.name) + '</a>'
+            ).join('') + '</div></div>'
+        : ''
+    }
+
     // ---------- Metrics ----------
     const live = products.filter(product => !isArchived(product))
     const metricEl = document.querySelector<HTMLDivElement>('#catalog-metrics')
     if (metricEl) {
       metricEl.innerHTML =
         '<div><span>Products</span><strong>' + live.length + '</strong></div>' +
-        '<div><span>Selling on Nexus</span><strong>' + live.filter(isSelling).length + '</strong></div>' +
+        '<div><span>Listed for sale in Core</span><strong>' + live.filter(isSelling).length + '</strong></div>' +
         '<div><span>Not selling</span><strong>' + live.filter(product => !isSelling(product)).length + '</strong></div>' +
         '<div><span>Hidden from Resident/New</span><strong>' + live.filter(product => product.core_hidden).length + '</strong></div>' +
         '<div><span>Selling without vendor cost</span><strong>' + live.filter(product => isSelling(product) && costOf(product.id) === null).length + '</strong></div>' +
         '<div><span>Archived</span><strong>' + (products.length - live.length) + '</strong></div>' +
         '<div><span>Metadata complete</span><strong>' + operations.metadata.completeness_percent + '%</strong></div>' +
+        '<div><span>Supply review needed</span><strong>' + supplyReview.length + '</strong></div>' +
         '<div><span>Work queue</span><strong>' + operations.action_queue.length + '</strong></div>'
     }
 
+    // The old Google sync runs are retained for history, not used as a live
+    // health signal now that Core is the catalog source of truth.
     // ---------- Shipping rates ----------
     const shippingEl = document.querySelector<HTMLDivElement>('#catalog-shipping')
     if (shippingEl) {
