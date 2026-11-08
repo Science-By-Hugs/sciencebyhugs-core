@@ -10,9 +10,9 @@ const js=ts.transpileModule(src,{
  reportDiagnostics:true
 })
 assert.equal((js.diagnostics||[]).filter(x=>x.category===ts.DiagnosticCategory.Error).length,0)
-const exports={}
-new Function('exports','require','module',js.outputText)(exports,require,{exports})
-const {groupMissingCosts,sortCostGroups,purchaseReviewStatus}=exports
+const loadedExports={}
+new Function('exports','require','module',js.outputText)(loadedExports,require,{exports:loadedExports})
+const {groupMissingCosts,sortCostGroups,purchaseReviewStatus}=loadedExports
 
 const item=(id,name,sales,date,extras={})=>({
  id,order_id:'order-'+id,order_number:'ORDER-'+id,product_name:name,
