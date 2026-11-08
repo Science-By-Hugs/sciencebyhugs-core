@@ -58,3 +58,15 @@ test('No live production code is deleted or transformed during CI',()=>{
   assert.match(ci,/tests\/core-discount-delete-db\.sql/)
   assert.doesNotMatch(ci,/psql.+core.*prod|supabase db push/)
 })
+
+test('Postgres-owned verification runs with service-only grants, without exposing Auth users',()=>{
+  const fix=read('supabase/migrations/20261108022500_core_discount_delete_auth_role_access.sql')
+  const db=read('tests/core-discount-delete-db.sql')
+  assert.match(fix,/alter function public\.core_delete_unused_discount_code\(uuid,text,uuid\)/)
+  assert.match(fix,/security definer/)
+  assert.match(fix,/from public,anon,authenticated/)
+  assert.match(fix,/to service_role/)
+  assert.match(db,/Deliberately no grant on auth\.users/)
+  assert.match(db,/has_table_privilege\('service_role','auth\.users','SELECT'\)/)
+  assert.match(db,/p\.prosecdef/)
+})

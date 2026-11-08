@@ -31,9 +31,11 @@ CREATE TABLE public.core_audit_events (
 );
 -- function is deployed with exactly the same migration used in production.
 \i supabase/migrations/20261108014000_core_safe_unused_discount_delete.sql
+\i supabase/migrations/20261108022500_core_discount_delete_auth_role_access.sql
 
 GRANT USAGE ON SCHEMA auth TO service_role;
-GRANT SELECT ON auth.users TO service_role;
+-- Deliberately no grant on auth.users: service_role cannot read it on Supabase.
+-- The restricted SECURITY DEFINER function verifies actor roles as postgres.
 GRANT SELECT,UPDATE,DELETE ON public.discount_codes TO service_role;
 GRANT SELECT ON public.orders,public.invoices TO service_role;
 GRANT INSERT,SELECT ON public.core_audit_events TO service_role;
@@ -67,6 +69,13 @@ INSERT INTO public.invoices (id,discount_code_id,discount_code) VALUES
 
 DO $privileges$
 BEGIN
+  IF has_table_privilege('service_role','auth.users','SELECT') THEN
+    RAISE EXCEPTION 'The test must simulate hosted service_role having no Auth user SELECT';
+  END IF;
+  IF NOT (select p.prosecdef from pg_proc p
+          where p.oid='public.core_delete_unused_discount_code(uuid,text,uuid)'::regprocedure) THEN
+    RAISE EXCEPTION 'Delete RPC must be a narrowly granted security definer to read Auth user roles';
+  END IF;
   IF has_function_privilege('anon','public.core_delete_unused_discount_code(uuid,text,uuid)','EXECUTE')
     OR has_function_privilege('authenticated','public.core_delete_unused_discount_code(uuid,text,uuid)','EXECUTE')
     OR NOT has_function_privilege('service_role','public.core_delete_unused_discount_code(uuid,text,uuid)','EXECUTE')
