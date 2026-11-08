@@ -6,6 +6,7 @@
 // - Every code can be turned off and back on. All writes go through core-discount-codes.
 import {
   createCustomDiscountCode,
+  deleteUnusedDiscountCode,
   generateDiscountCode,
   loadDiscountCodes,
   searchDiscountCustomers,
@@ -59,6 +60,18 @@ export function discountCodesPanelMarkup() {
       '<button type="button" class="ghost compact" data-code-filter="off">Off / expired</button>' +
     '</div>' +
     '<div class="discount-code-list" id="discount-code-list"><div class="loading">Loading codes…</div></div>' +
+    '<dialog id="dc-delete-dialog" class="dc-delete-dialog" aria-labelledby="dc-delete-heading" aria-describedby="dc-delete-description">' +
+      '<div class="dc-delete-dialog-inner">' +
+        '<span class="eyebrow">PERMANENT DELETE</span><h3 id="dc-delete-heading">Delete discount code?</h3>' +
+        '<p id="dc-delete-description">This permanently removes an unused, disabled code. It cannot be undone. ' +
+          'Core blocks deletion if a code was redeemed or appears on any order or invoice.</p>' +
+        '<p class="dc-delete-code-label">Type <strong id="dc-delete-code"></strong> exactly to continue.</p>' +
+        '<label><span>Confirm code</span><input id="dc-delete-input" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="32"></label>' +
+        '<p id="dc-delete-message" class="card-message" aria-live="polite"></p>' +
+        '<div class="dc-delete-actions"><button type="button" class="secondary" id="dc-delete-cancel">Cancel</button>' +
+          '<button type="button" class="danger" id="dc-delete-submit" disabled>Delete permanently</button></div>' +
+      '</div>' +
+    '</dialog>' +
   '</section>'
 }
 
@@ -78,6 +91,14 @@ export function discountStatus(code: Pick<DiscountCodeRecord, 'one_time' | 'used
   if (code.one_time && code.used_at) return 'USED'
   if (code.expires_at && new Date(code.expires_at).getTime() <= now) return 'EXPIRED'
   return code.one_time ? 'AVAILABLE' : 'ALWAYS ON'
+}
+
+// The server also checks order and invoice history, which is intentionally
+// not inferred from the customer-facing code list.
+export function canDeleteDiscountCode(code: DiscountCodeRecord) {
+  return !code.permanent && !code.active && !code.used_at &&
+    !code.used_order_id && !code.used_by_profile_id &&
+    (code.kind === 'custom' || code.kind === 'free_shipping' || code.kind === 'referral_bonus')
 }
 
 /** End of the chosen day in the browser's time zone, as ISO. */
@@ -136,6 +157,10 @@ export async function bindDiscountCodesPanel(helpers: Helpers) {
               (status === 'USED' ? '' :
                 '<button type="button" class="ghost compact toggle-discount-code" data-active="' + (code.active ? 'true' : 'false') + '">' +
                   (code.active ? 'Turn off' : 'Turn on') + '</button>') +
+              (canDeleteDiscountCode(code)
+                ? '<button type="button" class="ghost compact dc-delete-open" aria-label="Permanently delete ' +
+                    escapeHtml(code.code) + '">Delete…</button>'
+                : '') +
             '</span>' +
             '<b data-status="' + status.toLowerCase().replaceAll(' ', '-') + '">' + status + '</b>' +
           '</div>'
@@ -150,10 +175,70 @@ export async function bindDiscountCodesPanel(helpers: Helpers) {
     list.innerHTML = '<p class="dashboard-muted">Could not load discount codes.</p>'
   }
 
+  const deleteDialog = $<HTMLDialogElement>('#dc-delete-dialog')
+  const deleteInput = $<HTMLInputElement>('#dc-delete-input')
+  const deleteSubmit = $<HTMLButtonElement>('#dc-delete-submit')
+  const deleteMessage = $<HTMLElement>('#dc-delete-message')
+  const deleteLabel = $<HTMLElement>('#dc-delete-code')
+  let selectedDelete: DiscountCodeRecord | null = null
+  let deleting = false
+  const syncDelete = () => {
+    deleteSubmit.disabled = deleting || !selectedDelete ||
+      deleteInput.value !== selectedDelete.code || !canDeleteDiscountCode(selectedDelete)
+  }
+  const closeDelete = () => {
+    if (deleting) return
+    deleteDialog.close()
+  }
+  deleteDialog.addEventListener('close', () => {
+    if (deleting) return
+    selectedDelete = null
+    deleteInput.value = ''
+    deleteMessage.textContent = ''
+    syncDelete()
+  })
+  $<HTMLButtonElement>('#dc-delete-cancel').addEventListener('click', closeDelete)
+  deleteInput.addEventListener('input', syncDelete)
+  deleteSubmit.addEventListener('click', async () => {
+    const code = selectedDelete
+    if (!code || deleting || !canDeleteDiscountCode(code) || deleteInput.value !== code.code) return
+    deleting = true
+    syncDelete()
+    deleteMessage.textContent = 'Checking history, then deleting and recording the audit event…'
+    try {
+      const result = await deleteUnusedDiscountCode(code.id, deleteInput.value)
+      codes = result.codes
+      deleting = false
+      deleteDialog.close()
+      selectedDelete = null
+      render()
+      say(result.deleted.code + ' was permanently deleted. Audit event recorded.')
+    } catch (error) {
+      deleteMessage.textContent = error instanceof Error ? error.message : 'Could not delete the code.'
+    } finally {
+      deleting = false
+      syncDelete()
+    }
+  })
+
   list.addEventListener('click', async event => {
     const target = event.target as HTMLElement
     const copyButton = target.closest<HTMLButtonElement>('.copy-discount-code')
     if (copyButton?.dataset.code) { void copy(copyButton.dataset.code); return }
+    const deleteOpen = target.closest<HTMLButtonElement>('.dc-delete-open')
+    if (deleteOpen) {
+      const id = deleteOpen.closest<HTMLElement>('.discount-code-admin-row')?.dataset.id
+      const code = codes.find(c => c.id === id)
+      if (!code || !canDeleteDiscountCode(code)) { say('Only unused, disabled promotional codes can be deleted.'); return }
+      selectedDelete = code
+      deleteLabel.textContent = code.code
+      deleteInput.value = ''
+      deleteMessage.textContent = ''
+      syncDelete()
+      deleteDialog.showModal()
+      deleteInput.focus()
+      return
+    }
     const toggle = target.closest<HTMLButtonElement>('.toggle-discount-code')
     const id = toggle?.closest<HTMLElement>('.discount-code-admin-row')?.dataset.id
     if (!toggle || !id) return

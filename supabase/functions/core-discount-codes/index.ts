@@ -6,6 +6,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 // v4 (2026-10-30): + create (custom code, % off or $ off shipping, optional expiry,
 //                    optional assignment to one customer), set_active, customers (search).
 // Every write records a core_audit_events row.
+// v5: service-role-only, atomic audited delete for UNUSED, OFF promotional codes.
+// SQL RPC validates live order/invoice history, actor role, and typed confirmation.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -178,6 +180,25 @@ Deno.serve(async (req: Request) => {
       if (!autoCode) return json({ error: `The code ${payload.code} already exists. Pick another.` }, 409);
     }
     return json({ error: "Could not find an unused SBH code. Try again." }, 409);
+  }
+
+  if (action === "delete") {
+    const id = String(body.id || "");
+    const confirmCode = typeof body.confirmCode === "string" ? body.confirmCode : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+        || !confirmCode || confirmCode.length > 32) {
+      return json({ error: "Select a code and type its exact value to confirm deletion." }, 400);
+    }
+    // One SQL call owns the lock, eligibility checks, audit insert and DELETE.
+    // Never perform a separate browser or Edge-function delete.
+    const { data, error } = await admin.rpc("core_delete_unused_discount_code", {
+      p_id: id, p_confirm_code: confirmCode, p_actor_user_id: user.id,
+    });
+    if (error) return json({ error: "Deletion could not be completed. The code was not removed." }, 500);
+    if (!data?.success) return json({ error: data?.error || "This code cannot be deleted." }, 409);
+    // The committed deletion is already durable even if the list refresh fails.
+    const codes = await listCodes().catch(() => null);
+    return json({ success: true, deleted: data.deleted, codes });
   }
 
   if (action === "set_active") {
