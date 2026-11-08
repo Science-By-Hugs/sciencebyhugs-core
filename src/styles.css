@@ -2220,3 +2220,33 @@ button.danger:disabled,.danger:disabled{opacity:.5;cursor:not-allowed}
 .danger-zone-row{display:flex;gap:8px;flex-wrap:wrap}
 .danger-zone-row input{flex:1;min-width:200px;min-height:38px;border-radius:10px;border:1px solid #3a2a2a;background:#090909;color:var(--text);padding:0 12px}
 .deleted-tag{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;font-size:.62rem;letter-spacing:.04em;vertical-align:middle;color:#e18a8a;border:1px solid rgba(225,138,138,.4)}
+
+
+/* Owner-facing membership plan management. Never exposes customer billing data. */
+.membership-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0 20px}
+.membership-summary>div,.membership-card,.membership-create{border:1px solid #34383C;border-radius:14px;background:var(--surface);padding:16px}
+.membership-summary small,.membership-card-head small{display:block;font-size:.7rem;color:var(--muted)}
+.membership-summary strong{display:block;font-size:1.5rem;margin-top:4px}
+.membership-list{display:grid;gap:14px;margin:14px 0}
+.membership-card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.membership-card h2{font-size:1.15rem;margin:4px 0}
+.membership-slug,.membership-description{color:var(--muted);font-size:.8rem;margin:4px 0}
+.membership-card-stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;font-size:.75rem}
+.membership-card-stats span{border:1px solid #34383C;border-radius:999px;padding:5px 9px;white-space:nowrap}
+.membership-active{color:var(--core-gold)}
+.membership-inactive{color:var(--muted)}
+.membership-benefits{margin:12px 0 16px;padding-left:20px;display:grid;gap:6px;font-size:.82rem}
+.membership-editor,.membership-create{margin-top:12px}
+.membership-editor summary,.membership-create summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:650;color:var(--core-gold);list-style:none}
+.membership-editor summary::-webkit-details-marker,.membership-create summary::-webkit-details-marker{display:none}
+.membership-plan-form{padding-top:14px;border-top:1px solid #34383C}
+.membership-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.membership-form-grid label{min-width:0;display:grid;gap:6px;font-size:.8rem;color:var(--muted)}
+.membership-form-grid label input:not([type=checkbox]),.membership-form-grid textarea{box-sizing:border-box;width:100%;min-height:42px;border:1px solid #34383C;border-radius:10px;background:#090909;color:var(--text);padding:10px;font:inherit}
+.membership-form-grid input[readonly]{opacity:.7}
+.membership-form-grid .membership-form-wide{grid-column:1/-1}
+.membership-form-grid .membership-active-label{display:flex;align-items:center;align-self:center;gap:9px}
+.membership-form-note{display:block;margin:12px 0;color:var(--muted);font-size:.75rem;line-height:1.5}
+.membership-form-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:15px}
+.membership-form-status{font-size:.8rem;color:var(--core-gold);overflow-wrap:anywhere}
+@media(max-width:650px){.membership-summary{grid-template-columns:1fr 1fr}.membership-card-head{flex-direction:column}.membership-card-stats{justify-content:flex-start}.membership-form-grid{grid-template-columns:1fr}.membership-form-grid .membership-form-wide{grid-column:auto}.membership-form-actions button{width:100%}}

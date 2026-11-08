@@ -6,6 +6,7 @@ import './brand.css'
 import { supabase } from './services/supabase'
 import { bindOrdersHub, ordersHubMarkup, presetOrdersFilter } from './orders-hub'
 import { bindCustomersPage, customersPageMarkup } from './customers-view'
+import { bindMembershipsPage, membershipsPageMarkup } from './memberships-view'
 import { disposeMasterDetail } from './master-detail'
 import { bindCatalogPage, catalogPageMarkup } from './catalog-view'
 import { bindInventoryPage, inventoryPageMarkup } from './inventory-view'
@@ -54,6 +55,7 @@ type CoreView =
   | 'orders'
   | 'checkout-pending'
   | 'customers'
+  | 'memberships'
   | 'catalog'
   | 'inventory'
   | 'products'
@@ -73,6 +75,7 @@ const CORE_VIEWS: CoreView[] = [
   'orders',
   'checkout-pending',
   'customers',
+  'memberships',
   'catalog',
   'inventory',
   'products',
@@ -150,6 +153,7 @@ const MAIN_NAV: Array<[CoreView, string, string]> = [
   ['customers', 'Customers', 'customers'],
 ]
 const MORE_NAV: Array<[CoreView, string]> = [
+  ['memberships', 'Memberships'],
   ['reports', 'Reports'],
   ['referrals', 'Marketing'],
   ['notifications', 'Messages & alerts'],
@@ -449,6 +453,12 @@ async function render() {
 
   if (activeView === 'customers') {
     await renderCustomers(email)
+    return
+  }
+
+  if (activeView === 'memberships') {
+    shell(membershipsPageMarkup(email, escapeHtml), true)
+    await bindMembershipsPage({ escapeHtml })
     return
   }
 
