@@ -23,6 +23,12 @@ test('Expenses use an RLS-protected manual-only ledger and strictly audited owne
   assert.match(sql,/REVOKE ALL ON TABLE public\.core_finance_expenses FROM PUBLIC, anon, authenticated/)
   assert.match(sql,/GRANT SELECT, INSERT, UPDATE ON public\.core_finance_expenses TO service_role/)
   assert.doesNotMatch(sql,/GRANT DELETE ON public\.core_finance_expenses/i)
+  const least=read('supabase/migrations/20261108041000_core_finance_expenses_least_privilege.sql')
+  const rpcOnly=read('supabase/migrations/20261108041500_core_finance_expenses_rpc_only_writes.sql')
+  assert.match(least,/REVOKE ALL ON TABLE public\.core_finance_expenses FROM service_role/)
+  assert.match(rpcOnly,/REVOKE INSERT, UPDATE ON TABLE public\.core_finance_expenses FROM service_role/)
+  assert.match(sql,/SECURITY DEFINER SET search_path = ''/)
+
   assert.match(sql,/FROM auth\.users u WHERE u\.id=p_actor_id/)
   assert.match(sql,/v_actor_role NOT IN \('owner','admin'\)/)
   assert.match(sql,/p_expected_updated_at/)
