@@ -268,6 +268,7 @@ export function customersPageMarkup(email: string, escapeHtml: Helpers['escapeHt
   return '<section class="dashboard-head dashboard-head-compact"><div>' +
     '<span class="eyebrow">CUSTOMER OPERATIONS</span><h1 class="dashboard-title">Customers</h1>' +
     '<p class="copy">Customer relationships, memberships, order value, referrals, rewards, and internal context.</p>' +
+    '<p class="copy"><a href="#memberships">Manage membership plans</a></p>' +
     '</div><div class="operator">Signed in as <strong>' + escapeHtml(email) + '</strong></div></section>' +
     '<details class="customer-filter-menu" id="customer-filter-menu">' +
       '<summary aria-label="Show or hide customer search and filters">' +
