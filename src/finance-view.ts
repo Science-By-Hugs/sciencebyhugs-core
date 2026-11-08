@@ -85,7 +85,7 @@ async function renderProfit(helpers: Helpers, period: ProfitPeriod = 'all') {
       '<p class="report-kicker">Profit snapshot · selected period</p>' +
       '<section class="finance-kpis report-finance-featured">' +
         '<div><span>Sales before discounts</span><strong>' + money(t.sales) + '</strong><small>' + t.orders + ' paid orders · ' + t.lines + ' lines</small></div>' +
-        '<div class="report-key-figure"><span>Recorded gross profit</span><strong>' + profitDisplay + '</strong><small>Only ' + costedLines + ' of ' + t.lines + ' sales lines have costs</small></div>' +
+        '<div class="report-key-figure"><span>Recorded gross profit</span><strong>' + profitDisplay + '</strong><small>Only ' + costedLines + ' of ' + t.lines + ' sales lines have costs · ' + money(t.costed_sales) + ' costed product sales</small></div>' +
         '<div><span>Recorded vendor costs</span><strong>' + money(t.vendor_cost) + '</strong><small>Costs captured at the time of sale</small></div>' +
       '</section>' +
       '<section class="finance-quality' + (t.uncosted_lines ? ' finance-quality-partial' : '') + '" aria-label="Cost coverage">' +
