@@ -1,1 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img"><title>core. app icon</title><rect width="1024" height="1024" fill="#171A1C"/><path d="M627 368C597 324 551 300 497 300H475C389 300 330 362 330 449C330 536 389 598 475 598H497C551 598 597 574 627 530" fill="none" stroke="#F0F1EF" stroke-width="92" stroke-linecap="round" stroke-linejoin="round"/><circle cx="728" cy="648" r="48" fill="#F0F1EF"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Core lowercase c app icon">
+  <title>Core</title>
+  <rect width="1024" height="1024" fill="#08090B"/>
+  <path d="M665 383C620 348 567 329 506 329C400 329 318 408 318 513C318 619 400 698 506 698C567 698 620 677 665 641" fill="none" stroke="#D6AF61" stroke-width="91" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
