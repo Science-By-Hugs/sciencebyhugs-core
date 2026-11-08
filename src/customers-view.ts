@@ -1,5 +1,6 @@
 import { inviteCustomerProfile } from './services/admin-tools'
 import { deleteZone } from './delete-zone'
+import { presetOrdersSelection } from './orders-hub'
 import { mountMasterDetail } from './master-detail'
 import { deleteCustomer } from './services/records'
 import { createCustomer, loadCoreCustomers, updateCustomerAccountStatus, updateCustomerContactPreference, updateCustomerEmail, updateCustomerMembership, updateCustomerNotes, updateCustomerProfile, type CoreCustomer, type CoreMembership } from './services/customers'
@@ -16,55 +17,97 @@ function nameFor(customer: CoreCustomer) {
 
 function customerCard(customer: CoreCustomer, memberships: CoreMembership[], helpers: Helpers) {
   const { escapeHtml, money, dateTime } = helpers
-  const recentOrders = customer.orders.slice(0, 3)
-  return '<article class="customer-card" data-customer-id="' + escapeHtml(customer.id) + '">' +
-    '<div class="customer-card-head">' +
-      '<div><span class="eyebrow">' + escapeHtml(customer.customer_number || 'CUSTOMER') + '</span>' +
-      '<h2>' + escapeHtml(nameFor(customer)) + '</h2>' +
-      '<p>' + escapeHtml(customer.email) + (customer.phone ? ' · ' + escapeHtml(customer.phone) : '') + '</p></div>' +
-      '<div class="customer-tags">' +
-        '<div class="membership-control"><label><span>Membership</span><select class="customer-membership-select">' +
-          memberships.map(membership =>
-            '<option value="' + escapeHtml(membership.id) + '"' +
-              (customer.membership?.id === membership.id ? ' selected' : '') + '>' +
-              escapeHtml(membership.name) + '</option>'
-          ).join('') +
-        '</select></label><p class="card-message membership-message" aria-live="polite"></p></div>' +
-        '<div class="account-status-control"><label><span>Account</span><select class="customer-account-status">' +
-          '<option value="Active"' + (customer.account_status.toLowerCase() === 'active' ? ' selected' : '') + '>Active</option>' +
-          '<option value="Suspended"' + (customer.account_status.toLowerCase() === 'suspended' ? ' selected' : '') + '>Suspended</option>' +
-        '</select></label><p class="card-message account-status-message" aria-live="polite"></p></div>' +
-      '</div>' +
+  const id = escapeHtml(customer.id)
+  const orders = [...(customer.orders || [])].sort((a,b) => b.created_at.localeCompare(a.created_at))
+  const referrals = customer.referrals || []
+  const rewards = customer.rewards || []
+  const tab = (step: string, label: string) =>
+    '<button type="button" role="tab" class="customer-profile-tab" data-customer-tab="' + step +
+    '" id="customer-tab-' + id + '-' + step + '" aria-controls="customer-panel-' + id + '-' + step +
+    '" aria-selected="false" tabindex="-1">' + label + '</button>'
+  const panel = (step: string, html: string) =>
+    '<section class="customer-profile-panel" role="tabpanel" data-customer-panel="' + step +
+    '" id="customer-panel-' + id + '-' + step + '" aria-labelledby="customer-tab-' + id + '-' + step +
+    '" hidden>' + html + '</section>'
+  const name = nameFor(customer)
+
+  const overview =
+    '<div class="customer-section-title"><h3>Customer at a glance</h3>' +
+      '<button type="button" class="customer-jump" data-customer-jump="profile">Edit profile</button></div>' +
+    '<div class="customer-overview-facts">' +
+      '<div><span>Email</span><strong>' + escapeHtml(customer.email) + '</strong></div>' +
+      '<div><span>Phone</span><strong>' + escapeHtml(customer.phone || 'Not provided') + '</strong></div>' +
+      '<div><span>Preferred contact</span><strong>' + escapeHtml(customer.preferred_contact_method || 'Not set') + '</strong></div>' +
+      '<div><span>Last login</span><strong>' + escapeHtml(dateTime(customer.last_login_at)) + '</strong></div>' +
+      '<div><span>Latest order</span><strong>' + escapeHtml(dateTime(customer.metrics.latest_order_at)) + '</strong></div>' +
+      '<div><span>Referral code</span><strong>' + escapeHtml(customer.referral_code || '—') + '</strong></div>' +
     '</div>' +
-    '<div class="customer-metrics">' +
-      '<div><span>Orders</span><strong>' + customer.metrics.order_count + '</strong></div>' +
-      '<div><span>Lifetime spend</span><strong>' + money(customer.metrics.lifetime_spend) + '</strong></div>' +
-      '<div><span>Referrals</span><strong>' + customer.metrics.referral_count + '</strong></div>' +
-      '<div><span>Rewards</span><strong>' + customer.metrics.available_reward_count + '</strong></div>' +
-    '</div>' +
-    '<div class="customer-details">' +
-      '<div class="contact-preference-control"><span>Preferred contact</span>' +
+    '<div class="customer-overview-next">' +
+      '<button type="button" class="customer-overview-link" data-customer-jump="orders">View orders (' +
+        customer.metrics.order_count + ')</button>' +
+      '<button type="button" class="customer-overview-link" data-customer-jump="rewards">Referrals & rewards</button>' +
+    '</div>'
+
+  const orderHistory =
+    '<div class="customer-section-title"><h3>Purchase history</h3><small>' +
+      orders.length + ' record' + (orders.length === 1 ? '' : 's') + ' available</small></div>' +
+    (orders.length ? '<div class="customer-order-history">' +
+      orders.map(order =>
+        '<a href="#orders" class="customer-order-row" data-customer-order-id="' + escapeHtml(order.id) + '">' +
+          '<span class="customer-order-main"><strong>' + escapeHtml(order.order_number || 'Order') + '</strong>' +
+            '<small>' + escapeHtml(dateTime(order.created_at)) + ' · Payment: ' +
+              escapeHtml(order.payment_status || 'Not available') + '</small></span>' +
+          '<span class="customer-order-end"><strong>' + money(order.total) + '</strong>' +
+            '<small>' + escapeHtml(order.status) + '</small></span>' +
+        '</a>'
+      ).join('') + '</div>' :
+      '<p class="customer-blank">No order history is available for this customer.</p>') +
+    '<p class="customer-footnote">Select an order to open that exact order in Core.</p>'
+
+  const referralHistory =
+    '<div class="customer-section-title"><h3>Referrals</h3><small>' +
+      customer.metrics.qualified_referral_count + ' qualified</small></div>' +
+    '<p class="customer-footnote">Referral code: <strong>' + escapeHtml(customer.referral_code || '—') + '</strong></p>' +
+    (referrals.length ? '<div class="customer-history-list">' +
+      referrals.map(ref =>
+        '<div class="customer-history-item">' +
+          '<div><strong>' + escapeHtml(ref.referred_name || ref.referred_email || 'Referred customer') + '</strong>' +
+            '<small>' + escapeHtml(dateTime(ref.referred_at)) +
+              (ref.qualifying_order_number ? ' · Order ' + escapeHtml(ref.qualifying_order_number) : '') + '</small></div>' +
+          '<span class="customer-history-status">' + escapeHtml(ref.status) + '</span>' +
+        '</div>').join('') + '</div>' :
+      '<p class="customer-blank">No referrals recorded.</p>')
+  const rewardHistory =
+    '<div class="customer-section-title"><h3>Rewards</h3><small>' +
+      customer.metrics.available_reward_count + ' available</small></div>' +
+    (rewards.length ? '<div class="customer-history-list">' +
+      rewards.map(reward =>
+        '<div class="customer-history-item">' +
+          '<div><strong>' + escapeHtml(reward.title || reward.description || reward.reward_type || 'Reward') + '</strong>' +
+            '<small>' + escapeHtml(dateTime(reward.created_at)) +
+            (reward.reward_value == null ? '' : ' · Value ' + escapeHtml(reward.reward_value)) +
+            '</small></div>' +
+          '<span class="customer-history-status">' + escapeHtml(reward.status) + '</span>' +
+        '</div>').join('') + '</div>' :
+      '<p class="customer-blank">No rewards recorded.</p>')
+  const rewardOverview =
+    '<div class="customer-membership-summary">' +
+      '<span>Current membership</span><strong>' + escapeHtml(customer.membership?.name || 'No membership') + '</strong>' +
+      (customer.membership?.description ? '<p>' + escapeHtml(customer.membership.description) + '</p>' : '') +
+    '</div>' + referralHistory + rewardHistory
+
+  const profileEditors =
+    '<div class="customer-section-title"><h3>Contact & profile</h3><small>Changes are audited</small></div>' +
+    '<div class="contact-preference-control customer-inline-field"><label><span>Preferred contact</span>' +
         '<select class="customer-contact-preference" aria-label="Preferred contact method">' +
           '<option value=""' + (!customer.preferred_contact_method ? ' selected' : '') + '>Not set</option>' +
           '<option value="email"' + (customer.preferred_contact_method?.toLowerCase() === 'email' ? ' selected' : '') + '>Email</option>' +
           '<option value="phone"' + (customer.preferred_contact_method?.toLowerCase() === 'phone' ? ' selected' : '') + '>Phone</option>' +
           '<option value="text"' + (['text','sms'].includes(customer.preferred_contact_method?.toLowerCase() || '') ? ' selected' : '') + '>Text</option>' +
-        '</select>' +
+        '</select></label>' +
         '<p class="card-message contact-preference-message" aria-live="polite"></p>' +
-      '</div>' +
-      '<div><span>Last login</span><strong>' + escapeHtml(dateTime(customer.last_login_at)) + '</strong></div>' +
-      '<div><span>Latest order</span><strong>' + escapeHtml(dateTime(customer.metrics.latest_order_at)) + '</strong></div>' +
-      '<div><span>Referral code</span><strong>' + escapeHtml(customer.referral_code || '—') + '</strong></div>' +
     '</div>' +
-    (recentOrders.length
-      ? '<div class="customer-orders"><span class="section-label">Recent orders</span>' +
-        recentOrders.map(order =>
-          '<a href="#orders" class="customer-order-row"><span>' +
-            escapeHtml(order.order_number || 'Order') + '</span><span>' +
-            escapeHtml(order.status) + '</span><strong>' + money(order.total) + '</strong></a>'
-        ).join('') + '</div>'
-      : '') +
-    '<details class="customer-profile-editor"><summary>Edit customer profile</summary>' +
+    '<details class="customer-profile-editor" open><summary>Contact details & address</summary>' +
       '<div class="customer-profile-grid">' +
         '<label><span>First name</span><input class="profile-first-name" maxlength="80" value="' + escapeHtml(customer.first_name || '') + '"></label>' +
         '<label><span>Last name</span><input class="profile-last-name" maxlength="80" value="' + escapeHtml(customer.last_name || '') + '"></label>' +
@@ -72,7 +115,7 @@ function customerCard(customer: CoreCustomer, memberships: CoreMembership[], hel
         '<label class="profile-email-field"><span>Email / login</span><div class="profile-email-row">' +
           '<input class="profile-email" type="email" maxlength="254" value="' + escapeHtml(customer.email) + '">' +
           '<button class="secondary save-customer-email" type="button">Change Email</button>' +
-        '</div><small>Updates Supabase Auth and the customer profile together.</small>' +
+        '</div><small>Changes the Supabase Auth and customer profile email together, after confirmation.</small>' +
         '<p class="card-message customer-email-message" aria-live="polite"></p></label>' +
         '<label class="profile-span-2"><span>Address line 1</span><input class="profile-address-1" maxlength="160" value="' + escapeHtml(customer.address_line_1 || '') + '"></label>' +
         '<label class="profile-span-2"><span>Address line 2</span><input class="profile-address-2" maxlength="160" value="' + escapeHtml(customer.address_line_2 || '') + '"></label>' +
@@ -90,14 +133,108 @@ function customerCard(customer: CoreCustomer, memberships: CoreMembership[], hel
       '<div class="customer-notes-actions"><p class="card-message customer-notes-message" aria-live="polite"></p>' +
       '<button class="secondary save-customer-notes" type="button">Save Notes</button></div>' +
     '</div>' +
-    deleteZone(
-      'Delete customer',
-      'Permanently deletes this customer and their Nexus login (which may also be their Pulse login). Their past orders stay in Core, labelled as a deleted customer. A full copy is kept in the Audit Log.',
-      'Type ' + customer.email + ' to confirm',
-      'delete-customer',
-      escapeHtml,
-    ) +
+    '<details class="customer-admin-settings"><summary>Membership & account controls</summary>' +
+      '<p class="customer-footnote">Changes to membership, account access, or login are audited. Account status and membership changes require confirmation.</p>' +
+      '<div class="customer-admin-grid">' +
+        '<div class="membership-control"><label><span>Membership</span><select class="customer-membership-select">' +
+          memberships.map(membership =>
+            '<option value="' + escapeHtml(membership.id) + '"' +
+              (customer.membership?.id === membership.id ? ' selected' : '') + '>' +
+              escapeHtml(membership.name) + '</option>'
+          ).join('') +
+        '</select></label><p class="card-message membership-message" aria-live="polite"></p></div>' +
+        '<div class="account-status-control"><label><span>Account</span><select class="customer-account-status">' +
+          '<option value="Active"' + (customer.account_status.toLowerCase() === 'active' ? ' selected' : '') + '>Active</option>' +
+          '<option value="Suspended"' + (customer.account_status.toLowerCase() === 'suspended' ? ' selected' : '') + '>Suspended</option>' +
+        '</select></label><p class="card-message account-status-message" aria-live="polite"></p></div>' +
+      '</div>' +
+      deleteZone(
+        'Delete customer',
+        'Permanently deletes this customer and their Nexus login (which may also be their Pulse login). Their past orders stay in Core, labelled as a deleted customer. A full copy is kept in the Audit Log.',
+        'Type ' + customer.email + ' to confirm',
+        'delete-customer',
+        escapeHtml,
+      ) +
+    '</details>'
+
+  return '<article class="customer-card customer-champagne" data-customer-id="' + id + '">' +
+    '<header class="customer-card-head customer-profile-heading">' +
+      '<div class="customer-profile-ident"><span class="eyebrow">' +
+        escapeHtml(customer.customer_number || 'CUSTOMER') + '</span>' +
+        '<h2>' + escapeHtml(name) + '</h2>' +
+        '<p>' + escapeHtml(customer.email) + '</p></div>' +
+      '<div class="customer-status-pills"><span class="customer-status-pill">' +
+        escapeHtml(customer.membership?.name || 'No membership') + '</span>' +
+        '<span class="customer-status-pill' +
+          (customer.account_status.toLowerCase() === 'suspended' ? ' suspended' : '') +
+        '">' + escapeHtml(customer.account_status) + '</span></div>' +
+    '</header>' +
+    '<div class="customer-metrics customer-champagne-metrics">' +
+      '<div><span>Orders</span><strong>' + customer.metrics.order_count + '</strong></div>' +
+      '<div><span>Lifetime spend</span><strong>' + money(customer.metrics.lifetime_spend) + '</strong></div>' +
+      '<div><span>Referrals</span><strong>' + customer.metrics.referral_count + '</strong></div>' +
+      '<div><span>Rewards</span><strong>' + customer.metrics.available_reward_count + '</strong></div>' +
+    '</div>' +
+    '<div class="customer-profile-tabs" role="tablist" aria-label="Customer profile sections">' +
+      tab('overview','Overview') + tab('orders','Orders') + tab('rewards','Rewards') + tab('profile','Profile') +
+    '</div>' +
+    panel('overview',overview) +
+    panel('orders',orderHistory) +
+    panel('rewards',rewardOverview) +
+    panel('profile',profileEditors) +
   '</article>'
+}
+
+function bindCustomerProfileTabs(list: HTMLElement) {
+  list.querySelectorAll<HTMLElement>('.customer-card').forEach(card=>{
+    const tabs = Array.from(card.querySelectorAll<HTMLButtonElement>('[data-customer-tab]'))
+    const panels = Array.from(card.querySelectorAll<HTMLElement>('[data-customer-panel]'))
+    const activate=(section:string,focus=false)=>{
+      const active=tabs.find(t=>t.dataset.customerTab===section)
+      if(!active)return
+      for(const tab of tabs){
+        const selected=tab===active
+        tab.setAttribute('aria-selected',String(selected))
+        tab.tabIndex=selected?0:-1
+      }
+      panels.forEach(panel=>{panel.hidden=panel.dataset.customerPanel!==section})
+      if(focus)active.focus({preventScroll:true})
+    }
+    tabs.forEach((tab,index)=>{
+      tab.addEventListener('click',()=>activate(tab.dataset.customerTab||'overview'))
+      tab.addEventListener('keydown',event=>{
+        let next=index
+        if(event.key==='ArrowRight')next=(index+1)%tabs.length
+        else if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length
+        else if(event.key==='Home')next=0
+        else if(event.key==='End')next=tabs.length-1
+        else return
+        event.preventDefault()
+        activate(tabs[next].dataset.customerTab||'overview',true)
+      })
+    })
+    card.querySelectorAll<HTMLButtonElement>('[data-customer-jump]').forEach(button=>
+      button.addEventListener('click',()=>activate(button.dataset.customerJump||'overview',true)))
+    activate('overview')
+  })
+}
+
+const CUSTOMER_DIRECTORY_STATE_KEY='core-customers-directory'
+type CustomerDirectoryState = {search:string;membership:string;account:string;activity:string}
+function customerDirectoryState():CustomerDirectoryState {
+  const fallback={search:'',membership:'all',account:'all',activity:'all'}
+  try {
+    const saved=JSON.parse(sessionStorage.getItem(CUSTOMER_DIRECTORY_STATE_KEY)||'{}')
+    return {
+      search:typeof saved.search==='string'?saved.search.slice(0,200):'',
+      membership:typeof saved.membership==='string'?saved.membership:'all',
+      account: saved.account==='active'||saved.account==='suspended'?saved.account:'all',
+      activity: saved.activity==='ordered'||saved.activity==='no-orders'?saved.activity:'all',
+    }
+  } catch {return fallback}
+}
+function saveCustomerDirectoryState(state:CustomerDirectoryState){
+  try{sessionStorage.setItem(CUSTOMER_DIRECTORY_STATE_KEY,JSON.stringify(state))}catch{/* convenience only */}
 }
 
 function newCustomerPanelMarkup() {
@@ -132,9 +269,22 @@ export function customersPageMarkup(email: string, escapeHtml: Helpers['escapeHt
     '<span class="eyebrow">CUSTOMER OPERATIONS</span><h1 class="dashboard-title">Customers</h1>' +
     '<p class="copy">Customer relationships, memberships, order value, referrals, rewards, and internal context.</p>' +
     '</div><div class="operator">Signed in as <strong>' + escapeHtml(email) + '</strong></div></section>' +
-    '<section class="customers-toolbar"><label class="queue-search"><span class="sr-only">Search customers</span>' +
-    '<input id="customers-search" type="search" placeholder="Search name, email, phone, customer number…" autocomplete="off"></label>' +
-    '<select id="customers-membership" aria-label="Filter customers by membership"><option value="all">All memberships</option></select></section>' +
+    '<details class="customer-filter-menu" id="customer-filter-menu">' +
+      '<summary aria-label="Show or hide customer search and filters">' +
+        '<span class="customer-filter-icon" aria-hidden="true">☰</span><strong>Search & filters</strong>' +
+        '<span class="customer-filter-count" id="customer-filter-count" hidden></span></summary>' +
+      '<div class="customers-toolbar customer-filter-fields">' +
+        '<label class="queue-search"><span class="sr-only">Search customers</span>' +
+          '<input id="customers-search" type="search" placeholder="Name, email, phone, customer number…" autocomplete="off"></label>' +
+        '<label><span>Membership</span><select id="customers-membership" aria-label="Filter customers by membership">' +
+          '<option value="all">All memberships</option></select></label>' +
+        '<label><span>Account</span><select id="customers-account" aria-label="Filter customers by account status">' +
+          '<option value="all">All accounts</option><option value="active">Active</option>' +
+          '<option value="suspended">Suspended</option></select></label>' +
+        '<label><span>Orders</span><select id="customers-activity" aria-label="Filter customers by order activity">' +
+          '<option value="all">Any activity</option><option value="ordered">Has orders</option>' +
+          '<option value="no-orders">No orders yet</option></select></label>' +
+      '</div></details>' +
     newCustomerPanelMarkup() +
     '<p class="queue-summary" id="customers-summary" aria-live="polite"></p>' +
     '<section class="customers-list" id="customers-list"><div class="loading">Loading customers…</div></section>'
@@ -225,35 +375,63 @@ export async function bindCustomersPage(helpers: Helpers, reload?: () => Promise
 
     bindNewCustomerPanel(memberships, helpers, reload)
 
-    let search = ''
-    let membership = 'all'
+    const searchInput=document.querySelector<HTMLInputElement>('#customers-search')
+    const accountSelect=document.querySelector<HTMLSelectElement>('#customers-account')
+    const activitySelect=document.querySelector<HTMLSelectElement>('#customers-activity')
+    const menu=document.querySelector<HTMLDetailsElement>('#customer-filter-menu')
+    const filterCount=document.querySelector<HTMLElement>('#customer-filter-count')
+    const state=customerDirectoryState()
+    if(!memberships.some(m=>m.slug===state.membership))state.membership='all'
+    if(searchInput)searchInput.value=state.search
+    if(membershipSelect)membershipSelect.value=state.membership
+    if(accountSelect)accountSelect.value=state.account
+    if(activitySelect)activitySelect.value=state.activity
+    const filtersActive=()=>Number(Boolean(state.search))+Number(state.membership!=='all')+
+      Number(state.account!=='all')+Number(state.activity!=='all')
+    if(menu)menu.open=filtersActive()>0
 
-    const apply = () => {
-      let shown = 0
-      document.querySelectorAll<HTMLElement>('.customer-card').forEach(card => {
-        const customer = customers.find(item => item.id === card.dataset.customerId)
-        if (!customer) return
-        const haystack = [
-          nameFor(customer), customer.customer_number, customer.email, customer.phone,
-          customer.referral_code, customer.membership?.name
+    const apply=()=>{
+      let shown=0
+      const byId=new Map(customers.map(customer=>[customer.id,customer]))
+      list.querySelectorAll<HTMLElement>('.customer-card').forEach(card=>{
+        const customer=byId.get(card.dataset.customerId||'')
+        if(!customer)return
+        const haystack=[
+          nameFor(customer),customer.customer_number,customer.email,customer.phone,
+          customer.referral_code,customer.membership?.name,
         ].filter(Boolean).join(' ').toLowerCase()
-        const visible =
-          (membership === 'all' || customer.membership?.slug === membership) &&
-          (!search || haystack.includes(search))
-        card.hidden = !visible
-        if (visible) shown += 1
+        const visible=(state.membership==='all'||customer.membership?.slug===state.membership) &&
+          (state.account==='all'||customer.account_status.toLowerCase()===state.account) &&
+          (state.activity==='all'||(state.activity==='ordered'?customer.metrics.order_count>0:customer.metrics.order_count===0)) &&
+          (!state.search||haystack.includes(state.search))
+        card.hidden=!visible
+        if(visible)shown++
       })
-      const summary = document.querySelector<HTMLParagraphElement>('#customers-summary')
-      if (summary) summary.textContent = shown + ' of ' + customers.length + ' customers shown.'
+      const summary=document.querySelector<HTMLParagraphElement>('#customers-summary')
+      if(summary)summary.textContent=shown+' of '+customers.length+' customers shown.'
+      const count=filtersActive()
+      if(filterCount){filterCount.hidden=count===0;filterCount.textContent=count+' active'}
+      saveCustomerDirectoryState(state)
     }
-
-    document.querySelector<HTMLInputElement>('#customers-search')?.addEventListener('input', event => {
-      search = (event.currentTarget as HTMLInputElement).value.trim().toLowerCase()
+    searchInput?.addEventListener('input',()=>{
+      state.search=searchInput.value.trim().toLowerCase()
       apply()
     })
-    membershipSelect?.addEventListener('change', event => {
-      membership = (event.currentTarget as HTMLSelectElement).value
+    membershipSelect?.addEventListener('change',()=>{
+      state.membership=membershipSelect.value
       apply()
+    })
+    accountSelect?.addEventListener('change',()=>{
+      state.account=accountSelect.value
+      apply()
+    })
+    activitySelect?.addEventListener('change',()=>{
+      state.activity=activitySelect.value
+      apply()
+    })
+    bindCustomerProfileTabs(list)
+    list.querySelectorAll<HTMLAnchorElement>('.customer-order-row[data-customer-order-id]').forEach(link=>{
+      link.addEventListener('click',()=>presetOrdersSelection(link.dataset.customerOrderId||''))
     })
 
     document.querySelectorAll<HTMLButtonElement>('.delete-customer-button').forEach(button => {
