@@ -258,9 +258,15 @@ export async function removeCatalogProduct(productId: string) {
     { action: 'remove_product', productId }, 'Could not delete product')
 }
 
+export async function listShippingRateConfiguration() {
+  return catalogControl<{
+    shippingRates: Record<string, number>
+    foundingMemberFreeShippingSource: string | null
+  }>({ action: 'list_shipping_rates' }, 'Could not load shipping rates')
+}
+
 export async function listShippingRates() {
-  const data = await catalogControl<{ shippingRates: Record<string, number> }>(
-    { action: 'list_shipping_rates' }, 'Could not load shipping rates')
+  const data = await listShippingRateConfiguration()
   return data.shippingRates
 }
 

@@ -2,7 +2,7 @@ import { mountMasterDetail } from './master-detail'
 import {
   createCatalogProduct,
   deleteShippingRate,
-  listShippingRates,
+  listShippingRateConfiguration,
   listVendorCosts,
   mergeShippingSource,
   loadCoreCatalog,
@@ -419,7 +419,9 @@ export async function bindCatalogPage(helpers: Helpers) {
   if (!list) return
 
   try {
-    const [payload, rates, costs] = await Promise.all([loadCoreCatalog(), listShippingRates(), listVendorCosts()])
+    const [payload, shippingConfig, costs] = await Promise.all([loadCoreCatalog(), listShippingRateConfiguration(), listVendorCosts()])
+    const rates = shippingConfig.shippingRates
+    const foundingWaiverSource = String(shippingConfig.foundingMemberFreeShippingSource || '').trim()
     vendorCosts = costs
     const { products, categories, operations } = payload
 
@@ -512,6 +514,16 @@ export async function bindCatalogPage(helpers: Helpers) {
     const shippingEl = document.querySelector<HTMLDivElement>('#catalog-shipping')
     if (shippingEl) {
       shippingEl.innerHTML = shippingPanel(rates, products, helpers)
+      // Display the currently protected waiver key without changing any
+      // pricing, checkout grouping or membership entitlements.
+      const founderSourceRow = [...shippingEl.querySelectorAll<HTMLElement>('.catalog-rate-row[data-source]')]
+        .find(row => row.dataset.source?.toLowerCase() === foundingWaiverSource.toLowerCase())
+      if (foundingWaiverSource && founderSourceRow) {
+        const label = document.createElement('small')
+        label.className = 'catalog-rate-usage catalog-founder-waiver-badge'
+        label.textContent = 'Founding Member free shipping applies here'
+        founderSourceRow.querySelector('strong')?.appendChild(label)
+      }
       const rateMessage = shippingEl.querySelector<HTMLElement>('.catalog-rate-message')
       const say = (text: string) => { if (rateMessage) rateMessage.textContent = text }
       const keepOpen = async () => {
@@ -537,6 +549,21 @@ export async function bindCatalogPage(helpers: Helpers) {
       const syncRename = () => {
         if (renameSubmit) renameSubmit.disabled = renaming || !renameTarget?.value ||
           !renameFrom || renameConfirm?.value !== renameFrom
+        if (!renamePreview || !renameFrom) return
+        const rate = Number(rates[renameFrom])
+        const productCount = products.filter(product => product.shipping_from === renameFrom).length
+        const destination = renameTarget?.value || 'the selected source'
+        const willMoveWaiver = foundingWaiverSource &&
+          renameFrom.toLowerCase() === foundingWaiverSource.toLowerCase()
+        const waiverDetails = willMoveWaiver
+          ? 'Founding Member free shipping will automatically follow to “' + destination + '”.'
+          : foundingWaiverSource
+            ? 'The Founding Member waiver will remain on “' + foundingWaiverSource + '”.'
+            : 'No Founding Member shipping waiver is configured.'
+        renamePreview.textContent = 'Move ' + productCount + ' product(s) from “' +
+          renameFrom + '” to “' + destination + '” at the same ' +
+          helpers.money(rate) + ' rate. ' + waiverDetails +
+          ' Historical orders stay unchanged. Items from the merged sources will share one shipping charge at the unchanged per-source rate.'
       }
       renameTarget?.addEventListener('change', syncRename)
       renameConfirm?.addEventListener('input', syncRename)
@@ -549,11 +576,6 @@ export async function bindCatalogPage(helpers: Helpers) {
           renameConfirm.value = ''
           if (renameMessage) renameMessage.textContent = ''
           const rate = Number(rates[source])
-          const productCount = products.filter(product => product.shipping_from === source).length
-          if (renamePreview) renamePreview.textContent =
-            'Move ' + productCount + ' product(s) from “' + source + '” to an existing ' +
-            'source at the same ' + helpers.money(rate) +
-            ' rate. Founding-member waivers move too. No shipping charges change.'
           renameTarget.innerHTML =
             '<option value="">Choose an existing source at the same rate…</option>' +
             Object.keys(rates).filter(target => target !== source && Number(rates[target]) === rate)
@@ -581,7 +603,9 @@ export async function bindCatalogPage(helpers: Helpers) {
           const message = document.querySelector<HTMLElement>('.catalog-rate-message')
           if (message) message.textContent = result.movedProducts + ' product(s) moved from “' + from +
             '” to “' + to + '”. The ' + helpers.money(result.rate) +
-            ' shipping rate is unchanged. Audit event recorded.'
+            ' shipping rate is unchanged.' +
+            (result.foundingWaiverMoved ? ' Founding Member free shipping now follows “' + to + '”.' : '') +
+            ' Audit event recorded.'
         } catch (error) {
           if (renameMessage) renameMessage.textContent =
             error instanceof Error ? error.message : 'Could not rename shipping source.'
