@@ -155,6 +155,7 @@ Deno.serve(async (req: Request) => {
       return json({
         success: true,
         shippingRates: (config.shippingRates as Record<string, number>) || {},
+        shippingDisplayLabels: (config.shippingDisplayLabels as Record<string, string>) || {},
         foundingMemberFreeShippingSource: config.foundingMemberFreeShippingSource || null,
       });
     } catch (error) {
@@ -215,6 +216,26 @@ Deno.serve(async (req: Request) => {
       return json({ error: message }, /not found|still ship from/i.test(message) ? 409 : 500);
     }
     return json({ success: true, shippingRates: data.shippingRates });
+  }
+
+  if (action === "set_shipping_display_label") {
+    const source = clean(body.source, 120);
+    const displayLabel = String(body.displayLabel ?? "").trim();
+    if (!source) return json({ error: "Shipping source name is required" }, 400);
+    if (displayLabel.length > 120) return json({ error: "Display name must be 120 characters or fewer" }, 400);
+
+    // Authenticated owner/admin only; atomic and audited narrow RPC. The
+    // underlying checkout shipping source, rates, waiver, and product rows stay untouched.
+    const { data, error } = await admin.rpc("core_catalog_set_shipping_display_label", {
+      p_source: source,
+      p_display_label: displayLabel || null,
+      p_actor_id: user.id,
+      p_actor_email: user.email || null,
+      p_actor_role: role,
+    });
+    if (error) return json({ error: error.message || "Could not save display name" },
+      /unknown shipping source/i.test(error.message || "") ? 409 : 500);
+    return json({ success: true, shippingDisplayLabels: data.shippingDisplayLabels });
   }
 
   // ---------- Product field parsing shared by create/update ----------
