@@ -6,7 +6,18 @@ type Helpers = {
   dateTime: (value: string | null | undefined) => string
 }
 
-const pct = (value: number, max: number) => max > 0 ? Math.max(3, Math.round((value / max) * 100)) : 0
+const pct = (value: number, max: number) =>
+  value > 0 && max > 0 ? Math.max(3, Math.round((value / max) * 100)) : 0
+
+type AnalyticsRange='7'|'30'|'90'|'all'
+const ANALYTICS_RANGE_KEY='core-reports-analytics-range'
+function storedAnalyticsRange():AnalyticsRange {
+  try{
+    const value=sessionStorage.getItem(ANALYTICS_RANGE_KEY)
+    if(value==='7'||value==='30'||value==='90'||value==='all')return value
+  }catch{/* storage optional */}
+  return '30'
+}
 
 function trendMarkup(days: AnalyticsDay[], helpers: Helpers) {
   const maxRevenue = Math.max(0, ...days.map(day => day.revenue))
@@ -72,6 +83,7 @@ export async function bindAnalyticsPage(helpers: Helpers) {
     const headline = data.headline
 
     root.innerHTML =
+      '<div class="report-section-heading"><h2>Business performance</h2><span>All-time paid activity</span></div>' +
       '<section class="analytics-headline">' +
         '<div><span>Paid revenue</span><strong>' + helpers.money(headline.paid_revenue) + '</strong><small>All time</small></div>' +
         '<div><span>Paid orders</span><strong>' + headline.paid_orders + '</strong><small>' + helpers.money(headline.average_paid_order) + ' average</small></div>' +
@@ -111,7 +123,8 @@ export async function bindAnalyticsPage(helpers: Helpers) {
         '</section>' +
       '</div>' +
 
-      '<div class="analytics-columns">' +
+      '<details class="report-expander report-analytics-more"><summary>Payment mix, membership & referral detail</summary>' +
+        '<div class="analytics-columns">' +
         '<section class="analytics-panel"><div class="analytics-section-head"><div><span class="eyebrow">PAYMENTS</span><h2>Paid revenue mix</h2></div></div>' +
           rankRows(data.orders.payment_mix.map(item => ({
             label: helpers.escapeHtml(item.method),
@@ -144,9 +157,10 @@ export async function bindAnalyticsPage(helpers: Helpers) {
           }))) +
         '</section>' +
       '</div>' +
+      '</details>' +
       '<p class="dashboard-generated">Analytics generated ' + helpers.escapeHtml(helpers.dateTime(data.generated_at)) + '</p>'
 
-    const renderRange = (range: '7' | '30' | '90' | 'all') => {
+    const renderRange = (range: AnalyticsRange) => {
       const period = data.periods[range]
       const kpis = document.querySelector<HTMLDivElement>('#analytics-period-kpis')
       const trend = document.querySelector<HTMLDivElement>('#analytics-trend')
@@ -165,19 +179,22 @@ export async function bindAnalyticsPage(helpers: Helpers) {
             : '')
       }
 
-      document.querySelectorAll<HTMLButtonElement>('#analytics-range button').forEach(button => {
-        button.classList.toggle('active', button.dataset.range === range)
+      root.querySelectorAll<HTMLButtonElement>('#analytics-range button').forEach(button => {
+        const selected=button.dataset.range===range
+        button.classList.toggle('active',selected)
+        button.setAttribute('aria-pressed',String(selected))
       })
+      try{sessionStorage.setItem(ANALYTICS_RANGE_KEY,range)}catch{/* storage optional */}
     }
 
-    document.querySelectorAll<HTMLButtonElement>('#analytics-range button').forEach(button => {
+    root.querySelectorAll<HTMLButtonElement>('#analytics-range button').forEach(button => {
       button.addEventListener('click', () => {
-        const range = button.dataset.range as '7' | '30' | '90' | 'all'
+        const range = button.dataset.range as AnalyticsRange
         renderRange(range)
       })
     })
 
-    renderRange('30')
+    renderRange(storedAnalyticsRange())
   } catch (error) {
     root.innerHTML = '<div class="empty-state error-state"><h2>Could not load analytics.</h2><p>' +
       helpers.escapeHtml(error instanceof Error ? error.message : 'Unknown error') + '</p></div>'
