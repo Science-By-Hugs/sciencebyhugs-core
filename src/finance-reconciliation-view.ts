@@ -244,8 +244,12 @@ export async function bindReconciliationPage(h:Helpers,refresh:()=>void){
     if(el.isConnected)render(data,h,refresh)
   }catch(error){
     if(!el.isConnected)return
-    el.innerHTML='<div class="empty-state error-state"><h2>Reconciliation unavailable</h2><p>'+
+    el.innerHTML='<div class="empty-state error-state"><h2>Reconciliation temporarily unavailable</h2><p>'+
       h.escapeHtml(error instanceof Error?error.message:'Could not load review records')+
-      '</p><p>No financial records were changed.</p></div>'
+      '</p><p>No financial records were changed.</p>'+
+      '<button type="button" class="primary reconcile-retry">Retry loading</button></div>'
+    el.querySelector<HTMLButtonElement>('.reconcile-retry')?.addEventListener('click',()=>{
+      void bindReconciliationPage(h,refresh)
+    })
   }
 }
