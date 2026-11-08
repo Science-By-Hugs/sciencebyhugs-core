@@ -1,21 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 160" role="img" aria-label="CORE — Science By Hugs">
-  <defs>
-    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset=".42" stop-color="#D8E8F5"/>
-      <stop offset=".7" stop-color="#96AFC5"/>
-      <stop offset="1" stop-color="#F7FAFF"/>
-    </linearGradient>
-    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="0">
-      <stop stop-color="#0057FF"/>
-      <stop offset="1" stop-color="#20C9FF"/>
-    </linearGradient>
-  </defs>
-  <text x="18" y="96" fill="url(#metal)"
-    font-family="Arial Black, Inter, Arial, sans-serif"
-    font-size="92" font-weight="900" letter-spacing="8">CORE</text>
-  <rect x="24" y="112" width="430" height="3" rx="1.5" fill="url(#blue)" opacity=".95"/>
-  <text x="28" y="140" fill="#20C9FF"
-    font-family="Inter, Arial, sans-serif"
-    font-size="16" font-weight="700" letter-spacing="8">SCIENCE BY HUGS</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 160" role="img" aria-label="Core c. — Science By Hugs">
+ <title>Core c. — Science By Hugs</title>
+ <text x="20" y="103" fill="#D6AF61" font-family="Inter,Helvetica Neue,Arial,sans-serif" font-size="103" font-weight="650">c</text>
+ <text x="80" y="103" fill="#F3F4F5" font-family="Inter,Helvetica Neue,Arial,sans-serif" font-size="100" font-weight="650">ore</text>
+ <circle cx="256" cy="93" r="9" fill="#D6AF61"/>
+ <path d="M22 116H414" stroke="#D6AF61" stroke-width="3"/>
+ <text x="24" y="146" fill="#B6BBC0" font-family="Inter,Helvetica Neue,Arial,sans-serif" font-size="16" font-weight="600" letter-spacing="6">SCIENCE BY HUGS</text>
 </svg>

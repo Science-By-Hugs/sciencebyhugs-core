@@ -1,11 +1,8 @@
-/* Core shell retained from the previous slate foundation; now retokenized for Champagne.
-   Palette = Science By Hugs design system, hugs./nexus. slate (approved by Anthony).
-   Loaded LAST so it overrides the older layered styles. Flat: no glows, gradients or shadows. */
-
+/* Core shared black-and-gold palette. Layout rules below remain unchanged. */
 :root{
-  --sl-bg:#1D1A16; --sl-surface:#29251F; --sl-raised:#352F27; --sl-line:#494035;
-  --sl-control:#A69885; --sl-text:#F6F1E7; --sl-muted:#C7B9A6; --sl-accent:#D4B47A;
-  --sl-on-accent:#211B13; --sl-warning:#E9BF7E; --sl-error:#E0A29C;
+  --sl-bg:#08090B; --sl-surface:#121416; --sl-raised:#1C1F22; --sl-line:#34383C;
+  --sl-control:#7D838A; --sl-text:#F3F4F5; --sl-muted:#B6BBC0; --sl-accent:#D6AF61;
+  --sl-on-accent:#08090B; --sl-warning:#E7BC74; --sl-error:#E6A4A4;
   --sl-font:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",Roboto,sans-serif;
 
   /* Re-point every older palette at slate */

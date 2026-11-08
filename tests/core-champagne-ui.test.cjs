@@ -4,13 +4,14 @@ const fs=require('node:fs')
 const path=require('node:path')
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8')
 
-test('Core has its own champagne identity distinct from Nexus slate and Pulse blue',()=>{
+test('Core has its owner-approved black and gold identity distinct from Nexus and Pulse',()=>{
   const style=read('src/slate.css')
-  const champagne=read('src/champagne.css')
+  const core=read('src/champagne.css')
   const main=read('src/main.ts')
-  assert.match(style,/--sl-bg:#1D1A16/)
-  assert.match(style,/--sl-accent:#D4B47A/)
-  assert.match(champagne,/--core-champagne:#D4B47A/)
+  assert.match(style,/--sl-bg:#08090B/)
+  assert.match(style,/--sl-accent:#D6AF61/)
+  assert.match(core,/--core-gold:#D6AF61/)
+  assert.match(core,/--core-champagne:var\(--core-gold\)/)
   assert.match(main,/import '\.\/champagne\.css'/)
 })
 test('five destinations retain older deep links and consolidate product/report navigation',()=>{

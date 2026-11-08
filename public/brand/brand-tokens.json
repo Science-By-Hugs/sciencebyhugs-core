@@ -1,22 +1,28 @@
 {
-  "source": "ScienceByHugs/sciencebyhugs-nexus/docs/brand/BLUE_REACTOR.md",
-  "name": "Science By Hugs — Blue Reactor",
-  "version": "1.0.0",
-  "status": "approved",
+  "source": "Core internal design identity",
+  "name": "Core — Black & Gold",
+  "version": "2.0.0",
+  "status": "owner-directed",
   "colors": {
-    "jetBlack": "#0A0A0B",
-    "cobaltBlue": "#0057FF",
-    "cyanBlue": "#00D2FF",
-    "metallicSilver": "#C0C6D4",
-    "softWhite": "#F7FAFF",
-    "slateGray": "#2E3440",
-    "surface1": "#0D1117",
-    "surface2": "#121923",
-    "muted": "#8A94A6",
-    "success": "#20D6A2",
-    "warning": "#F7B731",
-    "danger": "#FF4D6D"
+    "jetBlack": "#08090B",
+    "charcoal": "#121416",
+    "raised": "#1C1F22",
+    "gold": "#D6AF61",
+    "goldDark": "#AF8A47",
+    "softWhite": "#F3F4F5",
+    "muted": "#B6BBC0",
+    "border": "#34383C",
+    "control": "#7D838A",
+    "success": "#87C7A0",
+    "warning": "#E7BC74",
+    "danger": "#E6A4A4"
   },
-  "typography": {"display":"Space Grotesk","body":"Inter"},
-  "product": {"name":"Core","descriptor":"Operations System"}
+  "typography": {
+    "display": "System Sans",
+    "body": "System Sans"
+  },
+  "product": {
+    "name": "Core",
+    "descriptor": "Operations System"
+  }
 }
