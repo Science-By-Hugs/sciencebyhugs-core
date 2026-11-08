@@ -2,6 +2,7 @@ import {
   loadReconciliation,recordReconciliation,
   type ReconciliationSnapshot,type MissingCost,type MissingDate
 } from './services/reconciliation'
+import {downloadCsv,reconciliationCsv} from './finance-csv'
 import {saveCoreExpense} from './services/expenses'
 
 type Helpers={
@@ -106,8 +107,10 @@ function render(data:ReconciliationSnapshot,h:Helpers,refresh:()=>void){
   }).join('')
   root.innerHTML=
     '<div class="dashboard-section-head"><div><span class="eyebrow">FINANCIAL ACCURACY</span>'+
-      '<h2>Reconciliation Center</h2></div><span class="reconcile-label">'+missing+
-        ' records need evidence</span></div>'+
+      '<h2>Reconciliation Center</h2></div><div class="reconcile-head-actions">'+
+       '<span class="reconcile-label">'+missing+' records need evidence</span>'+
+       '<button type="button" data-reconcile-export>Download review CSV</button></div></div>'+
+    '<p class="reconcile-export-feedback" role="status" aria-live="polite"></p>'+
     '<p class="reconcile-intro">Review original evidence before correcting historical reporting.'+
       ' Each submission is authorized and audited; original orders, payment timestamps and sale-time cost snapshots remain unchanged.</p>'+
     (notice?'<p class="reconcile-notice" role="status">'+e(notice)+'</p>':'')+
@@ -153,6 +156,16 @@ function render(data:ReconciliationSnapshot,h:Helpers,refresh:()=>void){
     '</div>'+
     '<p class="reconcile-footnote">Original sale-time cost snapshots take priority when they exist.'+
       ' Core never automatically replaces them with newer product prices. Expense matching never creates duplicate charges.</p>'
+  root.querySelector<HTMLButtonElement>('[data-reconcile-export]')?.addEventListener('click',()=>{
+    const feedback=root.querySelector<HTMLElement>('.reconcile-export-feedback')
+    try{
+      const day=data.generated_at.slice(0,10)
+      downloadCsv(reconciliationCsv(data),'science-by-hugs-reconciliation-'+day+'.csv')
+      if(feedback)feedback.textContent='Review CSV prepared. It contains sensitive order and vendor details; keep it private.'
+    }catch(error){
+      if(feedback)feedback.textContent=error instanceof Error?error.message:'CSV export unavailable.'
+    }
+  })
   root.querySelectorAll<HTMLFormElement>('.reconcile-evidence-form').forEach(form=>{
     form.addEventListener('submit',async event=>{
       event.preventDefault()
