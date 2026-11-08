@@ -77,7 +77,8 @@ function render(data:ReconciliationSnapshot,h:Helpers,refresh:()=>void){
       po.difference===0?'Amounts align (manual entries)':'Needs amount review':
       'No linked expense'
     const candidates=data.unmatched_expenses.filter(exp=>
-      !exp.vendor_id||exp.vendor_id===po.vendor_id)
+      (!exp.vendor_id||exp.vendor_id===po.vendor_id) &&
+      ['inventory_purchase','vendor_shipping','processing_fee','other'].includes(exp.category))
     return '<article class="reconcile-po"><div class="reconcile-record-head">'+
       '<div><strong>'+e(po.number)+'</strong><small>'+e(po.vendor_name)+' · '+e(po.status)+'</small></div>'+
       '<strong>'+h.money(po.total)+'</strong></div>'+
@@ -87,7 +88,8 @@ function render(data:ReconciliationSnapshot,h:Helpers,refresh:()=>void){
       (linked.length?'<p class="reconcile-hint">Linked: '+
         linked.map(x=>e(x.payee)+' ('+h.money(x.amount)+', '+e(x.status)+')').join(' · ')+'</p>':'')+
       '<details class="reconcile-edit"><summary>Match an existing expense</summary>'+
-        (candidates.length?
+        (po.status==='cancelled'?'<p class="reconcile-hint">Cancelled purchase orders cannot receive new expense matches.</p>':
+        candidates.length?
         '<form class="reconcile-match-form" data-po="'+e(po.id)+'" data-vendor="'+e(po.vendor_id)+'">'+
           '<label>Unlinked expense <select name="expense" required><option value="">Select an existing expense</option>'+
             candidates.map(x=>'<option value="'+e(x.id)+'">'+e(x.payee)+' · '+h.money(x.amount)+
@@ -202,7 +204,12 @@ function render(data:ReconciliationSnapshot,h:Helpers,refresh:()=>void){
       if(button)button.disabled=true
       if(message)message.textContent='Linking and auditing…'
       const suffix='PO match evidence: '+reference
-      const notes=[row.notes||'',suffix].filter(Boolean).join(' · ').slice(0,1000)
+      const notes=[row.notes||'',suffix].filter(Boolean).join(' · ')
+      if(notes.length>1000){
+        if(message)message.textContent='This expense has too many notes to add match evidence. Edit and shorten its notes first.'
+        if(button)button.disabled=false
+        return
+      }
       try{
         await saveCoreExpense({
           id:row.id,payee:row.payee,category:row.category as
