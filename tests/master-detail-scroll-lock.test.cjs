@@ -88,7 +88,7 @@ test('all Core master-detail controllers are disposed on navigation and on a sav
 
 test('phone sheet traps keyboard focus, respects nested dialogs, and reflows with device rotation',()=>{
   const master=read('src/master-detail.ts')
-  assert.match(master,/if \(event\.target instanceof Element && event\.target\.closest\('dialog\[open\]'\)\) return/)
+  assert.match(master,/if \(document\.querySelector\('dialog\[open\]'\)\) return/)
   assert.match(master,/event\.key !== 'Tab' \|\| !isPhone\(\)/)
   assert.match(master,/panel\.querySelectorAll<HTMLElement>/)
   assert.match(master,/el\.getClientRects\(\)\.length > 0/)

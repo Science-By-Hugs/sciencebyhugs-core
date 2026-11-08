@@ -209,10 +209,10 @@ export function mountMasterDetail(opts: Options): MasterDetailController | null 
   panel.querySelectorAll<HTMLButtonElement>('.md-close').forEach(b => b.addEventListener('click', () => close(), { signal: listeners.signal }))
   const onKey = (event: KeyboardEvent) => {
     if (!openCard || panel.hidden || !panel.isConnected) return
-    // A nested native dialog (for example a delete confirmation) owns Escape.
-    // Closing the underlying detail sheet would discard the operator's context.
+    // A native confirmation dialog owns both Escape and Tab; never redirect
+    // its keyboard focus back into the underlying master-detail sheet.
+    if (document.querySelector('dialog[open]')) return
     if (event.key === 'Escape' && !event.defaultPrevented) {
-      if (event.target instanceof Element && event.target.closest('dialog[open]')) return
       close()
       return
     }
