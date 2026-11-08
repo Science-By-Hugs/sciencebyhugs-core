@@ -34,7 +34,7 @@ CREATE TABLE public.core_audit_events (
 
 GRANT USAGE ON SCHEMA auth TO service_role;
 GRANT SELECT ON auth.users TO service_role;
-GRANT SELECT,DELETE ON public.discount_codes TO service_role;
+GRANT SELECT,UPDATE,DELETE ON public.discount_codes TO service_role;
 GRANT SELECT ON public.orders,public.invoices TO service_role;
 GRANT INSERT,SELECT ON public.core_audit_events TO service_role;
 GRANT USAGE ON SEQUENCE public.core_audit_events_id_seq TO service_role;
