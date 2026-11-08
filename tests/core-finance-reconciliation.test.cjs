@@ -66,3 +66,23 @@ test('PO expense matching reuses audited ledger edits, never adds a duplicate',(
  assert.match(ui,/row\.reference_number\|\|reference/)
  assert.doesNotMatch(ui,/create_purchase|INSERT INTO public\.core_finance_expenses/)
 })
+
+
+test('Transient per-query authentication failures recover only during read-only listing',()=>{
+ const api=read('supabase/functions/core-finance-reconciliation/index.ts')
+ const ui=read('src/finance-reconciliation-view.ts')
+ const svc=read('src/services/reconciliation.ts')
+ const listSection=api.slice(api.indexOf('if(action!=="list")'))
+ const recordSection=api.slice(api.indexOf('if(action==="record")'),api.indexOf('if(action!=="list")'))
+ assert.match(listSection,/retryRead = async/)
+ assert.match(listSection,/result\.error\?\.code==="PGRST303"/)
+ assert.match(listSection,/attempt<=2/)
+ assert.match(listSection,/retryRead\("purchase_lines"/)
+ assert.equal((listSection.match(/retryRead\("/g)||[]).length,9,'All nine read queries are individually retryable')
+ assert.doesNotMatch(recordSection,/retryRead/)
+ assert.match(ui,/Retry loading/)
+ assert.match(ui,/reconcile-retry/)
+ assert.match(ui,/bindReconciliationPage\(h,refresh\)/)
+ assert.match(svc,/FunctionsHttpError/)
+ assert.match(svc,/error\.context\.json\(\)/)
+})
