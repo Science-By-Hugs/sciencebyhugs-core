@@ -22,7 +22,10 @@ CREATE TABLE public.core_audit_events(
   constraint audit_will_fail check (coalesce(before_data->>'source','') <> 'AUDITFAIL')
 );
 \i supabase/migrations/20261108035000_core_merge_shipping_sources.sql
--- Do not grant service_role any direct permissions on products, checkout, or auth.users.
+-- Same as hosted Supabase: service_role can inspect records, but the merge RPC
+-- is the ONLY way it can change product sources, checkout config or audit rows.
+GRANT SELECT ON public.products,public.internal_runtime_config,public.core_audit_events TO service_role;
+-- Do not grant service_role any direct UPDATE on products or checkout, nor any Auth user SELECT.
 DO $tests$
 BEGIN
  IF has_function_privilege('anon','public.core_catalog_merge_shipping_source(text,text,text,numeric,uuid)','EXECUTE')
