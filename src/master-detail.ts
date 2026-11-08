@@ -40,6 +40,16 @@ const esc = (value: unknown) =>
 
 const isPhone = () => window.matchMedia('(max-width: 900px)').matches
 
+// The app can rerender Orders/Customers/Catalog after saving and while changing
+// pages. Tear down the prior mount's document listeners and card observers rather
+// than leaving a hidden panel responding to Escape and leaking detached cards.
+let activeMountTeardown: (() => void) | null = null
+export function disposeMasterDetail() {
+  activeMountTeardown?.()
+  activeMountTeardown = null
+  releaseMasterDetailScroll()
+}
+
 // Remember the open item briefly so it stays open after a save reloads the page,
 // but a fresh visit on a phone starts on the list.
 function remembered(key: string) {
@@ -58,9 +68,9 @@ function remember(key: string, id: string | null) {
 
 export function mountMasterDetail(opts: Options): MasterDetailController | null {
   const { list } = opts
-  // A save can replace the entire Catalog page while its sheet is open.
-  // Release any previous lock before building the replacement list.
-  releaseMasterDetailScroll()
+  // A save can replace the page while its sheet is open. Restore the scroll
+  // position, disconnect the previous card observers and remove its listeners.
+  disposeMasterDetail()
   list.classList.remove('md-has-open', 'md-selecting')
   const cards = Array.from(list.querySelectorAll<HTMLElement>(opts.cardSelector))
   if (!cards.length) return null
@@ -89,6 +99,8 @@ export function mountMasterDetail(opts: Options): MasterDetailController | null 
 
   let openCard: HTMLElement | null = null
   const rowById = new Map<string, HTMLButtonElement>()
+  const cardObservers: MutationObserver[] = []
+  const listeners = new AbortController()
 
   const close = (forget = true) => {
     const previousId = openCard ? opts.idOf(openCard) : null
@@ -102,7 +114,25 @@ export function mountMasterDetail(opts: Options): MasterDetailController | null 
     rowById.forEach(r => r.classList.remove('active'))
     if (forget) remember(opts.key, null)
     // The list and its position remain available after dismissing the sheet.
-    if (previousId && forget) rowById.get(previousId)?.focus({ preventScroll: true })
+    if (previousId && forget) {
+      const origin = rowById.get(previousId)
+      const focusRow = origin && !origin.hidden
+        ? origin : rows.querySelector<HTMLButtonElement>('.md-row:not([hidden])')
+      focusRow?.focus({ preventScroll: true })
+    }
+  }
+
+  const syncPanelForViewport = () => {
+    if (!openCard || panel.hidden) return
+    if (isPhone()) {
+      panel.setAttribute('role', 'dialog')
+      panel.setAttribute('aria-modal', 'true')
+      lockMasterDetailScroll()
+    } else {
+      panel.removeAttribute('role')
+      panel.removeAttribute('aria-modal')
+      releaseMasterDetailScroll()
+    }
   }
 
   const open = (id: string, focus = false) => {
@@ -113,17 +143,9 @@ export function mountMasterDetail(opts: Options): MasterDetailController | null 
     openCard = card
     panel.hidden = false
     list.classList.add('md-has-open')
-    if (isPhone()) {
-      // A fixed document position is required for reliable iOS Safari scroll locking.
-      // The product detail sheet continues to scroll independently.
-      panel.setAttribute('role', 'dialog')
-      panel.setAttribute('aria-modal', 'true')
-      lockMasterDetailScroll()
-    } else {
-      panel.removeAttribute('role')
-      panel.removeAttribute('aria-modal')
-      releaseMasterDetailScroll()
-    }
+    // The same record can be opened in desktop split view or a phone modal.
+    // Layout changes (rotation, split-screen, resize) must update the lock too.
+    syncPanelForViewport()
     rowById.forEach((r, rid) => {
       r.classList.toggle('active', rid === id)
       r.setAttribute('aria-expanded', String(rid === id))
@@ -173,20 +195,57 @@ export function mountMasterDetail(opts: Options): MasterDetailController | null 
       else open(id, true)
     })
     row.hidden = card.hidden
-    new MutationObserver(() => {
+    const observer = new MutationObserver(() => {
       row.hidden = card.hidden
       // A row that a filter hides cannot stay selected: bulk actions only touch what you can see.
       if (card.hidden && selected.delete(id)) { paint(id); notify() }
-    }).observe(card, { attributes: true, attributeFilter: ['hidden'] })
+    })
+    observer.observe(card, { attributes: true, attributeFilter: ['hidden'] })
+    cardObservers.push(observer)
     rowById.set(id, row)
     rows.appendChild(row)
   }
 
-  panel.querySelectorAll<HTMLButtonElement>('.md-close').forEach(b => b.addEventListener('click', () => close()))
+  panel.querySelectorAll<HTMLButtonElement>('.md-close').forEach(b => b.addEventListener('click', () => close(), { signal: listeners.signal }))
   const onKey = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && openCard && document.body.contains(panel)) close()
+    if (!openCard || panel.hidden || !panel.isConnected) return
+    // A native confirmation dialog owns both Escape and Tab; never redirect
+    // its keyboard focus back into the underlying master-detail sheet.
+    if (document.querySelector('dialog[open]')) return
+    if (event.key === 'Escape' && !event.defaultPrevented) {
+      close()
+      return
+    }
+    if (event.key !== 'Tab' || !isPhone()) return
+    // aria-modal on the iPhone detail requires keyboard focus to remain inside it.
+    const focusable = Array.from(panel.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+      'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(el => !el.closest('[hidden]') && el.getClientRects().length > 0)
+    if (!focusable.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    const active = document.activeElement
+    if (event.shiftKey && active === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault()
+      first.focus()
+    } else if (!panel.contains(active)) {
+      event.preventDefault()
+      first.focus()
+    }
   }
-  document.addEventListener('keydown', onKey)
+  document.addEventListener('keydown', onKey, { signal: listeners.signal })
+  window.addEventListener('resize', syncPanelForViewport, { signal: listeners.signal })
+  const teardown = () => {
+    listeners.abort()
+    cardObservers.forEach(observer => observer.disconnect())
+    releaseMasterDetailScroll()
+    if (activeMountTeardown === teardown) activeMountTeardown = null
+  }
+  activeMountTeardown = teardown
 
   // Reopen what was open before a reload; on desktop otherwise show the first item.
   const previous = remembered(opts.key)
