@@ -1,6 +1,7 @@
 import { loadCoreFinance, loadProfitReport } from './services/finance'
 import { pct } from './pricing'
 import { bindExpensesPage, expensesPageMarkup } from './finance-expenses-view'
+import { bindReconciliationPage, reconciliationPageMarkup } from './finance-reconciliation-view'
 
 type Helpers = {
   escapeHtml: (value: unknown) => string
@@ -14,6 +15,7 @@ export function financePageMarkup(email: string, escapeHtml: Helpers['escapeHtml
     '<p class="copy">Know what customers have paid, what needs attention, and what your products cost. Operational reporting, not a bank balance or accounting ledger.</p>' +
     '</div><div class="operator">Signed in as <strong>' + escapeHtml(email) + '</strong></div></section>' +
     '<section id="finance-root" aria-label="Financial overview"><div class="loading">Loading finance…</div></section>' +
+    reconciliationPageMarkup() +
     expensesPageMarkup() +
     '<section id="finance-profit" class="finance-panel" aria-label="Profit report"><div class="loading">Loading profit…</div></section>'
 }
@@ -147,6 +149,10 @@ export async function bindFinancePage(helpers: Helpers) {
   if (!root) return
   void renderProfit(helpers,storedProfitPeriod())
   void bindExpensesPage(helpers)
+  void bindReconciliationPage(helpers,()=>{
+    void renderProfit(helpers,storedProfitPeriod())
+    void bindExpensesPage(helpers)
+  })
 
   try {
     const data = await loadCoreFinance()
@@ -182,6 +188,7 @@ export async function bindFinancePage(helpers: Helpers) {
       '<nav class="finance-shortcuts" aria-label="Finance shortcuts">' +
         '<a href="#orders">Orders & payments</a>' +
         '<a href="#products?section=catalog">Product costs</a>' +
+        '<button type="button" data-finance-reconcile-link>Reconciliation Center ↓</button>' +
         '<button type="button" data-finance-expenses-link>Expenses & vendor spending ↓</button>' +
         '<button type="button" data-finance-profit-link>Profit & cost coverage ↓</button>' +
       '</nav>' +
@@ -237,6 +244,9 @@ export async function bindFinancePage(helpers: Helpers) {
       '</section>' +
       '</details>' +
       '<p class="dashboard-generated">Finance generated ' + helpers.escapeHtml(helpers.dateTime(data.generated_at)) + '</p>'
+    root.querySelector<HTMLButtonElement>('[data-finance-reconcile-link]')?.addEventListener('click', () => {
+      document.querySelector('#finance-reconciliation')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
     root.querySelector<HTMLButtonElement>('[data-finance-expenses-link]')?.addEventListener('click', () => {
       document.querySelector('#finance-expenses')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
