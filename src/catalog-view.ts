@@ -2,7 +2,8 @@ import { mountMasterDetail } from './master-detail'
 import {
   createCatalogProduct,
   deleteShippingRate,
-  listShippingRates,
+  listShippingRateConfig,
+  setShippingDisplayLabel,
   listVendorCosts,
   mergeShippingSource,
   loadCoreCatalog,
@@ -334,20 +335,27 @@ function productCard(
   '</article>'
 }
 
-function shippingPanel(rates: Record<string, number>, products: CoreCatalogProduct[], helpers: Helpers) {
+function shippingPanel(rates: Record<string, number>, products: CoreCatalogProduct[], labels: Record<string, string>, helpers: Helpers) {
   const { escapeHtml, money } = helpers
   const rows = Object.keys(rates).sort((a, b) => a.localeCompare(b)).map(source =>
-    '<div class="catalog-rate-row" data-source="' + escapeHtml(source) + '">' +
-      '<strong>' + escapeHtml(source) + '<small class="catalog-rate-usage">' +
-        products.filter(p => p.shipping_from === source).length + ' product(s)</small></strong>' +
-      '<input class="catalog-rate-input" inputmode="decimal" aria-label="Rate for ' + escapeHtml(source) + '" value="' + escapeHtml(Number(rates[source]).toFixed(2)) + '">' +
-      '<button class="secondary compact save-rate" type="button">Save</button>' +
-      '<button class="ghost compact rename-rate" type="button">Rename / merge</button>' +
-      '<button class="ghost compact delete-rate" type="button">Remove</button>' +
+    '<div class="catalog-shipping-source">' +
+      '<div class="catalog-rate-row" data-source="' + escapeHtml(source) + '">' +
+        '<strong>' + escapeHtml(labels[source] || source) + '<small class="catalog-rate-usage">' +
+          products.filter(p => p.shipping_from === source).length + ' product(s) · Checkout key: ' + escapeHtml(source) + '</small></strong>' +
+        '<input class="catalog-rate-input" inputmode="decimal" aria-label="Rate for ' + escapeHtml(source) + '" value="' + escapeHtml(Number(rates[source]).toFixed(2)) + '">' +
+        '<button class="secondary compact save-rate" type="button">Save rate</button>' +
+        '<button class="ghost compact rename-rate" type="button">Rename / merge</button>' +
+        '<button class="ghost compact delete-rate" type="button">Remove</button>' +
+      '</div>' +
+      '<div class="catalog-display-row" data-source="' + escapeHtml(source) + '">' +
+        '<label><span>Business display name (Core only)</span>' +
+          '<input class="catalog-display-input" maxlength="120" aria-label="Business name for ' + escapeHtml(source) + '" placeholder="' + escapeHtml(source) + '" value="' + escapeHtml(labels[source] || '') + '">' +
+        '</label><button class="secondary compact save-label" type="button">Save name</button>' +
+      '</div>' +
     '</div>').join('')
   return '<details class="catalog-ops-panel catalog-shipping-panel"><summary><span class="eyebrow">SHIPPING</span>' +
-    '<strong>Shipping rates</strong><small>Charged once per order for each “ships from” source in the cart. Currently ' +
-    Object.keys(rates).length + ' sources.</small></summary>' +
+    '<strong>Shipping rates & business names</strong><small>Charged once per order for each “ships from” source in the cart. Currently ' +
+    Object.keys(rates).length + ' sources. Editing a business display name does not change the checkout key or rate.</small></summary>' +
     '<div class="catalog-rate-list">' + (rows || '<p class="copy">No shipping sources yet.</p>') + '</div>' +
     '<div class="catalog-rate-row catalog-rate-new">' +
       '<input class="catalog-rate-new-source" maxlength="120" placeholder="New source name, e.g. Shipping - Vendor X">' +
@@ -355,6 +363,7 @@ function shippingPanel(rates: Record<string, number>, products: CoreCatalogProdu
       '<button class="primary compact add-rate" type="button">Add</button>' +
     '</div>' +
     '<p class="card-message catalog-rate-message" aria-live="polite"></p>' +
+    '<p class="catalog-rate-hint">Use Save name for a cosmetic Core label, or Rename / merge to intentionally move products to a different checkout source.</p>' +
     '<small class="catalog-rate-hint">Each product uses its saved “Ships from” source. Nexus charges the matching rate once per distinct source in an order; source names are not customer-visible. To rename safely, add the new name at the same rate first, then merge. Built-in founding-member shipping waivers follow the source.</small>' +
     '<dialog class="catalog-rename-dialog" aria-labelledby="catalog-rename-title">' +
       '<div class="catalog-rename-dialog-inner"><span class="eyebrow">SHIPPING SOURCE</span>' +
@@ -419,7 +428,9 @@ export async function bindCatalogPage(helpers: Helpers) {
   if (!list) return
 
   try {
-    const [payload, rates, costs] = await Promise.all([loadCoreCatalog(), listShippingRates(), listVendorCosts()])
+    const [payload, shippingConfig, costs] = await Promise.all([loadCoreCatalog(), listShippingRateConfig(), listVendorCosts()])
+    const rates = shippingConfig.shippingRates
+    const labels = shippingConfig.shippingDisplayLabels || {}
     vendorCosts = costs
     const { products, categories, operations } = payload
 
@@ -511,7 +522,7 @@ export async function bindCatalogPage(helpers: Helpers) {
     // ---------- Shipping rates ----------
     const shippingEl = document.querySelector<HTMLDivElement>('#catalog-shipping')
     if (shippingEl) {
-      shippingEl.innerHTML = shippingPanel(rates, products, helpers)
+      shippingEl.innerHTML = shippingPanel(rates, products, labels, helpers)
       const rateMessage = shippingEl.querySelector<HTMLElement>('.catalog-rate-message')
       const say = (text: string) => { if (rateMessage) rateMessage.textContent = text }
       const keepOpen = async () => {
@@ -604,6 +615,24 @@ export async function bindCatalogPage(helpers: Helpers) {
             await keepOpen()
           } catch (error) {
             say(error instanceof Error ? error.message : 'Could not save rate.')
+            button.disabled = false
+          }
+        })
+      })
+
+      shippingEl.querySelectorAll<HTMLButtonElement>('.save-label').forEach(button => {
+        button.addEventListener('click', async () => {
+          const row = button.closest<HTMLElement>('.catalog-display-row')
+          const source = row?.dataset.source || ''
+          const displayLabel = row?.querySelector<HTMLInputElement>('.catalog-display-input')?.value.trim() || ''
+          button.disabled = true
+          say('Saving business name for ' + source + '…')
+          try {
+            await setShippingDisplayLabel(source, displayLabel)
+            say('Display name saved. Checkout key and rate unchanged. Audit event recorded.')
+            await keepOpen()
+          } catch (error) {
+            say(error instanceof Error ? error.message : 'Could not save name.')
             button.disabled = false
           }
         })
