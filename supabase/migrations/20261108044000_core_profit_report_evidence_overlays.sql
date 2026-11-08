@@ -38,7 +38,8 @@ totals as (
 ),
 discounts as (select coalesce(sum(discount_total), 0) as discounts,
   count(*) as orders,
-  count(*) filter (where reconciled_paid_date) as reconciled_paid_dates from paid),
+  count(*) filter (where reconciled_paid_date) as reconciled_paid_dates,
+  count(*) filter (where paid_at is null) as undated_paid_orders from paid),
 by_product as (
   select coalesce(product_id::text, product_name) as k,
          max(product_name) as name, max(product_code) as product_code,
@@ -53,7 +54,7 @@ by_month as (
          sum(line_total) as sales, sum(line_cost) as cost,
          sum(line_total) filter (where line_cost is not null) as costed_sales,
          count(*) filter (where line_cost is null) as uncosted_lines
-  from lines group by 1
+  from lines where paid_at is not null group by 1
 ),
 catalog as (
   select p.id, p.name, p.product_code, p.price, pc.vendor_cost,
@@ -68,6 +69,7 @@ select jsonb_build_object(
       'orders', d.orders, 'lines', t.lines,
       'reconciled_cost_lines',t.reconciled_cost_lines,
       'reconciled_paid_dates',d.reconciled_paid_dates,
+      'undated_paid_orders',d.undated_paid_orders,
       'sales', t.sales, 'discounts', d.discounts, 'net_sales', t.sales - d.discounts,
       'vendor_cost', t.cost,
       'costed_sales', t.costed_sales, 'uncosted_sales', t.uncosted_sales, 'uncosted_lines', t.uncosted_lines,
